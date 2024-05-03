@@ -14,7 +14,7 @@ from . import __package__, __version__
 opj = os.path.join
 
 
-class product():
+class Product():
     '''
 
     '''

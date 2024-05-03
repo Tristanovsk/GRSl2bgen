@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 
 
-class transparency():
+class Transparency():
     def __init__(self,
                  raster,
                  param='Rrs'):

@@ -6,7 +6,7 @@ import xarray as xr
 
 
 
-class spm():
+class Spm():
     def __init__(self,
                  raster,
                  param='Rrs'):

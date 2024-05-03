@@ -6,7 +6,7 @@ import logging
 import datetime
 from . import __package__, __version__
 
-class l2b_product():
+class L2bProduct():
     def __init__(self, prod, l2_raster_list):
         self.processor = __package__ + '_' + __version__
         self.prod = prod

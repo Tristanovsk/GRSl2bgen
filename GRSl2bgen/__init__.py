@@ -7,13 +7,13 @@ v0.0.1: version adapted from obs2co_l2bgen
 __package__ = 'GRSl2bgen'
 __version__ = '0.0.1'
 
-from .product import product
-from .output import l2b_product
-from .chlorophyll_a import chl
-from .suspended_particulate_matter import spm
-from .cdom import cdom
-from .transparency import transparency
-from .process import process
+from .product import Product
+from .output import L2bProduct
+from .chlorophyll_a import Chl
+from .suspended_particulate_matter import Spm
+from .cdom import Cdom
+from .transparency import Transparency
+from .process import Process
 
 
 import logging

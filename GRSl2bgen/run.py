@@ -27,7 +27,7 @@ import os, sys
 from docopt import docopt
 import logging
 from . import __package__, __version__
-from . import process
+from . import Process
 
 
 def main():
@@ -67,7 +67,7 @@ def main():
 
     logging.info('call GRSl2bgen for the following paramater. File:' +
                  file + ', output file:' + outfile)
-    process().execute(file, outfile)
+    Process().execute(file, outfile)
     return
 
 
