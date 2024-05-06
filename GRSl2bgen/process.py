@@ -23,6 +23,10 @@ class Process():
         logging.info('import l2a product')
         prod = Product(l2a_path)
 
+        #  ----------------------
+        # get OWT parameters
+        # ----------------------
+
         # ----------------------
         # get Chl-a parameters
         # ----------------------

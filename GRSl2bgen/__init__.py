@@ -14,6 +14,7 @@ from .suspended_particulate_matter import Spm
 from .cdom import Cdom
 from .transparency import Transparency
 from .process import Process
+from .owt import OWT
 
 
 import logging
