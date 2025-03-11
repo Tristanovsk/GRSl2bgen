@@ -10,7 +10,7 @@ import xarray as xr
 import logging
 
 from . import Product, L2bProduct
-from . import Chl,Spm,Cdom,Transparency
+from . import Chl,Spm,Cdom,Transparency, OWT
 
 
 opj = os.path.join
@@ -26,6 +26,9 @@ class Process():
         #  ----------------------
         # get OWT parameters
         # ----------------------
+        logging.info('get OWT classification')
+        owt_prod = OWT(prod.raster)
+        xowt = owt_prod.multi_process()
 
         # ----------------------
         # get Chl-a parameters
@@ -57,7 +60,11 @@ class Process():
         trans_prod.process()
 
         logging.info('construct l2b product')
-        l2_raster_list = [chl_prod.output,spm_prod.output,cdom_prod.output,trans_prod.output]
+        l2_raster_list = [
+                          chl_prod.output,
+                          spm_prod.output,
+                          cdom_prod.output,
+                          trans_prod.output]
         l2b = L2bProduct(prod, l2_raster_list)
         logging.info('export l2b product into netcdf')
         l2b.to_netcdf(l2b_path)

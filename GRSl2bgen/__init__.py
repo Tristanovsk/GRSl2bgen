@@ -9,12 +9,15 @@ __version__ = '0.0.1'
 
 from .product import Product
 from .output import L2bProduct
+
 from .chlorophyll_a import Chl
 from .suspended_particulate_matter import Spm
 from .cdom import Cdom
 from .transparency import Transparency
+from .owt import OWT, OWT_process
+
 from .process import Process
-from .owt import OWT
+
 
 
 import logging
