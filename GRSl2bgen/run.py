@@ -67,7 +67,11 @@ def main():
 
     logging.info('call GRSl2bgen for the following paramater. File:' +
                  file + ', output file:' + outfile)
-    Process().execute(file, outfile)
+    process_ = Process(file, outfile)
+    process_.execute()
+    if process_.successful:
+        process_.write_output()
+
     return
 
 

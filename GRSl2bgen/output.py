@@ -36,8 +36,16 @@ class L2bProduct():
         self.variables = list(l2b_prod.keys())
         self.l2b_prod = l2b_prod
 
+    @staticmethod
+    def compute_scale_and_offset(array, nbit=16):
+        max_, min_ = np.nanmax(array), np.nanmin(array)
+        # stretch/compress data to the available packed range
+        scale_factor = (max_ - min_) / (2 ** nbit - 1)
+        # translate the range to be symmetric about zero
+        add_offset = min_ + 2 ** (nbit - 1) * scale_factor
+        return scale_factor, add_offset
 
-    def to_netcdf(self, ofile):
+    def export_to_netcdf(self, ofile):
         '''
         Create output product dimensions, variables, attributes, flags....
         :return:
@@ -55,13 +63,14 @@ class L2bProduct():
                     }
             else:
                 p = self.l2b_prod[variable]
-                offset = np.mean(p.range)
-                range = float(np.diff(p.range))
-                scale_factor = round(range / 60000, 6)
+                scale_factor, add_offset = self.compute_scale_and_offset(p.values, nbit=16)
+                #offset = np.mean(p.range)
+                #range = float(np.diff(p.range))
+                #scale_factor = round(range / 60000, 6)
                 encoding[variable] = {
                     'dtype': 'int16',
                     'scale_factor': scale_factor,
-                    'add_offset': offset,
+                    'add_offset': add_offset,
                     '_FillValue': -32768,
                     "zlib": True,
                     "complevel": complevel,
