@@ -52,7 +52,7 @@ class Spm():
             'range': valid_limit
         }
         self.output = xr.merge([self.spm_obs2co, self.turbi_dogliotti, self.spm_nechad]).drop_vars('wl')
-        self.output = self.output.compute()
+        self.output = self.output.compute(scheduler='processes')
 
     def set_range(self, param, minval=0, maxval=2000):
         return param.where((param > minval) & (param < maxval))

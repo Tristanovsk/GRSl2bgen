@@ -11,6 +11,8 @@ from multiprocessing import Pool  # Process pool
 from multiprocessing import sharedctypes
 import itertools
 
+import dask
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -31,6 +33,7 @@ OWT_Bi2024_file = files(__package__ +
 class OWT():
     def __init__(self,
                  raster,
+                 xowt=None,
                  owt_database="Spyrakos2018",
                  param='m_nRrs',
                  suffix='',
@@ -66,74 +69,80 @@ class OWT():
         self.owt_index_name = "owt_index" + self.suffix
         self.owt_dist_name = "owt_dist" + self.suffix
 
-        if self.owt_database == 'Spyrakos2018':
-            owt = pd.read_csv(OWT_Spyrakos2018_file, index_col=0).stack().to_xarray().astype(np.float32)
-            owt = owt.rename({'level_1': 'wl'})
-            owt['wl'] = owt.wl.astype(np.float32)
-            owt.name = 'm_nRrs'
-            owt = owt.to_dataset()
-            self.owt_info = {
-                1: dict(color='olivedrab', label='OWT1: Hypereutrophic waters'),
-                2: dict(color='black', label='OWT2: Common case waters'),
-                3: dict(color='cadetblue', label='OWT3: Clear waters'),
-                4: dict(color='tan', label='OWT4: Turbid waters with organic content'),
-                5: dict(color='chocolate', label='OWT5: Sediment-laden waters'),
-                6: dict(color='teal', label='OWT6: Balanced optical effects at shorter wavelengths'),
-                7: dict(color='blueviolet', label='OWT7: Highly productive cyanobacteria-dominated waters'),
-                8: dict(color='plum', label='OWT8: Productive with cyanobacteria waters'),
-                9: dict(color='red', label='OWT9: OWT2 with higher $R_{rs}$ at shorter wavelengths'),  # 'slategrey'
-                10: dict(color='orange', label='OWT10: CDOM-rich waters'),
-                11: dict(color='gold', label='OWT11: CDOM-rich with cyanobacteria waters'),
-                12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
-                13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
-            }
+        if xowt is not None:
+            self.owt = xowt
+            self.attrs_owt = xowt.attrs
+            self.cmap_owt = plt.cm.Spectral_r
+        else:
+            if self.owt_database == 'Spyrakos2018':
+                owt = pd.read_csv(OWT_Spyrakos2018_file, index_col=0).stack().to_xarray().astype(np.float32)
+                owt = owt.rename({'level_1': 'wl'})
+                owt['wl'] = owt.wl.astype(np.float32)
+                owt.name = 'm_nRrs'
+                owt = owt.to_dataset()
+                self.owt_info = {
+                    1: dict(color='olivedrab', label='OWT1: Hypereutrophic waters'),
+                    2: dict(color='black', label='OWT2: Common case waters'),
+                    3: dict(color='cadetblue', label='OWT3: Clear waters'),
+                    4: dict(color='tan', label='OWT4: Turbid waters with organic content'),
+                    5: dict(color='chocolate', label='OWT5: Sediment-laden waters'),
+                    6: dict(color='teal', label='OWT6: Balanced optical effects at shorter wavelengths'),
+                    7: dict(color='blueviolet', label='OWT7: Highly productive cyanobacteria-dominated waters'),
+                    8: dict(color='plum', label='OWT8: Productive with cyanobacteria waters'),
+                    9: dict(color='red', label='OWT9: OWT2 with higher $R_{rs}$ at shorter wavelengths'),  # 'slategrey'
+                    10: dict(color='orange', label='OWT10: CDOM-rich waters'),
+                    11: dict(color='gold', label='OWT11: CDOM-rich with cyanobacteria waters'),
+                    12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
+                    13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
+                }
 
-        elif self.owt_database == 'Bi2024':
-            owt = pd.read_csv(OWT_Bi2024_file, index_col=[0, 1]).to_xarray()
-            owt = owt.rename({'type': 'owt', 'wavelen': 'wl'})
-            owt['owt'] = range(1, 11)
+            elif self.owt_database == 'Bi2024':
+                owt = pd.read_csv(OWT_Bi2024_file, index_col=[0, 1]).to_xarray()
+                owt = owt.rename({'type': 'owt', 'wavelen': 'wl'})
+                owt['owt'] = range(1, 11)
 
-            self.owt_info = {
-                1: dict(color='blueviolet',
-                        label='Extremely clear and oligotrophic indigo-blue waters with high reflectance in the short visible wavelengths.'),
-                2: dict(color='mediumblue',
-                        label='Blue waters with similar biomass level as OWT 1 but with slightly higher detritus and CDOM content.'),
-                3: dict(color='cadetblue',
-                        label='Turquoise waters with slightly higher phytoplankton, detritus, and CDOM compared to the first two types.'),
-                4: dict(color='teal',
-                        label='A special case of OWT 3 with similar detritus and CDOM distribution but with strong scattering and little absorbing particles \nlike in the case of Coccolithophore blooms. This type usually appears brighter and exhibits a remarkable ~490 nm reflectance peak.'),
-                5: dict(color='plum',
-                        label='Greenish water found in coastal and inland environments, with higher biomass compared to the previous water types.\nReflectance in short wavelengths is usually depressed by the absorption of particles and CDOM.'),
-                6: dict(color='tan',
-                        label='A special case of OWT 5, sharing similar detritus and CDOM distribution, exhibiting phytoplankton blooms \nwith higher scattering coefficients, e.g., Coccolithophore bloom. The color of this type shows a very bright green.'),
-                7: dict(color='olivedrab',
-                        label='Green eutrophic water, with significantly higher phytoplankton biomass, \nexhibiting a bimodal reflectance shape with typical peaks at ~560 and ~709 nm.'),
-                8: dict(color='gold',
-                        label='Green hyper-eutrophic water, with even higher biomass than that of OWT 5a (over several orders of magnitude), \ndisplaying a reflectance plateau in the Near Infrared Region, NIR (vegetation-like spectrum).'),
-                9: dict(color='chocolate',
-                        label='Bright brown water with high detritus concentrations, \nwhich has a high reflectance determined by scattering.'),
-                # 'slategrey'
-                10: dict(color='red',
-                         label='Dark brown to black water with very high CDOM concentration, \nwhich has low reflectance in the entire visible range and is dominated by absorption.'),
-                # 11: dict(color='orange', label='OWT11: CDOM-rich with cyanobacteria waters'),
-                # 12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
-                # 13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
-            }
+                self.owt_info = {
+                    1: dict(color='blueviolet',
+                            label='Extremely clear and oligotrophic indigo-blue waters with high reflectance in the short visible wavelengths.'),
+                    2: dict(color='mediumblue',
+                            label='Blue waters with similar biomass level as OWT 1 but with slightly higher detritus and CDOM content.'),
+                    3: dict(color='cadetblue',
+                            label='Turquoise waters with slightly higher phytoplankton, detritus, and CDOM compared to the first two types.'),
+                    4: dict(color='teal',
+                            label='A special case of OWT 3 with similar detritus and CDOM distribution but with strong scattering and little absorbing particles \nlike in the case of Coccolithophore blooms. This type usually appears brighter and exhibits a remarkable ~490 nm reflectance peak.'),
+                    5: dict(color='plum',
+                            label='Greenish water found in coastal and inland environments, with higher biomass compared to the previous water types.\nReflectance in short wavelengths is usually depressed by the absorption of particles and CDOM.'),
+                    6: dict(color='tan',
+                            label='A special case of OWT 5, sharing similar detritus and CDOM distribution, exhibiting phytoplankton blooms \nwith higher scattering coefficients, e.g., Coccolithophore bloom. The color of this type shows a very bright green.'),
+                    7: dict(color='olivedrab',
+                            label='Green eutrophic water, with significantly higher phytoplankton biomass, \nexhibiting a bimodal reflectance shape with typical peaks at ~560 and ~709 nm.'),
+                    8: dict(color='gold',
+                            label='Green hyper-eutrophic water, with even higher biomass than that of OWT 5a (over several orders of magnitude), \ndisplaying a reflectance plateau in the Near Infrared Region, NIR (vegetation-like spectrum).'),
+                    9: dict(color='chocolate',
+                            label='Bright brown water with high detritus concentrations, \nwhich has a high reflectance determined by scattering.'),
+                    # 'slategrey'
+                    10: dict(color='red',
+                             label='Dark brown to black water with very high CDOM concentration, \nwhich has low reflectance in the entire visible range and is dominated by absorption.'),
+                    # 11: dict(color='orange', label='OWT11: CDOM-rich with cyanobacteria waters'),
+                    # 12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
+                    # 13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
+                }
 
-        self.owt = owt[self.param]
+            self.owt = owt[self.param]
+            colors = []
+            attrs = ''
+            for key, info in self.owt_info.items():
+                colors.append(info['color'])
+                attrs += str(key) + ":" + info['label'] + '\n'
+
+            self.attrs_owt = attrs
+            self.cmap_owt = mpl.colors.ListedColormap(colors)
+
         self.Nowt = len(self.owt.owt)
         self.Rrs_owt = self.owt.interp(wl=self.Rrs.wl).astype(np.float32).squeeze()
-
         self.output = None
 
-        colors = []
-        attrs = ''
-        for key, info in self.owt_info.items():
-            colors.append(info['color'])
-            attrs += str(key) + ":" + info['label'] + '\n'
 
-        self.attrs_owt = attrs
-        self.cmap_owt = mpl.colors.ListedColormap(colors)
 
     @staticmethod
     def xSAM(R1, R2):
@@ -209,12 +218,13 @@ class OWT():
                 owt_sam, owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
                                                             self.Rrs_owt.values,
                                                             Nwl, Ny, Nx, Nowt)
-
-                # owt_scs = SCS(_Rrs,Rrs_owt.values)
-
-                # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
-
                 tmp = -1 * owt_sam / np.pi
+
+                # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
+                # issue with reshape arrays
+                #owt_scs = self.SCS(_Rrs,self.Rrs_owt)
+                #tmp = owt_scs + (1-2*owt_sam/np.pi)/2
+
                 tmp_max = np.max(tmp, axis=0)
                 owt_dist[iy:yc, ix:xc] = tmp_max
 
@@ -248,22 +258,28 @@ class OWT():
                                                             self.Rrs_owt.values,
                                                             Nwl, Ny, Nx, Nowt)
 
-            # owt_scs = SCS(_Rrs,Rrs_owt.values)
+            tmp = -1 * owt_sam / np.pi
 
+            # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
+            # issue with reshape arrays
+            # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
             # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
 
-            tmp = -1 * owt_sam / np.pi
             tmp_owt_dist[iy:yc, ix:xc] = np.max(tmp, axis=0)
 
         window_idxs = [(i, j) for i, j in
                        itertools.product(range(0, height, chunk),
                                          range(0, width, chunk))]
 
-        global pool
-        pool = Pool(self.Nproc)
-        res = pool.map(chunk_process, window_idxs)
-        pool.terminate()
-        pool = None
+        #global pool
+        #pool = Pool(self.Nproc)
+        #res = pool.map(chunk_process, window_idxs)
+
+        #pool.terminate()
+        #pool.join()
+        jobs = [dask.delayed(chunk_process)(arg) for arg in window_idxs]
+        dask.compute(jobs)
+
         logging.info('success')
 
         ######################################

@@ -87,7 +87,9 @@ class L2bProduct():
         if odir == '':
             odir='./'
         if not os.path.exists(odir):
-            os.mkdir(odir)
+            os.makedirs(odir)
 
         self.l2b_prod.to_netcdf(ofile, encoding=encoding)
         self.l2b_prod.close()
+
+        return

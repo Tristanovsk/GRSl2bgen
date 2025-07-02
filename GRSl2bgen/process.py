@@ -7,7 +7,9 @@ import glob
 import numpy as np
 import xarray as xr
 import logging
+from dask.distributed import Client
 
+client = Client(processes=False)  # this yields a LocalCluster that doesn't have multiprocessing capabilities (doc is very brief and not very helpful: http://distributed.dask.org/en/stable/api.html#distributed.LocalCluster)
 from . import Product, L2bProduct
 from . import Chl, Spm, Cdom, Transparency, OWT_process
 
@@ -16,17 +18,17 @@ opj = os.path.join
 
 class Process():
     def __init__(self,
-                 l2a_path,
-                 l2b_path):
-        self.l2a_path = l2a_path
+                 l2a_obj,
+                 l2b_path='./l2b_product.nc'):
+        self.l2a_obj = l2a_obj
         self.l2b_path = l2b_path
         self.successful = False
 
     def execute(self, ):
         logging.info('import l2a product')
-        l2a_path = self.l2a_path
-        l2b_path = self.l2b_path
-        prod = Product(l2a_path)
+        l2a_obj = self.l2a_obj
+
+        prod = Product(l2a_obj)
 
         #  ----------------------
         # get OWT parameters
@@ -36,18 +38,18 @@ class Process():
         owt_process.execute()
 
         # ----------------------
-        # get Chl-a parameters
-        # ----------------------
-        logging.info('get Chl-a parameters')
-        chl_prod = Chl(prod.raster)
-        chl_prod.process()
-
-        # ----------------------
         # get SPM parameters
         # ----------------------
         logging.info('get SPM parameters')
         spm_prod = Spm(prod.raster)
         spm_prod.process()
+
+        # ----------------------
+        # get Chl-a parameters
+        # ----------------------
+        logging.info('get Chl-a parameters')
+        chl_prod = Chl(prod.raster)
+        chl_prod.process()
 
         # ----------------------
         # get CDOM parameters

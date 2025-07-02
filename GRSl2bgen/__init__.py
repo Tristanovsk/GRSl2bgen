@@ -1,11 +1,11 @@
 '''
 v0.0.1: version adapted from obs2co_l2bgen
-
+v0.0.2: add OWT retrieval and mulitple source L2A input
 '''
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 from .product import Product
 from .output import L2bProduct

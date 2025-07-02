@@ -19,18 +19,45 @@ class Product():
 
     '''
 
-    def __init__(self, l2a_path):
-
+    def __init__(self, l2a_obj):
+        '''
+        Get the L2A product object
+        :param l2a_obj: path or xarray of the L2A input image
+        '''
         self.processor = __package__ + '_' + __version__
 
-        basename = os.path.basename(l2a_path)
-        main_file = opj(l2a_path,basename+'.nc')
-        ancillary_file =opj(l2a_path,basename+'_anc.nc')
+        ##################################
+        # Get image data
+        ##################################
+        if isinstance(l2a_obj, str):
+            logging.info('Load L2A from files')
+            if os.path.isdir(l2a_obj):
 
-        self.raster = xr.open_dataset(main_file, decode_coords='all',chunks={ 'wl': -1})
-        self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
+                basename = os.path.basename(l2a_obj)
+                main_file = opj(l2a_obj, basename + '.nc')
+                ancillary_file = opj(l2a_obj, basename + '_anc.nc')
 
+                self.raster = xr.open_dataset(main_file, decode_coords='all', chunks={'wl': -1})
+                self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
+            else:
+                # get extension
+                extension = l2a_obj.split('.')[-1]
 
+                if extension == 'nc':
+                    self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks={'wl': -1})
+                    self.ancillary = None
+                elif 'zarr' in extension:
+                    self.raster =xr.open_zarr(l2a_obj,decode_coords='all')
+                    self.ancillary = None
+                else:
+                    logging.info('input file format not recognized, stop')
+                    return
+        elif isinstance(l2a_obj, xr.Dataset):
+            self.raster = l2a_obj
+            self.ancillary = None
+            return
+
+        # TODO deprecate and remove this part
         if self.raster.attrs['metadata_profile'] != 'beam':
             return
 

@@ -44,7 +44,7 @@ class Chl():
             'range':[0,2000]
             }
 
-        self.output = xr.merge([self.chl_nasa_oc2,self.chl_M09B]).drop_vars('wl').compute()
+        self.output = xr.merge([self.chl_nasa_oc2,self.chl_M09B]).drop_vars('wl').load()
 
     def set_range(self,param,minval=0,maxval=1200):
         return param.where((param>minval)&(param<maxval) )
