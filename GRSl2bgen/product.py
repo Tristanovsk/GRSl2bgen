@@ -31,7 +31,16 @@ class Product():
         ##################################
         if isinstance(l2a_obj, str):
             logging.info('Load L2A from files')
-            if os.path.isdir(l2a_obj):
+            # get extension
+            extension = l2a_obj.split('.')[-1]
+            if extension == 'nc':
+                self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks={'wl': -1})
+                self.ancillary = None
+            elif 'zarr' in extension:
+                self.raster = xr.open_zarr(l2a_obj, decode_coords='all')
+                self.ancillary = None
+
+            elif os.path.isdir(l2a_obj):
 
                 basename = os.path.basename(l2a_obj)
                 main_file = opj(l2a_obj, basename + '.nc')
@@ -39,19 +48,12 @@ class Product():
 
                 self.raster = xr.open_dataset(main_file, decode_coords='all', chunks={'wl': -1})
                 self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
-            else:
-                # get extension
-                extension = l2a_obj.split('.')[-1]
 
-                if extension == 'nc':
-                    self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks={'wl': -1})
-                    self.ancillary = None
-                elif 'zarr' in extension:
-                    self.raster =xr.open_zarr(l2a_obj,decode_coords='all')
-                    self.ancillary = None
-                else:
-                    logging.info('input file format not recognized, stop')
-                    return
+
+            else:
+                logging.info('input file format not recognized, stop')
+                return
+
         elif isinstance(l2a_obj, xr.Dataset):
             self.raster = l2a_obj
             self.ancillary = None

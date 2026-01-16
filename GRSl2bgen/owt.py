@@ -29,6 +29,9 @@ OWT_Spyrakos2018_file = files(__package__ +
 OWT_Bi2024_file = files(__package__ +
                         '.data').joinpath(OWT_Bi2024_file)
 
+OWT_tarasenko2025_file = files(__package__ +
+                               '.data').joinpath('owt_tarasenko2025.nc')
+
 
 class OWT():
     def __init__(self,
@@ -71,7 +74,7 @@ class OWT():
 
         if xowt is not None:
             self.owt = xowt
-            self.attrs_owt = xowt.attrs
+            self.attrs_owt = xowt.owt.values
             self.cmap_owt = plt.cm.Spectral_r
         else:
             if self.owt_database == 'Spyrakos2018':
@@ -103,26 +106,26 @@ class OWT():
 
                 self.owt_info = {
                     1: dict(color='blueviolet',
-                            label='Extremely clear and oligotrophic indigo-blue waters with high reflectance in the short visible wavelengths.'),
+                            label='1. Extremely clear and oligotrophic indigo-blue waters with high reflectance in the short visible wavelengths.'),
                     2: dict(color='mediumblue',
-                            label='Blue waters with similar biomass level as OWT 1 but with slightly higher detritus and CDOM content.'),
+                            label='2. Blue waters with similar biomass level as OWT 1 but with slightly higher detritus and CDOM content.'),
                     3: dict(color='cadetblue',
-                            label='Turquoise waters with slightly higher phytoplankton, detritus, and CDOM compared to the first two types.'),
+                            label='3a. Turquoise waters with slightly higher phytoplankton, detritus, and CDOM compared to the first two types.'),
                     4: dict(color='teal',
-                            label='A special case of OWT 3 with similar detritus and CDOM distribution but with strong scattering and little absorbing particles \nlike in the case of Coccolithophore blooms. This type usually appears brighter and exhibits a remarkable ~490 nm reflectance peak.'),
+                            label='3b. A special case of OWT 3a with similar detritus and CDOM distribution but with strong scattering and little absorbing particles \nlike in the case of Coccolithophore blooms. This type usually appears brighter and exhibits a remarkable ~490 nm reflectance peak.'),
                     5: dict(color='plum',
-                            label='Greenish water found in coastal and inland environments, with higher biomass compared to the previous water types.\nReflectance in short wavelengths is usually depressed by the absorption of particles and CDOM.'),
+                            label='4a. Greenish water found in coastal and inland environments, with higher biomass compared to the previous water types.\nReflectance in short wavelengths is usually depressed by the absorption of particles and CDOM.'),
                     6: dict(color='tan',
-                            label='A special case of OWT 5, sharing similar detritus and CDOM distribution, exhibiting phytoplankton blooms \nwith higher scattering coefficients, e.g., Coccolithophore bloom. The color of this type shows a very bright green.'),
+                            label='4b. A special case of OWT 4a, sharing similar detritus and CDOM distribution, exhibiting phytoplankton blooms \nwith higher scattering coefficients, e.g., Coccolithophore bloom. The color of this type shows a very bright green.'),
                     7: dict(color='olivedrab',
-                            label='Green eutrophic water, with significantly higher phytoplankton biomass, \nexhibiting a bimodal reflectance shape with typical peaks at ~560 and ~709 nm.'),
+                            label='5a. Green eutrophic water, with significantly higher phytoplankton biomass, \nexhibiting a bimodal reflectance shape with typical peaks at ~560 and ~709 nm.'),
                     8: dict(color='gold',
-                            label='Green hyper-eutrophic water, with even higher biomass than that of OWT 5a (over several orders of magnitude), \ndisplaying a reflectance plateau in the Near Infrared Region, NIR (vegetation-like spectrum).'),
+                            label='5b. Green hyper-eutrophic water, with even higher biomass than that of OWT 5a (over several orders of magnitude), \ndisplaying a reflectance plateau in the Near Infrared Region, NIR (vegetation-like spectrum).'),
                     9: dict(color='chocolate',
-                            label='Bright brown water with high detritus concentrations, \nwhich has a high reflectance determined by scattering.'),
+                            label='6. Bright brown water with high detritus concentrations, \nwhich has a high reflectance determined by scattering.'),
                     # 'slategrey'
                     10: dict(color='red',
-                             label='Dark brown to black water with very high CDOM concentration, \nwhich has low reflectance in the entire visible range and is dominated by absorption.'),
+                             label='7. Dark brown to black water with very high CDOM concentration, \nwhich has low reflectance in the entire visible range and is dominated by absorption.'),
                     # 11: dict(color='orange', label='OWT11: CDOM-rich with cyanobacteria waters'),
                     # 12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
                     # 13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
@@ -141,8 +144,6 @@ class OWT():
         self.Nowt = len(self.owt.owt)
         self.Rrs_owt = self.owt.interp(wl=self.Rrs.wl).astype(np.float32).squeeze()
         self.output = None
-
-
 
     @staticmethod
     def xSAM(R1, R2):
@@ -222,8 +223,8 @@ class OWT():
 
                 # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
                 # issue with reshape arrays
-                #owt_scs = self.SCS(_Rrs,self.Rrs_owt)
-                #tmp = owt_scs + (1-2*owt_sam/np.pi)/2
+                # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
+                # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
 
                 tmp_max = np.max(tmp, axis=0)
                 owt_dist[iy:yc, ix:xc] = tmp_max
@@ -271,12 +272,12 @@ class OWT():
                        itertools.product(range(0, height, chunk),
                                          range(0, width, chunk))]
 
-        #global pool
-        #pool = Pool(self.Nproc)
-        #res = pool.map(chunk_process, window_idxs)
+        # global pool
+        # pool = Pool(self.Nproc)
+        # res = pool.map(chunk_process, window_idxs)
 
-        #pool.terminate()
-        #pool.join()
+        # pool.terminate()
+        # pool.join()
         jobs = [dask.delayed(chunk_process)(arg) for arg in window_idxs]
         dask.compute(jobs)
 
@@ -357,5 +358,17 @@ class OWT_process():
                          )
         self.xowt_bi2024 = OWT_kernel.multi_process()
 
+        # 2025-10-27 add OWT used in Tarasenko et al., 2025
+        xowt = xr.open_dataarray(OWT_tarasenko2025_file)
+        OWT_kernel = OWT(self.raster,
+                         xowt=xowt,
+                         suffix='Ta2025',
+                         param='m_nRrs',
+                         chunk=self.chunk,
+                         Nproc=self.Nproc
+                         )
+        self.xowt_Ta2025 = OWT_kernel.multi_process()
+
         self.output = xr.merge([self.xowt_spyrakos2018,
-                                self.xowt_bi2024])
+                                self.xowt_bi2024,
+                                self.xowt_Ta2025])
