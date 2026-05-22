@@ -7,9 +7,12 @@ import glob
 import numpy as np
 import xarray as xr
 import logging
-from dask.distributed import Client
+import dask.distributed
 
-client = Client(processes=False)  # this yields a LocalCluster that doesn't have multiprocessing capabilities (doc is very brief and not very helpful: http://distributed.dask.org/en/stable/api.html#distributed.LocalCluster)
+#cluster = dask.distributed.LocalCluster()
+#client = dask.distributed.Client(cluster)
+#client = dask.distributed.Client( processes=False)  # this yields a LocalCluster that doesn't have multiprocessing capabilities (doc is very brief and not very helpful: http://distributed.dask.org/en/stable/api.html#distributed.LocalCluster)
+
 from . import Product, L2bProduct
 from . import Chl, Spm, Cdom, Transparency, OWT_process
 

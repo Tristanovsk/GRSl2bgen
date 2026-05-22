@@ -29,7 +29,10 @@ class Transparency():
             'range': [0, 200]
         }
 
+        # where to add new parameters
         self.output = xr.merge([self.Kd_par])
+        # proceed with dask computing
+        self.output = self.output.compute()
 
         return
 
@@ -47,3 +50,5 @@ class Transparency():
         :return:
         '''
         return acoef[0] * np.exp(acoef[1] * (self.Rrs.sel(wl=490) - self.Rrs.sel(wl=665)))
+
+
