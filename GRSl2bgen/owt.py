@@ -204,6 +204,7 @@ class OWT():
 
         owt_index = np.full((height, width), 0, dtype=np.float32)
         owt_dist = np.full((height, width), 0, dtype=np.float32)
+        owt_sam_np = np.full((Nowt, height, width), np.nan, dtype=np.float32)
         # np.seterr(divide='ignore', invalid='ignore')
         # import warnings
         # with warnings.catch_warnings():
@@ -219,6 +220,7 @@ class OWT():
                 owt_sam, owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
                                                             self.Rrs_owt.values,
                                                             Nwl, Ny, Nx, Nowt)
+                owt_sam_np[:, iy:yc, ix:xc] = owt_sam
                 tmp = -1 * owt_sam / np.pi
 
                 # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
@@ -229,6 +231,7 @@ class OWT():
                 tmp_max = np.max(tmp, axis=0)
                 owt_dist[iy:yc, ix:xc] = tmp_max
 
+        self.owt_sam_np = owt_sam_np
         self.xowt = xr.Dataset(dict(owt_dist=(["y", "x"], owt_dist),
                                     owt_index=(["y", "x"], owt_index), ),
                                coords=dict(x=self.Rrs.x,
@@ -243,8 +246,10 @@ class OWT():
         global chunk_process
         owt_index = np.ctypeslib.as_ctypes(np.full((height, width), np.nan, dtype=np.float32))
         owt_dist = np.ctypeslib.as_ctypes(np.full((height, width), np.nan, dtype=np.float32))
+        owt_sam_flat = np.ctypeslib.as_ctypes(np.full(Nowt * height * width, np.nan, dtype=np.float32))
         shared_owt_index = sharedctypes.RawArray(owt_index._type_, owt_index)
         shared_owt_dist = sharedctypes.RawArray(owt_dist._type_, owt_dist)
+        shared_owt_sam = sharedctypes.RawArray(owt_sam_flat._type_, owt_sam_flat)
 
         def chunk_process(args):
             iy, ix = args
@@ -252,12 +257,14 @@ class OWT():
             xc = min(width, ix + chunk)
             tmp_owt_index = np.ctypeslib.as_array(shared_owt_index)
             tmp_owt_dist = np.ctypeslib.as_array(shared_owt_dist)
+            tmp_owt_sam = np.ctypeslib.as_array(shared_owt_sam).reshape(Nowt, height, width)
 
             _Rrs = self.Rrs[:, iy:yc, ix:xc]
             Nwl, Ny, Nx = _Rrs.shape
             owt_sam, tmp_owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
                                                             self.Rrs_owt.values,
                                                             Nwl, Ny, Nx, Nowt)
+            tmp_owt_sam[:, iy:yc, ix:xc] = owt_sam
 
             tmp = -1 * owt_sam / np.pi
 
@@ -287,6 +294,7 @@ class OWT():
         # construct l2a object
         ######################################
         logging.info('construct xarray owt product')
+        self.owt_sam_np = np.ctypeslib.as_array(shared_owt_sam).reshape(Nowt, height, width).copy()
         self.xowt = xr.Dataset(data_vars={self.owt_dist_name: (["y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
                                           self.owt_index_name: (["y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
                                coords=dict(x=self.Rrs.x,
@@ -347,6 +355,7 @@ class OWT_process():
                          Nproc=self.Nproc
                          )
         self.xowt_spyrakos2018 = OWT_kernel.multi_process()
+        self.owt_sam_spyrakos2018 = OWT_kernel.owt_sam_np  # (13, H, W) float32
 
         owt_database = 'Bi2024'
         OWT_kernel = OWT(self.raster,
