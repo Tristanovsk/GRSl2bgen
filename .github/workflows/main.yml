@@ -25,3 +25,19 @@ jobs:
       - name: Build image
         run: |
           echo "DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}"
+          export VERSION_OBS2CO=$(cat setup.py | cut -d '"' -f 2)
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "Tag : $GITHUB_REF_NAME"
+            export VERSION_OBS2CO=${GITHUB_REF_NAME};
+          fi
+          echo "Version OBS2CO -> ${VERSION_OBS2CO}"
+          
+          podman build \
+            --network=host \
+            --build-arg IMAGE_SOURCE="" \
+            --build-arg no_proxy=cnes.fr \
+            --file Dockerfile \
+            --tag "${DOCKER_IMAGE_NAME}:${VERSION_OBS2CO}" \
+            --tag "${DOCKER_IMAGE_NAME}:latest"
+          echo "Build terminé"
+
