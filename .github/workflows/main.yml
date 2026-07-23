@@ -1,0 +1,27 @@
+name: Pipeline CI
+
+on:
+  push:
+    branches:
+      - feature/dev-ci
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - feature/dev-ci
+
+env:
+  DOCKER_IMAGE_NAME : "l2bgen"
+
+jobs:
+
+# =============================================================================
+# package — Build & Push
+# =============================================================================
+  podman-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: |
+          echo "DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}"
