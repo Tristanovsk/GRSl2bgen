@@ -25,7 +25,7 @@ jobs:
       - name: Build image
         run: |
           echo "DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}"
-          export VERSION_OBS2CO=$(cat setup.py | cut -d '"' -f 2)
+          export VERSION_OBS2CO=$(grep "^__version__" setup.py | cut -d"'" -f 2)
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Tag : $GITHUB_REF_NAME"
             export VERSION_OBS2CO=${GITHUB_REF_NAME};
