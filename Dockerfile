@@ -14,7 +14,6 @@ RUN if [ -f "/kaniko/run/secrets/http_proxy" ]; then export http_proxy=$(cat /ka
     apt-get install -y ca-certificates
 
 # Ajout des certificats
-COPY cert[s]/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
 # Install libraries
