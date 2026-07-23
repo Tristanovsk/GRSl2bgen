@@ -29,7 +29,7 @@ RUN if [ -f "/kaniko/run/secrets/http_proxy" ]; then export http_proxy=$(cat /ka
 # OBS2CO_L2BGEN INSTALL
 SHELL ["/bin/sh", "-c"]
 WORKDIR /home/
-COPY obs2co_l2bgen /home/obs2co_l2bgen
+COPY GRSl2bgen /home/obs2co_l2bgen
 COPY exe /home/obs2co_l2bgen/exe
 COPY setup.py /home
 
