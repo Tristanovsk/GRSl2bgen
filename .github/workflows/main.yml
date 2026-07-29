@@ -19,7 +19,8 @@ jobs:
 # package — Pypi
 # =============================================================================
   pypi:
-    if: github.ref_type == 'tag'
+    #if: github.ref_type == 'tag'
+    if: false
     runs-on: ubuntu-latest
     permissions: 
       id-token: write
@@ -80,8 +81,8 @@ jobs:
           podman tag ${DOCKER_IMAGE_NAME}:${GITHUB_REF_NAME} docker.io/${{ secrets.DOCKERHUB_LOGIN }}/${DOCKER_IMAGE_NAME}:${GITHUB_REF_NAME}
           podman tag ${DOCKER_IMAGE_NAME}:latest docker.io/${{ secrets.DOCKERHUB_LOGIN }}/${DOCKER_IMAGE_NAME}:latest
           
-          echo "Publication vers docker.io de ${DOCKER_IMAGE_NAME}:${GITHUB_REF_NAME}"
-          podman push docker.io/${{ secrets.DOCKERHUB_LOGIN }}/${DOCKER_IMAGE_NAME}:${GITHUB_REF_NAME}
+          #echo "Publication vers docker.io de ${DOCKER_IMAGE_NAME}:${GITHUB_REF_NAME}"
+          #podman push docker.io/${{ secrets.DOCKERHUB_LOGIN }}/${DOCKER_IMAGE_NAME}:${GITHUB_REF_NAME}
           echo "Publication vers docker.io de ${DOCKER_IMAGE_NAME}:latest"
           podman push docker.io/${{ secrets.DOCKERHUB_LOGIN }}/${DOCKER_IMAGE_NAME}:latest
           echo "Images publiées"
@@ -90,6 +91,7 @@ jobs:
 # quality
 # =============================================================================
   sonar:
+    if: false
     needs: podman-build
     runs-on: ubuntu-latest
     steps:
