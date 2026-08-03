@@ -9,6 +9,12 @@ on:
   pull_request:
     branches:
       - feature/dev-ci
+  workflow_dispatch:
+    inputs:
+      with-quality:
+        type: boolean
+        default: false
+
 
 env:
   DOCKER_IMAGE_NAME : "l2bgen"
@@ -89,8 +95,48 @@ jobs:
 # =============================================================================
 # quality
 # =============================================================================
+  lint:
+    #if: github.event_name == 'workflow_dispatch' && inputs.with-quality
+    needs: podman-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name : Install ruff and mypi
+        run: pip install ruff mypy
+
+      - name: Run ruff
+        continue-on-error: true
+        run: ruff check . --output-format=json > ruff-report.json
+
+      - name: Show Ruff report
+        run: |
+          ruff --version
+          cat ruff-report.json || true
+
+      - run: pip install -r requirements.txt
+
+      - name: Run mypy
+        continue-on-error: true
+        run: mypy . --junit-xml mypy-report.xml
+      
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: |
+            ruff-report.json
+            mypy-report.xml
+          retention-days: 1
+
+
   sonar:
-    if: false
+    if: github.event_name == 'workflow_dispatch' && inputs.with-quality
     needs: podman-build
     runs-on: ubuntu-latest
     steps:
