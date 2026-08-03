@@ -19,11 +19,8 @@ jobs:
 # package — Pypi
 # =============================================================================
   pypi:
-    if: github.ref_type == 'tag'
+    #if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
-    permissions: 
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -37,13 +34,17 @@ jobs:
           pip install build
           python -m build
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publication sur Pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
 
 
 # =============================================================================
 # package — Build & Push
 # =============================================================================
   podman-build:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
