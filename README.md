@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/Apache-2.0)
 [![L2BGEN](https://github.com/CNES/GRSl2bgen/actions/workflows/main.yml/badge.svg)](https://github.com/CNES/GRSl2bgen/actions)
 ![Docker Pulls](https://img.shields.io/docker/pulls/guillaumeeb/l2bgen)
+[![PyPI](https://img.shields.io/pypi/v/GRSl2bgen)](https://pypi.org/project/GRSl2bgen/)
 
 ## **Scientific code to process GRS L2A images** 
 ## Estimation of water quality parameters from remote sensing reflectance (Rrs) 
