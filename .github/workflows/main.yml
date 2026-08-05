@@ -194,6 +194,7 @@ jobs:
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
+        if: github.ref_type == 'tag'
         with:
           name: documentation
           path: |
