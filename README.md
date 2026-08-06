@@ -4,7 +4,7 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/Apache-2.0)
 [![L2BGEN](https://github.com/CNES/GRSl2bgen/actions/workflows/main.yml/badge.svg)](https://github.com/CNES/GRSl2bgen/actions)
-![Docker Pulls](https://img.shields.io/docker/pulls/guillaumeeb/l2bgen)
+[![Docker Image Version](https://img.shields.io/docker/v/guillaumeeb/l2bgen)](https://hub.docker.com/r/guillaumeeb/l2bgen)
 [![PyPI](https://img.shields.io/pypi/v/GRSl2bgen)](https://pypi.org/project/GRSl2bgen/)
 
 ## **Scientific code to process GRS L2A images** 
