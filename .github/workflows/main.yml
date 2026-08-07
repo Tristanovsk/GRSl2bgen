@@ -73,6 +73,7 @@ jobs:
           name: test-reports
           path : | 
             test-results.xml
+            coverage.xml
             cov_html/
           retention-days: 1
 
