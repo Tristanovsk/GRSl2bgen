@@ -1,14 +1,12 @@
 
-importlib_resources
+importlib_resources 
 
-xmltodict
-docopt
-rasterio
-netCDF4
-numba
-numpy
-pandas>=2.0.3
-pyproj
-xarray
-rioxarray>=0.15.0
-
+docopt 
+rasterio 
+matplotlib 
+netcdf4 
+numba 
+xarray 
+rioxarray 
+zarr<3
+dask

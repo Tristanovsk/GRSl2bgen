@@ -7,7 +7,6 @@ import datetime
 
 from dateutil import parser
 import logging
-from pkg_resources import resource_filename
 
 from . import __package__, __version__
 
