@@ -42,15 +42,12 @@ jobs:
           
           echo "Installation des dépendances via pip"
           python -m pip install -r requirements.txt --no-cache-dir --force-reinstall
-          python -m pip install distributed
           python -m pip install pytest pytest-cov
           
           echo "Lancement des tests du répertoire  grs/tests/integration_tests/"
           python -m pytest --tb=short -vv -s -x tests/ --cov=GRSl2bgen --cov-report=html:cov_html --cov-report=xml:coverage.xml --junitxml=test-results.xml
-          
-          ls
-          
-          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then
+         
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
             echo "Génération du badge coverage"
             python -m pip install genbadge[coverage]
             mkdir -p badges

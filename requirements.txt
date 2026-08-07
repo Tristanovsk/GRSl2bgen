@@ -9,4 +9,4 @@ numba
 xarray 
 rioxarray 
 zarr<3
-dask
+dask[distributed]
