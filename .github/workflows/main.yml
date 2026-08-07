@@ -42,6 +42,7 @@ jobs:
           
           echo "Installation des dépendances via pip"
           python -m pip install -r requirements.txt --no-cache-dir --force-reinstall
+          python -m pip install distributed
           python -m pip install pytest pytest-cov
           
           echo "Lancement des tests du répertoire  grs/tests/integration_tests/"

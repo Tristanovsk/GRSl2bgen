@@ -16,6 +16,7 @@ jobs:
 # =============================================================================
 
   doc:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code source
