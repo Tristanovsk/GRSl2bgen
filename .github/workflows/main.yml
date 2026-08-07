@@ -19,9 +19,71 @@ env:
 jobs:
 
 # =============================================================================
+# test
+# =============================================================================
+  python-tests:
+   runs-on: ubuntu-latest
+   steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installation dépendances et lancement des tests
+        run: |
+          echo "Création de l'environnement python"
+          python -m venv python_env
+          . python_env/bin/activate
+          python -m pip install --upgrade pip
+          
+          echo "Installation des dépendances via pip"
+          python -m pip install -r requirements.txt --no-cache-dir --force-reinstall
+          python -m pip install pytest pytest-cov
+          
+          echo "Lancement des tests du répertoire  grs/tests/integration_tests/"
+          python -m pytest --tb=short -vv -s -x tests/ --cov=GRSl2bgen --cov-report=html:cov_html --cov-report=xml:coverage.xml --junitxml=test-results.xml
+          
+          ls
+          
+          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then
+            echo "Génération du badge coverage"
+            python -m pip install genbadge[coverage]
+            mkdir -p badges
+         
+            genbadge coverage -i coverage.xml -o badges/coverage.svg
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add badges/coverage.svg
+
+            if ! git diff --cached --quiet; then
+              git commit -m "Update coverage badge [skip ci]"
+              git push
+            fi
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: false
+        #if: always()   # Upload même si les tests échouent
+        with:
+          name: test-reports
+          path : | 
+            test-results.xml
+            cov_html/
+          retention-days: 1
+
+
+# =============================================================================
 # package — Publication sur Pypi
 # =============================================================================
   pypi:
+    needs: python-tests
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
@@ -47,6 +109,7 @@ jobs:
 # package — Build & Publication sur Docker Hub
 # =============================================================================
   podman-build:
+    needs: python-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
