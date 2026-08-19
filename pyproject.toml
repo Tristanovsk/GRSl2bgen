@@ -22,8 +22,7 @@ requires-python = ">=3.9"
 where = ["."]
 
 [tool.setuptools.package-data]
-#"GRSl2bgen"= ['*.yml']
-#"*"= ['data/*.nc', 'data/*.txt']
+"GRSl2bgen" = ["data/*.json", "data/*.csv", "data/*.nc"]
 
 [tool.setuptools.exclude-package-data]
 "*" = [".gitattributes"]
