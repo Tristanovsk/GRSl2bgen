@@ -11,6 +11,8 @@
 ## **Scientific code to process GRS L2A images** 
 ## Estimation of water quality parameters from remote sensing reflectance (Rrs) 
 
+Please check [GRSl2bgen documentation](https://cnes.github.io/GRSl2bgen/)
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
