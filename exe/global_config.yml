@@ -1,0 +1,10 @@
+{
+    #"input_file": '/work/scratch/raillece/public/obs2co/results_ci/S2B_MSIL2AGRS_20210802T102559_N0500_R108_T31TFJ_20230209T194433_V2.0.5',
+    "input_file": '/datalake/watcal/OUTPUT_TEST/S2B_MSIL2AGRS_20210802T102559_N0500_R108_T31TFJ_20230209T194433_V2.0.5',
+    "version_grs": True,
+    "chain_version": 1.0.2,
+    "level": "INFO",                                  # niveau de log : info, debug, warning, error
+    "output_dir": "/datalake/watcal/OUTPUT_TEST",    # répertoire où seront ecrits les produits générés 
+    "logfile": "/tmp/log.txt",
+    "noclobber": True    
+}
