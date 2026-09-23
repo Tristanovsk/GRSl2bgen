@@ -59,7 +59,8 @@ class Product():
             return
 
         # TODO deprecate and remove this part
-        if self.raster.attrs['metadata_profile'] != 'beam':
+        profile = self.raster.attrs.get("metadata_profile")
+        if profile != "beam":
             return
 
         # reshape into datacube:

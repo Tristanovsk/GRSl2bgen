@@ -33,39 +33,42 @@ class Process():
 
         prod = Product(l2a_obj)
 
+        # Apply water mask: restrict all processing to valid water pixels (mask == 0)
+        raster = prod.raster.where(prod.raster['mask'] == 0)
+
         #  ----------------------
         # get OWT parameters
         # ----------------------
         logging.info('get OWT classification')
-        owt_process = OWT_process(prod.raster)
+        owt_process = OWT_process(raster)
         owt_process.execute()
 
         # ----------------------
         # get SPM parameters
         # ----------------------
         logging.info('get SPM parameters')
-        spm_prod = Spm(prod.raster)
+        spm_prod = Spm(raster)
         spm_prod.process()
 
         # ----------------------
         # get Chl-a parameters
         # ----------------------
         logging.info('get Chl-a parameters')
-        chl_prod = Chl(prod.raster)
+        chl_prod = Chl(raster, owt_sam=owt_process.owt_sam_spyrakos2018)
         chl_prod.process()
 
         # ----------------------
         # get CDOM parameters
         # ----------------------
         logging.info('get CDOM parameters')
-        cdom_prod = Cdom(prod.raster)
+        cdom_prod = Cdom(raster)
         cdom_prod.process()
 
         # ----------------------
         # get transparency parameters
         # ----------------------
         logging.info('get transparency parameters')
-        trans_prod = Transparency(prod.raster)
+        trans_prod = Transparency(raster)
         trans_prod.process()
 
         logging.info('construct l2b product')
