@@ -45,7 +45,9 @@ class L2bProduct():
         add_offset = min_ + 2 ** (nbit - 1) * scale_factor
         return scale_factor, add_offset
 
-    def export_to_netcdf(self, ofile):
+    def export_to_netcdf(self,
+                         ofile,
+                         zarr=False):
         '''
         Create output product dimensions, variables, attributes, flags....
         :return:
