@@ -1,7 +1,7 @@
 Basics
 ========
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Basics
 
    grsl2bgen_owt_minimal

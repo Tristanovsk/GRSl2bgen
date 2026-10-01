@@ -16,7 +16,7 @@ GRSl2bgen documentation
    :caption: Tutorials
 
    tutorials/basics
-
+   tutorials/advanced
 
 .. toctree::
    :maxdepth: 3
