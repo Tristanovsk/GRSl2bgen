@@ -1,0 +1,17 @@
+-r ../requirements.txt
+
+# Doc
+ipython
+sphinx
+sphinx-book-theme
+sphinx-copybutton
+myst-nb
+myst-parser
+linkify-it-py
+
+geopandas
+jupyter
+matplotlib
+cartopy
+hvplot
+
