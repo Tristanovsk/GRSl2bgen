@@ -27,6 +27,7 @@ today_fmt = "%Y-%m-%d"
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.apidoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
@@ -52,6 +53,8 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
+
+
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -81,7 +84,7 @@ html_theme_options = {
 }
 
 
-html_logo = "_static/grsl2bgen_logo_v0.svg"
+html_logo = "_static/GRSl2bgen.png"
 html_title = ""
 
 html_favicon = "_static/grsl2bgen_logo_v0.svg"

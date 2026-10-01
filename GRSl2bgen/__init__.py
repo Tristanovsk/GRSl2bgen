@@ -6,7 +6,7 @@ v0.1.0: add Xtrem quality blended algorithm + CI env
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '0.1.0'
+__version__ = '1.0.0'
 
 from .product import Product
 from .output import L2bProduct

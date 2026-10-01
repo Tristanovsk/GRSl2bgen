@@ -34,27 +34,34 @@ OWT_tarasenko2025_file = files(__package__ +
 
 
 class OWT():
+    '''
+            Routine for Optical Water Types (OWT) retrieval from L2A images based on several OWT database and robust spectral metric.
+
+            :param raster: satellite image raster
+            :param owt_database: name of the OWT database to use within ["Spyrakos2018","Bi2024","Ta2025"]
+            :param param: choose the parameter to use:
+                          - for "Spyrakos2018", should be "m_nRrs" (normalized reflectance in nm-1)
+                          - for "Bi2024", 2 choices: "m_nRrs" (normalized reflectance in nm-1) or "m_Rrs" (reflectance in sr-1)
+            :param owt_database_name: string used to name the output xarray variable (e.g., "owt_index_" + owt_database_name)
+            :param provide_sam_distance: if True provide the array [Nowt_to_be_saved, y, x] of the Nowt_te_be_saved top SAM values
+            :type provide_sam_distance: Boolean
+            :param Nowt_to_be_saved: number of top classes of SAM to be saved in array, default = 3
+                                (too high values might slow down further retrieval from "blended algorithms")
+            :param wl_range: spectral range to apply the Spectral angle mapper
+            :param chunk: chunk size for multiprocessing
+            :param Nproc: number of CPU for multiprocessing
+    '''
+
     def __init__(self,
                  raster,
                  xowt=None,
                  owt_database="Spyrakos2018",
+                 owt_database_name='',
                  param='m_nRrs',
-                 suffix='',
+                 Nowt_to_be_saved=1,
                  wl_range=slice(350, 800),
                  chunk=1024,
                  Nproc=8):
-        '''
-        Routine for Optical Water Types (OWT) retrieval from L2A images based on several OWT database and robust spectral metric.
-
-        :param raster: satellite image raster
-        :param owt_database: name of the OWT database to use within ["Spyrakos2018","Bi2024"]
-        :param param: choose the parameter to use:
-                      - for "Spyrakos2018", should be "m_nRrs" (normalized reflectance in nm-1)
-                      - for "Bi2024", 2 choices: "m_nRrs" (normalized reflectance in nm-1) or "m_Rrs" (reflectance in sr-1)
-        :param wl_range: spectral range to apply the Spectral angle mapper
-        :param chunk: chunk size for multiprocessing
-        :param Nproc: number of CPU for multiprocessing
-        '''
 
         self.param = param
         self.chunk = chunk
@@ -65,12 +72,14 @@ class OWT():
         self.Nwl, self.height, self.width = self.Rrs.shape
 
         self.owt_database = owt_database
-        self.suffix = suffix
-        if len(self.suffix) > 0:
-            self.suffix = '_' + self.suffix
+        self.owt_database_name = owt_database_name
+        if len(self.owt_database_name) > 0:
+            self.owt_database_name = '_' + self.owt_database_name
 
-        self.owt_index_name = "owt_index" + self.suffix
-        self.owt_dist_name = "owt_dist" + self.suffix
+        self.owt_index_name = "owt_index" + self.owt_database_name
+        self.owt_dist_name = "owt_dist" + self.owt_database_name
+        self.Nowt_dim ="Nowt" + self.owt_database_name
+        self.Nowt_to_be_saved = Nowt_to_be_saved
 
         if xowt is not None:
             self.owt = xowt
@@ -152,41 +161,102 @@ class OWT():
         return np.arccos(denum / denom)
 
     @staticmethod
-    @njit()
-    def SAM(Rrs, Rrs_owt,
-            Nwl, Ny, Nx, Nowt):
+    @njit(parallel=True)
+    def SAM(Rrs, Rrs_owt, Nwl, Ny, Nx, Nowt, Nowt_to_be_saved):
         '''
-        def SAM(R1,R2):
-        denum=(R1*R2).sum('wl')
-        denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
-        return np.arccos(denum/denom)
+            def SAM(R1,R2):
+            denum=(R1*R2).sum('wl')
+            denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
+            return np.arccos(denum/denom)
         '''
+        arr_sam = np.full((Nowt_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
+        arr_index = np.full((Nowt_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
 
-        arr_sam = np.full((Nowt, Ny, Nx), np.nan, dtype=np.float32)
-        arr_index = np.full((Ny, Nx), np.nan, dtype=np.float32)
-        Rrs_owt_mod = np.full((Nowt), 0., dtype=np.float32)
-
+        Rrs_owt_mod = np.zeros(Nowt, dtype=np.float32)
         for iowt in range(Nowt):
+            s = 0.
             for iwl in range(Nwl):
-                Rrs_owt_mod[iowt] += Rrs_owt[iowt, iwl] ** 2
-            Rrs_owt_mod[iowt] = Rrs_owt_mod[iowt] ** 0.5
+                s += Rrs_owt[iowt, iwl] ** 2
+            Rrs_owt_mod[iowt] = s ** 0.5
 
         for _iy in range(Ny):
+            tmp = np.empty(Nowt, dtype=np.float32)  # contiguous, private per thread
             for _ix in range(Nx):
                 if np.isnan(Rrs[0, _iy, _ix]):
                     continue
+
+                Rrs_mod = 0.
+                for iwl in range(Nwl):
+                    Rrs_mod += Rrs[iwl, _iy, _ix] ** 2
+                Rrs_mod = Rrs_mod ** 0.5
+                if Rrs_mod == 0.:
+                    continue
+
                 for iowt in range(Nowt):
                     denum = 0.
-                    Rrs_mod = 0.
-
                     for iwl in range(Nwl):
                         denum += Rrs[iwl, _iy, _ix] * Rrs_owt[iowt, iwl]
-                        Rrs_mod += Rrs[iwl, _iy, _ix] ** 2
-                    Rrs_mod = Rrs_mod ** 0.5
-                    arr_sam[iowt, _iy, _ix] = np.arccos(denum / (Rrs_mod * Rrs_owt_mod[iowt]))
-                arr_index[_iy, _ix] = np.argmin(arr_sam[:, _iy, _ix]) + 1
+                    cosang = denum / (Rrs_mod * Rrs_owt_mod[iowt])
+                    cosang = min(1., max(-1., cosang))
+                    tmp[iowt] = np.arccos(cosang)
+
+                # sort by increasing SAM and get indices
+                # get the smallest sam and respective owt number
+                for k in range(Nowt_to_be_saved):
+                    best = 0
+                    bestval = np.inf
+                    for iowt in range(Nowt):
+                        if tmp[iowt] < bestval:
+                            bestval = tmp[iowt]
+                            best = iowt
+                    arr_sam[k, _iy, _ix] = tmp[best]
+                    arr_index[k, _iy, _ix] = best + 1
+                    tmp[best] = np.inf  # exclude from the next pass
 
         return arr_sam, arr_index
+
+    # @staticmethod
+    # @njit()
+    # def SAM(Rrs,
+    #         Rrs_owt,
+    #         Nwl,
+    #         Ny,
+    #         Nx,
+    #         Nowt,
+    #         Nowt_to_be_saved):
+    #     '''
+    #     def SAM(R1,R2):
+    #     denum=(R1*R2).sum('wl')
+    #     denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
+    #     return np.arccos(denum/denom)
+    #     '''
+    #
+    #     arr_sam = np.full((Nowt, Ny, Nx), np.nan, dtype=np.float32)
+    #     arr_index = np.full((Nowt_to_be_saved,Ny, Nx), np.nan, dtype=np.float32)
+    #     Rrs_owt_mod = np.full((Nowt), 0., dtype=np.float32)
+    #
+    #     for iowt in range(Nowt):
+    #         for iwl in range(Nwl):
+    #             Rrs_owt_mod[iowt] += Rrs_owt[iowt, iwl] ** 2
+    #         Rrs_owt_mod[iowt] = Rrs_owt_mod[iowt] ** 0.5
+    #
+    #     for _iy in range(Ny):
+    #         for _ix in range(Nx):
+    #             if np.isnan(Rrs[0, _iy, _ix]):
+    #                 continue
+    #             for iowt in range(Nowt):
+    #                 denum = 0.
+    #                 Rrs_mod = 0.
+    #
+    #                 for iwl in range(Nwl):
+    #                     denum += Rrs[iwl, _iy, _ix] * Rrs_owt[iowt, iwl]
+    #                     Rrs_mod += Rrs[iwl, _iy, _ix] ** 2
+    #                 Rrs_mod = Rrs_mod ** 0.5
+    #                 arr_sam[iowt, _iy, _ix] = np.arccos(denum / (Rrs_mod * Rrs_owt_mod[iowt]))
+    #             arr_sam[:, _iy, _ix].sort(axis=0)
+    #             arr_index[:,_iy, _ix] = (arr_sam[:Nowt_to_be_saved, _iy, _ix]) + 1
+    #
+    #     return arr_sam, arr_index
 
     @staticmethod
     def SCS(R1, R2):
@@ -197,59 +267,17 @@ class OWT():
         Nwl = len(R1.wl)
         return 1 / (Nwl) * ((R1 - R1_avg) * (R2 - R2_avg)).sum('wl') / (R1_std * R2_std)
 
-    def process_raster(self):
-
-        chunk = self.chunk
-        height, width, Nowt = self.height, self.width, self.Nowt
-
-        owt_index = np.full((height, width), 0, dtype=np.float32)
-        owt_dist = np.full((height, width), 0, dtype=np.float32)
-        owt_sam_np = np.full((Nowt, height, width), np.nan, dtype=np.float32)
-        # np.seterr(divide='ignore', invalid='ignore')
-        # import warnings
-        # with warnings.catch_warnings():
-        #    warnings.filterwarnings('ignore', 'invalid value encountered in divide', RuntimeWarning)
-        for iy in range(0, height, chunk):
-            yc = min(height, iy + chunk)
-
-            for ix in range(0, width, chunk):
-                xc = min(width, ix + chunk)
-
-                _Rrs = self.Rrs[:, iy:yc, ix:xc]
-                Nwl, Ny, Nx = _Rrs.shape
-                owt_sam, owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
-                                                            self.Rrs_owt.values,
-                                                            Nwl, Ny, Nx, Nowt)
-                owt_sam_np[:, iy:yc, ix:xc] = owt_sam
-                tmp = -1 * owt_sam / np.pi
-
-                # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
-                # issue with reshape arrays
-                # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
-                # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
-
-                tmp_max = np.max(tmp, axis=0)
-                owt_dist[iy:yc, ix:xc] = tmp_max
-
-        self.owt_sam_np = owt_sam_np
-        self.xowt = xr.Dataset(dict(owt_dist=(["y", "x"], owt_dist),
-                                    owt_index=(["y", "x"], owt_index), ),
-                               coords=dict(x=self.Rrs.x,
-                                           y=self.Rrs.y),
-                               )
-
     def multi_process(self):
 
         chunk = self.chunk
         height, width, Nowt = self.height, self.width, self.Nowt
         logging.info('OWT classification')
         global chunk_process
-        owt_index = np.ctypeslib.as_ctypes(np.full((height, width), np.nan, dtype=np.float32))
-        owt_dist = np.ctypeslib.as_ctypes(np.full((height, width), np.nan, dtype=np.float32))
-        owt_sam_flat = np.ctypeslib.as_ctypes(np.full(Nowt * height * width, np.nan, dtype=np.float32))
+        owt_index = np.ctypeslib.as_ctypes(np.full((self.Nowt_to_be_saved,height, width), np.nan, dtype=np.float32))
+        owt_dist = np.ctypeslib.as_ctypes(np.full((self.Nowt_to_be_saved,height, width), np.nan, dtype=np.float32))
+
         shared_owt_index = sharedctypes.RawArray(owt_index._type_, owt_index)
         shared_owt_dist = sharedctypes.RawArray(owt_dist._type_, owt_dist)
-        shared_owt_sam = sharedctypes.RawArray(owt_sam_flat._type_, owt_sam_flat)
 
         def chunk_process(args):
             iy, ix = args
@@ -257,34 +285,24 @@ class OWT():
             xc = min(width, ix + chunk)
             tmp_owt_index = np.ctypeslib.as_array(shared_owt_index)
             tmp_owt_dist = np.ctypeslib.as_array(shared_owt_dist)
-            tmp_owt_sam = np.ctypeslib.as_array(shared_owt_sam).reshape(Nowt, height, width)
 
             _Rrs = self.Rrs[:, iy:yc, ix:xc]
             Nwl, Ny, Nx = _Rrs.shape
-            owt_sam, tmp_owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
+            owt_sam, tmp_owt_index[:,iy:yc, ix:xc] = self.SAM(_Rrs.values,
                                                             self.Rrs_owt.values,
-                                                            Nwl, Ny, Nx, Nowt)
-            tmp_owt_sam[:, iy:yc, ix:xc] = owt_sam
+                                                            Nwl, Ny, Nx, Nowt,self.Nowt_to_be_saved)
 
-            tmp = -1 * owt_sam / np.pi
+            tmp_owt_dist[:, iy:yc, ix:xc]=owt_sam[:self.Nowt_to_be_saved]
 
-            # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
+            # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024): maybe not necessary small benefit for high computational cost!
             # issue with reshape arrays
             # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
             # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
-
-            tmp_owt_dist[iy:yc, ix:xc] = np.max(tmp, axis=0)
 
         window_idxs = [(i, j) for i, j in
                        itertools.product(range(0, height, chunk),
                                          range(0, width, chunk))]
 
-        # global pool
-        # pool = Pool(self.Nproc)
-        # res = pool.map(chunk_process, window_idxs)
-
-        # pool.terminate()
-        # pool.join()
         jobs = [dask.delayed(chunk_process)(arg) for arg in window_idxs]
         dask.compute(jobs)
 
@@ -294,12 +312,14 @@ class OWT():
         # construct l2a object
         ######################################
         logging.info('construct xarray owt product')
-        self.owt_sam_np = np.ctypeslib.as_array(shared_owt_sam).reshape(Nowt, height, width).copy()
-        self.xowt = xr.Dataset(data_vars={self.owt_dist_name: (["y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
-                                          self.owt_index_name: (["y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
-                               coords=dict(x=self.Rrs.x,
-                                           y=self.Rrs.y),
-                               )
+
+
+        self.xowt = xr.Dataset(data_vars={self.owt_dist_name: ([self.Nowt_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
+                                          self.owt_index_name: ([self.Nowt_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
+                               coords={self.Nowt_dim:range(self.Nowt_to_be_saved),
+                                       "x":self.Rrs.x,
+                                       "y":self.Rrs.y}
+                               ).squeeze()
         self.xowt[self.owt_index_name].attrs['definition'] = self.attrs_owt
 
         return self.xowt
@@ -350,18 +370,18 @@ class OWT_process():
         OWT_kernel = OWT(self.raster,
                          owt_database=owt_database,
                          param='m_nRrs',
-                         suffix=owt_database,
+                         owt_database_name=owt_database,
                          chunk=self.chunk,
-                         Nproc=self.Nproc
+                         Nproc=self.Nproc,
+                         Nowt_to_be_saved=3
                          )
         self.xowt_spyrakos2018 = OWT_kernel.multi_process()
-        self.owt_sam_spyrakos2018 = OWT_kernel.owt_sam_np  # (13, H, W) float32
 
         owt_database = 'Bi2024'
         OWT_kernel = OWT(self.raster,
                          owt_database=owt_database,
                          param='m_Rrs',
-                         suffix=owt_database,
+                         owt_database_name=owt_database,
                          chunk=self.chunk,
                          Nproc=self.Nproc
                          )
@@ -371,7 +391,7 @@ class OWT_process():
         xowt = xr.open_dataarray(OWT_tarasenko2025_file)
         OWT_kernel = OWT(self.raster,
                          xowt=xowt,
-                         suffix='Ta2025',
+                         owt_database_name='Ta2025',
                          param='m_nRrs',
                          chunk=self.chunk,
                          Nproc=self.Nproc

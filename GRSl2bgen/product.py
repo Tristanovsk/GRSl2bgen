@@ -1,3 +1,5 @@
+"""Container for an L2A (atmospherically corrected) image product."""
+
 import os, sys, re, glob
 
 import numpy as np
@@ -14,16 +16,72 @@ opj = os.path.join
 
 
 class Product():
-    '''
+    """L2A image product loaded from disk or from an in-memory dataset.
 
-    '''
+    Reads an L2A product (NetCDF, Zarr, or a directory with a main and an
+    ancillary NetCDF file) into an `xarray.Dataset`, and, for products using
+    the legacy "beam" metadata profile, reshapes the per-band variables
+    ``Rrs_<wl>`` and ``Rrs_g_<wl>`` into datacubes ``Rrs`` and ``Rrs_g`` with a
+    ``wl`` dimension.
 
-    def __init__(self, l2a_obj):
-        '''
-        Get the L2A product object
-        :param l2a_obj: path or xarray of the L2A input image
-        '''
+    Parameters
+    ----------
+    l2a_obj : str or xarray.Dataset
+        Path to the L2A product or an already loaded dataset (see
+        `__init__`).
+
+    Attributes
+    ----------
+    processor : str
+        Processor identifier, ``'<package>_<version>'``.
+    raster : xarray.Dataset
+        Main L2A dataset. Not set if the input format is not recognized.
+    ancillary : xarray.Dataset or None
+        Ancillary dataset; only loaded for directory inputs, otherwise None.
+    """
+
+
+    def __init__(self, l2a_obj, chunks=None):
+        """Load the L2A product.
+
+        Parameters
+        ----------
+        chunks : dict, optional
+            Dask chunks for NetCDF inputs. Default
+            ``{'wl': -1, 'y': 1024, 'x': 1024}``: one chunk along ``wl``
+            (band maths and ``sel`` need all bands) and tiles in space, so
+            work is parallel and memory per task is bounded. Not applied to
+            Zarr inputs, which keep their stored chunks.
+
+        l2a_obj : str or xarray.Dataset
+            Input product, one of:
+
+            - path to a ``.nc`` file: opened with ``xr.open_dataset``,
+              chunked with a single chunk along ``wl``;
+            - path to a Zarr store (extension containing ``zarr``): opened
+              with ``xr.open_zarr``;
+            - path to a directory ``<dir>/`` containing ``<dir>.nc`` (main
+              product) and ``<dir>_anc.nc`` (ancillary data), where the
+              file names match the directory's base name;
+            - an `xarray.Dataset`, used as is (no reshaping is applied and
+              ``ancillary`` is None).
+
+        Notes
+        -----
+        If the path format is not recognized, a message is logged and the
+        constructor returns without setting ``raster``.
+
+        If the loaded file has the metadata attribute
+        ``metadata_profile == 'beam'``, the ``Rrs_<wl>`` and ``Rrs_g_<wl>``
+        variables are stacked along a new ``wl`` dimension (chunk size 1)
+        and merged with the remaining variables. This block is marked as
+        deprecated in the code (TODO). It requires integer wavelengths
+        because the variable names are built with ``'{:d}'``.
+        """
+
         self.processor = __package__ + '_' + __version__
+        if chunks is None:
+            chunks = {'wl': -1, 'y': 1024, 'x': 1024}
 
         ##################################
         # Get image data
@@ -33,7 +91,7 @@ class Product():
             # get extension
             extension = l2a_obj.split('.')[-1]
             if extension == 'nc':
-                self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks={'wl': -1})
+                self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks=chunks)
                 self.ancillary = None
             elif 'zarr' in extension:
                 self.raster = xr.open_zarr(l2a_obj, decode_coords='all')
@@ -45,7 +103,7 @@ class Product():
                 main_file = opj(l2a_obj, basename + '.nc')
                 ancillary_file = opj(l2a_obj, basename + '_anc.nc')
 
-                self.raster = xr.open_dataset(main_file, decode_coords='all', chunks={'wl': -1})
+                self.raster = xr.open_dataset(main_file, decode_coords='all', chunks=chunks)
                 self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
 
 

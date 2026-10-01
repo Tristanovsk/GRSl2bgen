@@ -9,3 +9,21 @@ GRSl2bgen documentation
    :caption: Contents:
 
    processing_chain
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/basics
+
+
+.. toctree::
+   :maxdepth: 3
+   :caption: GRSl2bgen API
+   :hidden:
+
+   api.rst
+
+
+
