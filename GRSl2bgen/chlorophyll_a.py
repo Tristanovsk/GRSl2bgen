@@ -44,13 +44,15 @@ class Chl():
     def __init__(self,
                  raster,
                  param='Rrs',
-                 xowt_prod=None):
+                 xowt_prod=None,
+                 Nclasses=2):
 
         self.raster = raster
         self.Rrs = raster[param]
         # self.OC2ratio = self.OC2_ratio(self.Rrs)
         # self.OC3ratio = self.OC3_ratio()
         self.xowt_prod = xowt_prod
+        self.Nclasses = Nclasses
         self.output = None
 
     def process(self):
@@ -119,10 +121,16 @@ class Chl():
         }
 
         merge_list = [self.chl_nasa_oc2, self.chl_M09B, self.chl_NIRB]
-        if self.owt_sam is not None:
-            self.process_blended(self.owt_sam)
-            merge_list.append(self.chl_blend)
-        self.output = xr.merge(merge_list).drop_vars('wl').compute()
+        if self.xowt_prod is not None:
+            chl_blend = self.owt_blending(self.xowt_prod,
+                                          owt_dist_var='owt_dist_Spyrakos2018',
+                                          owt_index_var='owt_index_Spyrakos2018',
+                                          Nclasses=self.Nclasses,
+                                          )
+            chl_blend = self.set_range(chl_blend)
+            merge_list.append(chl_blend)
+        # TODO clean xr.Dataset unused coords to avoid using compat="override"
+        self.output = xr.merge(merge_list,compat="override").drop_vars('wl').compute()
 
     def set_range(self, param, minval=0, maxval=1200):
         """Mask values outside an open interval.
@@ -145,6 +153,8 @@ class Chl():
     def owt_blending(self,
                      xowt_prod,
                      Nclasses = 3,
+                     owt_dist_var='owt_dist',
+                     owt_index_var='owt_index',
                      eps=1e-6):
 
         """OWT-blended Chl-a following the recipe of Tavares et al. (2025).
@@ -168,6 +178,12 @@ class Chl():
         Nclasses : int, optional
             Number of top OWT classes to blend (default 3); limited to the
             size of ``Nowt``.
+        owt_dist_var : str, optional
+            set the name of the variable to be used for owt_dist within xarray.Dataset
+            xprod_owt (default: 'owt_dist'),
+        owt_index_var : str, optional
+            set the name of the variable to be used for owt_index within xarray.Dataset
+            xprod_owt (default: 'owt_index'),
         eps : float, optional
             Small value avoiding division by zero in the weights.
 
@@ -182,15 +198,15 @@ class Chl():
         # ---------------------------------------------------
         # set number of top OWT classes to be used for algorithm weighting
         # ---------------------------------------------------
-        Nclasses = np.min([len(xowt_prod.Nowt), Nclasses])
-        xowt_prod = xowt_prod.isel(Nowt=range(Nclasses))
+        Nclasses = np.min([len(xowt_prod.Nclasses), Nclasses])
+        xowt_prod = xowt_prod.isel(Nclasses=range(Nclasses))
 
         # ---------------------------------------------------
         # Compute norm from owt SAM distance for each pixel
         # ---------------------------------------------------
-        norm = 1 / (xowt_prod.owt_dist + eps)
+        norm = 1 / (xowt_prod[owt_dist_var] + eps)
         # the summation assumes nan identical to 0
-        norm = norm.sum('Nowt')
+        norm = norm.sum('Nclasses')
         # replace empty value from 0 to nan
         norm = norm.where(norm > 0)
 
@@ -199,36 +215,36 @@ class Chl():
         # ---------------------------------------------------
 
         owt_index_to_keep = [1, 6, 10]
-        mask = self.create_mask_from_owt(xowt_prod.owt_index, owt_index_to_keep)
-        weights = 1 / (xowt_prod.owt_dist.where(mask) + eps)
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
         chla = (self.chl_gons(self.Rrs.where(mask)) * weights).fillna(0)
 
         # OWT 2, 4, 5, 11, 12 : NDCI
         owt_index_to_keep = [2, 4, 5, 11, 12]
-        mask = self.create_mask_from_owt(xowt_prod.owt_index, owt_index_to_keep)
-        weights = 1 / (xowt_prod.owt_dist.where(mask) + eps)
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
         chla += (self.chl_ndci(self.Rrs.where(mask)) * weights).fillna(0)
 
         # OWT 7, 8 : Gilerson2
         owt_index_to_keep = [7, 8]
-        mask = self.create_mask_from_owt(xowt_prod.owt_index, owt_index_to_keep)
-        weights = 1 / (xowt_prod.owt_dist.where(mask) + eps)
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
         chla += (self.chl_gilerson2(self.Rrs.where(mask)) * weights).fillna(0)
 
         # clear waters
         owt_index_to_keep = [3, 9, 13]
-        mask = self.create_mask_from_owt(xowt_prod.owt_index, owt_index_to_keep)
-        weights = 1 / (xowt_prod.owt_dist.where(mask) + eps)
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
         acoef = [0.2236, -1.8296, 1.9094, -2.9481, -0.1718]
         chla += (self.OC2(self.Rrs.where(mask), acoef) * weights).fillna(0)
 
         # get final product after normalization
-        chla = chla.sum('Nowt') / norm
+        chla = chla.sum('Nclasses') / norm
 
         # add metadata
         chla.attrs = {
             'description': 'OWT-blended Chl-a based on OWT  (using SAM) from Spyrakos et al. (2018) and recipe by Tavares et al. (2025)',
-            'references': 'Spyrakos, E.; O’Donnell, R.; Hunter, P.D.; Miller, C.; Scott, M.; Simis, S.G.; Neil, C.; Barbosa, C.C.; Binding, C.E.; Bradt, S.; et al.' \
+            'references': 'Spyrakos, E.; ODonnell, R.; Hunter, P.D.; Miller, C.; Scott, M.; Simis, S.G.; Neil, C.; Barbosa, C.C.; Binding, C.E.; Bradt, S.; et al.' \
                           + ' Optical types of inland and coastal waters. Limnol. Oceanogr. 2018, 63, 846–870.' \
                           + '\nTavares, M.H.; Guimaraes, D.; Roussillon, J.; Baute, V.; Cucherousset, J.; Bouletreau, S.; Martinez, J.-M.' \
                           + ' A Framework to Retrieve Water Quality Parameters in Small, ' \

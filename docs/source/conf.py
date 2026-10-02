@@ -74,7 +74,7 @@ html_theme = 'sphinx_book_theme'
 html_static_path = ['_static']
 
 html_theme_options = {
-    "repository_url": "https://github.com/Tristanovsk/hgrs",
+    "repository_url": "https://github.com/Tristanovsk/GRSl2bgen",
     "repository_branch": "master",
     "use_repository_button": True,
     "use_issues_button": True,

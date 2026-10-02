@@ -151,6 +151,83 @@ class L2bProduct():
         add_offset = min_ + 2 ** (nbit - 1) * scale_factor
         return scale_factor, add_offset
 
+    def export(self, ofile, persist=False):
+        """Export to Zarr or NetCDF depending on the extension of `ofile`.
+
+        Parameters
+        ----------
+        ofile : str
+            Output path. A path ending in ``.zarr`` is written as a Zarr
+            store (`export_to_zarr`), anything else as NetCDF
+            (`export_to_netcdf`).
+        persist : bool, optional
+            See `export_to_netcdf`.
+        """
+        if str(ofile).rstrip('/\\').endswith('.zarr'):
+            return self.export_to_zarr(ofile, persist=persist)
+        return self.export_to_netcdf(ofile, persist=persist)
+
+    def _packing_encoding(self, persist=False):
+        """Build the packing part of the output encoding (format independent).
+
+        ``flags`` and ``mask`` keep their dtype. All other variables are
+        packed into ``int16`` with per-variable ``scale_factor`` and
+        ``add_offset`` (see `compute_scale_and_offset`) and
+        ``_FillValue = -32768``. For lazy (dask) variables the minimum and
+        maximum of all packed variables are obtained in a single pass.
+
+        Parameters
+        ----------
+        persist : bool, optional
+            Compute the whole dataset once and keep it in memory (replaces
+            ``self.l2b_prod``) before the ranges are determined.
+
+        Returns
+        -------
+        dict
+            ``{variable: encoding}``, each entry including
+            ``grid_mapping = 'spatial_ref'``.
+        """
+        if persist:
+            self.l2b_prod = self.l2b_prod.persist()
+
+        packed = [v for v in self.variables if v not in ['mask', 'flags']]
+        stats = {}
+        if packed:
+            ranges = dask.compute(*[(self.l2b_prod[v].min(skipna=True),
+                                     self.l2b_prod[v].max(skipna=True))
+                                    for v in packed])
+            stats = {v: (float(lo), float(hi)) for v, (lo, hi) in zip(packed, ranges)}
+
+        encoding = {}
+        for variable in self.variables:
+            if variable in ['mask', 'flags']:
+                encoding[variable] = {"grid_mapping": "spatial_ref"}
+            else:
+                scale_factor, add_offset = self.scale_and_offset_from_range(*stats[variable], nbit=16)
+                encoding[variable] = {
+                    'dtype': 'int16',
+                    'scale_factor': scale_factor,
+                    'add_offset': add_offset,
+                    '_FillValue': -32768,
+                    "grid_mapping": "spatial_ref"
+                }
+        return encoding
+
+    @staticmethod
+    def _prepare_output(ofile):
+        """Delete an existing output file or directory and create the parent directory."""
+        if os.path.isdir(ofile):
+            shutil.rmtree(ofile)
+        elif os.path.exists(ofile):
+            os.remove(ofile)
+
+        odir = os.path.dirname(str(ofile).rstrip('/\\'))
+        if odir == '':
+            odir = './'
+        if not os.path.exists(odir):
+            os.makedirs(odir)
+
     def export_to_netcdf(self,
                          ofile,
                          zarr=False,
@@ -188,195 +265,88 @@ class L2bProduct():
         -------
         None
         """
+        if zarr:
+            return self.export_to_zarr(ofile, persist=persist)
+
         logging.info('export into encoded netcdf')
-        complevel = self.complevel
-        encoding = {}
-
-        if persist:
-            self.l2b_prod = self.l2b_prod.persist()
-
-        # one pass over the data for the ranges of all packed variables
-        packed = [v for v in self.variables if v not in ['mask', 'flags']]
-        stats = {}
-        if packed:
-            ranges = dask.compute(*[(self.l2b_prod[v].min(skipna=True),
-                                     self.l2b_prod[v].max(skipna=True))
-                                    for v in packed])
-            stats = {v: (float(lo), float(hi)) for v, (lo, hi) in zip(packed, ranges)}
-        for variable in self.variables:
-
-            if variable in ['mask', 'flags']:
-                encoding[variable] = {
-                    "zlib": True,
-                    "complevel": complevel,
-                    "grid_mapping": "spatial_ref"
-                }
-            else:
-                scale_factor, add_offset = self.scale_and_offset_from_range(*stats[variable], nbit=16)
-                # offset = np.mean(p.range)
-                # range = float(np.diff(p.range))
-                # scale_factor = round(range / 60000, 6)
-                encoding[variable] = {
-                    'dtype': 'int16',
-                    'scale_factor': scale_factor,
-                    'add_offset': add_offset,
-                    '_FillValue': -32768,
-                    "zlib": True,
-                    "complevel": complevel,
-                    "grid_mapping": "spatial_ref"
-                }
-
-        # align NetCDF chunks with the dask chunks
+        encoding = self._packing_encoding(persist=persist)
         for variable, enc in encoding.items():
+            enc.update({"zlib": True, "complevel": self.complevel})
+            # align NetCDF chunks with the dask chunks
             chunks = self.l2b_prod[variable].chunks
             if chunks is not None:
                 enc['chunksizes'] = tuple(c[0] for c in chunks)
 
         # write file
-        if os.path.exists(ofile):
-            os.remove(ofile)
-
-        odir = os.path.dirname(ofile)
-        if odir == '':
-            odir = './'
-        if not os.path.exists(odir):
-            os.makedirs(odir)
-
+        self._prepare_output(ofile)
         self.l2b_prod.to_netcdf(ofile, encoding=encoding)
         self.l2b_prod.close()
 
         return
 
+    def export_to_zarr(self,
+                       ofile,
+                       persist=False,
+                       chunks=None):
+        """Write the L2B dataset to a Zarr store.
 
-
-    def export_to_netcdf_beta(self, ofile, zarr=False):
-        """Write the L2B dataset to a compressed NetCDF file."""
-
-        logging.info("export into encoded netcdf")
-
-        complevel = self.complevel
-        encoding = {}
-
-        # Variables that should retain their native dtype
-        native_vars = {"mask", "flags", "spatial_ref"}
-
-        for variable in self.l2b_prod.data_vars:
-            if variable in native_vars:
-                encoding[variable] = {
-                    "zlib": True,
-                    "complevel": complevel,
-                }
-                continue
-
-            p = self.l2b_prod[variable]
-
-            scale_factor, add_offset = self.compute_scale_and_offset(
-                p.values,
-                nbit=16,
-            )
-
-            encoding[variable] = {
-                "dtype": "int16",
-                "scale_factor": scale_factor,
-                "add_offset": add_offset,
-                "_FillValue": -32768,
-                "zlib": True,
-                "complevel": complevel,
-            }
-
-        # Ensure output directory exists
-        odir = os.path.dirname(os.path.abspath(ofile))
-        os.makedirs(odir, exist_ok=True)
-
-        # Remove existing file
-        if os.path.exists(ofile):
-            os.remove(ofile)
-
-        self.l2b_prod.to_netcdf(
-            ofile,
-            encoding=encoding,
-        )
-
-        self.l2b_prod.close()
-
-    def export_to_zarr(self, odir, overwrite=True):
-        """Write the L2B dataset to a compressed Zarr store.
-
-        ``flags`` and ``mask`` are written with their own dtype. All other
-        variables are packed into ``int16`` with a per-variable
-        ``scale_factor`` and ``add_offset``.
+        Same content and packing as `export_to_netcdf` (``int16`` with
+        ``scale_factor``/``add_offset`` and ``_FillValue = -32768`` for the
+        geophysical variables, ``flags`` and ``mask`` unpacked), written with
+        the default Zarr compressor. The store can be read back with
+        ``xr.open_zarr`` (or ``Product``), which unpacks the values
+        automatically. An existing `ofile` is deleted first.
 
         Parameters
         ----------
-        odir : str
-            Output Zarr store path.
-        overwrite : bool, optional
-            If True, an existing Zarr store is replaced.
+        ofile : str
+            Output store path, typically ending in ``.zarr``.
+        persist : bool, optional
+            Compute the whole dataset once and keep it in memory before the
+            ranges are determined and the store is written (needs enough
+            RAM; default False).
+        chunks : dict, optional
+            Chunk sizes per dimension for the store, e.g.
+            ``{'y': 1024, 'x': 1024}``. Default: the dask chunk size of the
+            dataset (first block per dimension).
+
+        Notes
+        -----
+        Zarr requires dask chunks to be regular and aligned with the store
+        chunks, so the dataset is rechunked to one uniform chunk size per
+        dimension before writing. Encodings inherited from the input
+        product (e.g. NetCDF chunking or compression settings) are
+        discarded on the data variables.
 
         Returns
         -------
         None
         """
-        logging.info("export into encoded zarr")
+        logging.info('export into encoded zarr')
+        encoding = self._packing_encoding(persist=persist)
 
-        # Remove existing Zarr store
-        if overwrite and os.path.exists(odir):
-            shutil.rmtree(odir)
+        # work on a shallow copy so the input product is not modified
+        ds = self.l2b_prod.copy(deep=False)
+        for variable in self.variables:
+            ds[variable].encoding = {}
 
-        # Create a copy so that we don't modify self.l2b_prod
-        ds = self.l2b_prod.copy()
+        # regular chunks, aligned with the zarr chunks
+        if chunks is None:
+            chunks = {}
+            for variable in self.variables:
+                if ds[variable].chunks is not None:
+                    for dim, c in zip(ds[variable].dims, ds[variable].chunks):
+                        chunks.setdefault(dim, c[0])
+        if chunks:
+            ds = ds.chunk(chunks)
 
-        native_vars = {"mask", "flags", "spatial_ref"}
+        for variable, enc in encoding.items():
+            if ds[variable].chunks is not None:
+                enc['chunks'] = tuple(c[0] for c in ds[variable].chunks)
 
-        # Pack variables into int16
-        for variable in ds.data_vars:
+        self._prepare_output(ofile)
+        ds.to_zarr(ofile, mode='w', encoding=encoding)
+        self.l2b_prod.close()
 
-            if variable in native_vars:
-                continue
+        return
 
-            p = ds[variable]
-
-            scale_factor, add_offset = self.compute_scale_and_offset(
-                p.values,
-                nbit=16,
-            )
-
-            # Encode the data explicitly as int16
-            ds[variable] = (
-                p.dims,
-                ((p.values - add_offset) / scale_factor).round().astype("int16"),
-            )
-
-            # Store packing information as attributes
-            ds[variable].attrs["scale_factor"] = scale_factor
-            ds[variable].attrs["add_offset"] = add_offset
-            ds[variable].attrs["_FillValue"] = -32768
-
-        # Zarr compressor
-        compressor = numcodecs.Blosc(
-            cname="zstd",
-            clevel=self.complevel,
-            shuffle=numcodecs.Blosc.BITSHUFFLE,
-        )
-
-        encoding = {}
-
-        for variable in ds.data_vars:
-
-            if variable in native_vars:
-                encoding[variable] = {
-                    "compressor": compressor,
-                }
-            else:
-                encoding[variable] = {
-                    "compressor": compressor,
-                }
-
-        # Write Zarr
-        ds.to_zarr(
-            odir,
-            mode="w",
-            encoding=encoding,
-        )
-
-        ds.close()

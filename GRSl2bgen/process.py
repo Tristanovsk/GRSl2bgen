@@ -151,13 +151,13 @@ class Process():
         # ----------------------
         logging.info('get SPM parameters')
         spm_prod = Spm(raster)
-        spm_prod.process()
+        #spm_prod.process()
 
         # ----------------------
         # get Chl-a parameters
         # ----------------------
         logging.info('get Chl-a parameters')
-        chl_prod = Chl(raster, owt_sam=owt_process.owt_sam_spyrakos2018)
+        chl_prod = Chl(raster,xowt_prod=owt_process.xowt_spyrakos2018)
         chl_prod.process()
 
         # ----------------------
@@ -178,14 +178,14 @@ class Process():
         l2_raster_list = [
             owt_process.output,
             chl_prod.output,
-            spm_prod.output,
+            #spm_prod.output,
             cdom_prod.output,
             trans_prod.output]
         self.l2b = L2bProduct(prod, l2_raster_list)
         self.successful = True
 
     def write_output(self):
-        """Export the L2B product to the NetCDF file ``self.l2b_path``.
+        """Export the L2B product to ``self.l2b_path`` (NetCDF, or Zarr if it ends in ``.zarr``).
 
         Must be called after `execute`.
 
@@ -195,8 +195,9 @@ class Process():
             If `execute` has not been run (``self.l2b`` does not exist yet).
         """
 
-        logging.info('export final l2b product into netcdf')
-        self.l2b.export_to_netcdf(self.l2b_path)
+
+        logging.info('export final l2b product')
+        self.l2b.export(self.l2b_path)
 
     def run(self):
         """Run `execute` and `write_output` inside one dask scheduler context.

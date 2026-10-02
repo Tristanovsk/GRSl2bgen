@@ -43,9 +43,9 @@ class OWT():
                           - for "Spyrakos2018", should be "m_nRrs" (normalized reflectance in nm-1)
                           - for "Bi2024", 2 choices: "m_nRrs" (normalized reflectance in nm-1) or "m_Rrs" (reflectance in sr-1)
             :param owt_database_name: string used to name the output xarray variable (e.g., "owt_index_" + owt_database_name)
-            :param provide_sam_distance: if True provide the array [Nowt_to_be_saved, y, x] of the Nowt_te_be_saved top SAM values
+            :param provide_sam_distance: if True provide the array [Nclasses_to_be_saved, y, x] of the Nclasses_te_be_saved top SAM values
             :type provide_sam_distance: Boolean
-            :param Nowt_to_be_saved: number of top classes of SAM to be saved in array, default = 3
+            :param Nclasses_to_be_saved: number of top classes of SAM to be saved in array, default = 3
                                 (too high values might slow down further retrieval from "blended algorithms")
             :param wl_range: spectral range to apply the Spectral angle mapper
             :param chunk: chunk size for multiprocessing
@@ -58,7 +58,7 @@ class OWT():
                  owt_database="Spyrakos2018",
                  owt_database_name='',
                  param='m_nRrs',
-                 Nowt_to_be_saved=1,
+                 Nclasses_to_be_saved=1,
                  wl_range=slice(350, 800),
                  chunk=1024,
                  Nproc=8):
@@ -78,8 +78,8 @@ class OWT():
 
         self.owt_index_name = "owt_index" + self.owt_database_name
         self.owt_dist_name = "owt_dist" + self.owt_database_name
-        self.Nowt_dim ="Nowt" + self.owt_database_name
-        self.Nowt_to_be_saved = Nowt_to_be_saved
+        self.Nclasses_dim ="Nclasses"
+        self.Nclasses_to_be_saved = Nclasses_to_be_saved
 
         if xowt is not None:
             self.owt = xowt
@@ -162,25 +162,25 @@ class OWT():
 
     @staticmethod
     @njit(parallel=True)
-    def SAM(Rrs, Rrs_owt, Nwl, Ny, Nx, Nowt, Nowt_to_be_saved):
+    def SAM(Rrs, Rrs_owt, Nwl, Ny, Nx, Nclasses, Nclasses_to_be_saved):
         '''
             def SAM(R1,R2):
             denum=(R1*R2).sum('wl')
             denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
             return np.arccos(denum/denom)
         '''
-        arr_sam = np.full((Nowt_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
-        arr_index = np.full((Nowt_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
+        arr_sam = np.full((Nclasses_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
+        arr_index = np.full((Nclasses_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
 
-        Rrs_owt_mod = np.zeros(Nowt, dtype=np.float32)
-        for iowt in range(Nowt):
+        Rrs_owt_mod = np.zeros(Nclasses, dtype=np.float32)
+        for iowt in range(Nclasses):
             s = 0.
             for iwl in range(Nwl):
                 s += Rrs_owt[iowt, iwl] ** 2
             Rrs_owt_mod[iowt] = s ** 0.5
 
         for _iy in range(Ny):
-            tmp = np.empty(Nowt, dtype=np.float32)  # contiguous, private per thread
+            tmp = np.empty(Nclasses, dtype=np.float32)  # contiguous, private per thread
             for _ix in range(Nx):
                 if np.isnan(Rrs[0, _iy, _ix]):
                     continue
@@ -192,7 +192,7 @@ class OWT():
                 if Rrs_mod == 0.:
                     continue
 
-                for iowt in range(Nowt):
+                for iowt in range(Nclasses):
                     denum = 0.
                     for iwl in range(Nwl):
                         denum += Rrs[iwl, _iy, _ix] * Rrs_owt[iowt, iwl]
@@ -202,10 +202,10 @@ class OWT():
 
                 # sort by increasing SAM and get indices
                 # get the smallest sam and respective owt number
-                for k in range(Nowt_to_be_saved):
+                for k in range(Nclasses_to_be_saved):
                     best = 0
                     bestval = np.inf
-                    for iowt in range(Nowt):
+                    for iowt in range(Nclasses):
                         if tmp[iowt] < bestval:
                             bestval = tmp[iowt]
                             best = iowt
@@ -214,49 +214,6 @@ class OWT():
                     tmp[best] = np.inf  # exclude from the next pass
 
         return arr_sam, arr_index
-
-    # @staticmethod
-    # @njit()
-    # def SAM(Rrs,
-    #         Rrs_owt,
-    #         Nwl,
-    #         Ny,
-    #         Nx,
-    #         Nowt,
-    #         Nowt_to_be_saved):
-    #     '''
-    #     def SAM(R1,R2):
-    #     denum=(R1*R2).sum('wl')
-    #     denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
-    #     return np.arccos(denum/denom)
-    #     '''
-    #
-    #     arr_sam = np.full((Nowt, Ny, Nx), np.nan, dtype=np.float32)
-    #     arr_index = np.full((Nowt_to_be_saved,Ny, Nx), np.nan, dtype=np.float32)
-    #     Rrs_owt_mod = np.full((Nowt), 0., dtype=np.float32)
-    #
-    #     for iowt in range(Nowt):
-    #         for iwl in range(Nwl):
-    #             Rrs_owt_mod[iowt] += Rrs_owt[iowt, iwl] ** 2
-    #         Rrs_owt_mod[iowt] = Rrs_owt_mod[iowt] ** 0.5
-    #
-    #     for _iy in range(Ny):
-    #         for _ix in range(Nx):
-    #             if np.isnan(Rrs[0, _iy, _ix]):
-    #                 continue
-    #             for iowt in range(Nowt):
-    #                 denum = 0.
-    #                 Rrs_mod = 0.
-    #
-    #                 for iwl in range(Nwl):
-    #                     denum += Rrs[iwl, _iy, _ix] * Rrs_owt[iowt, iwl]
-    #                     Rrs_mod += Rrs[iwl, _iy, _ix] ** 2
-    #                 Rrs_mod = Rrs_mod ** 0.5
-    #                 arr_sam[iowt, _iy, _ix] = np.arccos(denum / (Rrs_mod * Rrs_owt_mod[iowt]))
-    #             arr_sam[:, _iy, _ix].sort(axis=0)
-    #             arr_index[:,_iy, _ix] = (arr_sam[:Nowt_to_be_saved, _iy, _ix]) + 1
-    #
-    #     return arr_sam, arr_index
 
     @staticmethod
     def SCS(R1, R2):
@@ -273,8 +230,8 @@ class OWT():
         height, width, Nowt = self.height, self.width, self.Nowt
         logging.info('OWT classification')
         global chunk_process
-        owt_index = np.ctypeslib.as_ctypes(np.full((self.Nowt_to_be_saved,height, width), np.nan, dtype=np.float32))
-        owt_dist = np.ctypeslib.as_ctypes(np.full((self.Nowt_to_be_saved,height, width), np.nan, dtype=np.float32))
+        owt_index = np.ctypeslib.as_ctypes(np.full((self.Nclasses_to_be_saved,height, width), np.nan, dtype=np.float32))
+        owt_dist = np.ctypeslib.as_ctypes(np.full((self.Nclasses_to_be_saved,height, width), np.nan, dtype=np.float32))
 
         shared_owt_index = sharedctypes.RawArray(owt_index._type_, owt_index)
         shared_owt_dist = sharedctypes.RawArray(owt_dist._type_, owt_dist)
@@ -290,9 +247,9 @@ class OWT():
             Nwl, Ny, Nx = _Rrs.shape
             owt_sam, tmp_owt_index[:,iy:yc, ix:xc] = self.SAM(_Rrs.values,
                                                             self.Rrs_owt.values,
-                                                            Nwl, Ny, Nx, Nowt,self.Nowt_to_be_saved)
+                                                            Nwl, Ny, Nx, Nowt,self.Nclasses_to_be_saved)
 
-            tmp_owt_dist[:, iy:yc, ix:xc]=owt_sam[:self.Nowt_to_be_saved]
+            tmp_owt_dist[:, iy:yc, ix:xc]=owt_sam[:self.Nclasses_to_be_saved]
 
             # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024): maybe not necessary small benefit for high computational cost!
             # issue with reshape arrays
@@ -314,9 +271,9 @@ class OWT():
         logging.info('construct xarray owt product')
 
 
-        self.xowt = xr.Dataset(data_vars={self.owt_dist_name: ([self.Nowt_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
-                                          self.owt_index_name: ([self.Nowt_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
-                               coords={self.Nowt_dim:range(self.Nowt_to_be_saved),
+        self.xowt = xr.Dataset(data_vars={self.owt_dist_name: ([self.Nclasses_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
+                                          self.owt_index_name: ([self.Nclasses_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
+                               coords={self.Nclasses_dim:range(self.Nclasses_to_be_saved),
                                        "x":self.Rrs.x,
                                        "y":self.Rrs.y}
                                ).squeeze()
@@ -373,7 +330,7 @@ class OWT_process():
                          owt_database_name=owt_database,
                          chunk=self.chunk,
                          Nproc=self.Nproc,
-                         Nowt_to_be_saved=3
+                         Nclasses_to_be_saved=3
                          )
         self.xowt_spyrakos2018 = OWT_kernel.multi_process()
 
