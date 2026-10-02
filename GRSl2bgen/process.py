@@ -151,7 +151,7 @@ class Process():
         # ----------------------
         logging.info('get SPM parameters')
         spm_prod = Spm(raster)
-        #spm_prod.process()
+        spm_prod.process()
 
         # ----------------------
         # get Chl-a parameters
@@ -178,7 +178,7 @@ class Process():
         l2_raster_list = [
             owt_process.output,
             chl_prod.output,
-            #spm_prod.output,
+            spm_prod.output,
             cdom_prod.output,
             trans_prod.output]
         self.l2b = L2bProduct(prod, l2_raster_list)

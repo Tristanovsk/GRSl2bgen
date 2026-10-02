@@ -67,12 +67,15 @@ class Spm():
             'units': 'mg/l',
             'range': valid_limit
         }
+
+        # TODO add blended once optimized
         self.process_blended(n=2, limits=True)
+
         self.output = xr.merge([
             self.spm_obs2co, self.turbi_dogliotti, self.spm_nechad,
-            self.spm_blend, self.owt_index_spm,
+            #self.spm_blend, self.owt_index_spm,
         ]).drop_vars('wl')
-        self.output = self.output.compute(scheduler='processes')
+        #self.output = self.output.compute(scheduler='processes')
 
     # ------------------------------------------------------------------
     # Existing algorithms (unchanged)

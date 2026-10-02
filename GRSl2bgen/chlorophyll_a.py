@@ -112,7 +112,7 @@ class Chl():
             'description': 'Chl-a concentration from 705/443 ratio, bands 443, 705 nm',
             'applicability': 'case-2 waters',
             'coef': str(acoef),
-            'reference': 'Martin, S.; Bryère, P.; Gernez, P.; Renosh, P.R.; Doxaran, D. ' + \
+            'reference': 'Martin, S.; Bryere, P.; Gernez, P.; Renosh, P.R.; Doxaran, D. ' + \
                          'Towards Reliable High-Resolution Satellite Products for the Monitoring ' + \
                          'of Chlorophyll-a and Suspended Particulate Matter in Optically Shallow ' + \
                          'Coastal Lagoons. Remote Sens. 2025, 17, 3430. https://doi.org/10.3390/rs17203430',
