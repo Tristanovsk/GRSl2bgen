@@ -57,13 +57,18 @@ class Process():
     l2a_obj : str or xarray.Dataset
         L2A product: file/directory path or loaded dataset (see `Product`).
     l2b_path : str, optional
-        Output NetCDF path (default ``'./l2b_product.nc'``).
+        Output NetCDF path (default ``'./l2b_product.nc'``). A path ending in
+        ``.zarr`` is written as a Zarr store, anything else as NetCDF.
     n_workers : int, optional
         If given, `run` executes the chain on a local dask.distributed
         cluster with this many worker processes. Default None: dask's
         default threaded scheduler.
     threads_per_worker : int, optional
         Threads per worker when `n_workers` is set (default 1).
+    pyramid : bool, optional
+        For ``.zarr`` output, write a cloud-ready multiscale store (resolution
+        levels as groups ``0``, ``1``, ... plus consolidated metadata). See
+        ``L2bProduct.export_to_zarr_pyramid``. Default False.
     persist_input : bool, optional
         If True, the water-masked input raster is computed once and kept in
         memory, so that SPM, Chl-a, CDOM and transparency do not each re-read
@@ -94,13 +99,15 @@ class Process():
                  l2b_path='./l2b_product.nc',
                  n_workers=None,
                  threads_per_worker=1,
-                 persist_input=False
+                 persist_input=False,
+                 pyramid=False
                  ):
         self.l2a_obj = l2a_obj
         self.l2b_path = l2b_path
         self.n_workers = n_workers
         self.threads_per_worker = threads_per_worker
         self.persist_input = persist_input
+        self.pyramid = pyramid
         self.l2b = None
         self.successful = False
 
@@ -124,11 +131,6 @@ class Process():
         KeyError
             If the L2A raster has no ``mask`` variable.
 
-        Notes
-        -----
-        ``Chl`` is called with ``owt_sam=...``, but the current ``Chl``
-        constructor accepts ``xowt_prod`` instead, so this call needs
-        updating.
         """
 
         logging.info('import l2a product')
@@ -138,6 +140,9 @@ class Process():
 
         # Apply water mask: restrict all processing to valid water pixels (mask == 0)
         raster = prod.raster.where(prod.raster['mask'] == 0)
+        if self.persist_input:
+            # evaluate the masked input once and share it between all modules
+            raster = raster.persist()
 
         #  ----------------------
         # get OWT parameters
@@ -194,10 +199,8 @@ class Process():
         AttributeError
             If `execute` has not been run (``self.l2b`` does not exist yet).
         """
-
-
         logging.info('export final l2b product')
-        self.l2b.export(self.l2b_path)
+        self.l2b.export(self.l2b_path, pyramid=self.pyramid)
 
     def run(self):
         """Run `execute` and `write_output` inside one dask scheduler context.
