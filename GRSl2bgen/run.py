@@ -1,7 +1,7 @@
 ''' Executable to process Sentinel-2 L2A images into water quality paratmeters
 
 Usage:
-  GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>]  [--no_clobber]
+  GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--no_clobber]
   GRSl2bgen -h | --help
   GRSl2bgen -v | --version
 
@@ -15,6 +15,9 @@ Options:
 
   -o ofile         Full (absolute or relative) path to output L2 image directory.
   --odir odir      Ouput directory [default: ./]
+  --pyramid  bool, optional, for Zarr output, write a multiscale (pyramid) store with
+            `export_to_zarr_pyramid` instead of a single-resolution store
+            (`export_to_zarr`). Ignored, with a warning, for NetCDF. [default: False]
   --no_clobber     Do not process <input_file> if <output_file> already exists.
 
 
@@ -35,6 +38,7 @@ def main():
     print(args)
 
     file = args['<input_file>']
+    pyramid = args['--pyramid']
     noclobber = args['--no_clobber']
 
     ##################################
@@ -44,7 +48,6 @@ def main():
     outfile = args['-o']
 
     if outfile == None:
-        outfile = file
         basename = os.path.basename(file)
         if basename[-3:] != '.nc':
             basename = basename + '.nc'
@@ -67,10 +70,8 @@ def main():
 
     logging.info('call GRSl2bgen for the following paramater. File:' +
                  file + ', output file:' + outfile)
-    process_ = Process(file, outfile)
-    process_.execute()
-    if process_.successful:
-        process_.write_output()
+    process_ = Process(file, outfile, pyramid=pyramid)
+    process_.run()
 
     return
 

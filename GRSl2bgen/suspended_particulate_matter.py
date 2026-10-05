@@ -73,7 +73,7 @@ class Spm():
         }
 
         # TODO add blended once optimized
-        self.process_blended(n=2, limits=True)
+        #self.process_blended(n=2, limits=True)
 
         self.output = xr.merge([
             self.spm_obs2co, self.turbi_dogliotti, self.spm_nechad,

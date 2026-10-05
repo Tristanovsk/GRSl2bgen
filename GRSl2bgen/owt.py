@@ -9,9 +9,11 @@ import matplotlib as mpl
 import matplotlib.patches as mpatches
 
 from importlib_resources import files
+from satpy.composites import spectral
 
-from . import __package__
+from . import __package__, euclidian
 from .sam import sam as _sam, sam_dataarray
+from .euclidian import euclidean as _euclidian, euclidean_dataarray
 
 OWT_Spyrakos2018_file = 'Spyrakos_et_al_2018_OWT_inland_mean_standardised.csv'
 OWT_Bi2024_file = 'Bi_etal_2024_OWT_mean_spec_v01.csv'
@@ -49,6 +51,10 @@ class OWT():
         param : str, optional
             Spectra to use. ``'m_nRrs'`` (normalised reflectance, nm-1) for
             Spyrakos2018; ``'m_nRrs'`` or ``'m_Rrs'`` (sr-1) for Bi2024.
+        spectral_distance : str, optional
+            Spectral distance to use (Default: ``'sam'``):
+                - 'sam' for Spectral Angle Mapper
+                - 'euclidean' for Euclidean Distance
         Nclasses_to_be_saved : int, optional
             Number of best-matching classes kept per pixel (default 1). Higher
             values slow down the blended retrievals that use them.
@@ -73,6 +79,7 @@ class OWT():
                  owt_database="Spyrakos2018",
                  owt_database_name='',
                  param='m_nRrs',
+                 spectral_distance='sam',
                  Nclasses_to_be_saved=1,
                  wl_range=slice(350, 800),
                  chunk=1024,
@@ -88,6 +95,13 @@ class OWT():
         self.height = self.Rrs.sizes['y']
         self.width = self.Rrs.sizes['x']
 
+        if spectral_distance == "sam":
+            self.spectral_distance = sam_dataarray
+        elif spectral_distance == "euclidean":
+            self.spectral_distance = euclidean_dataarray
+        else:
+            raise ValueError(f'unknown sepctral distance {spectral_distance!r}')
+
         self.owt_database = owt_database
         self.owt_database_name = owt_database_name
         if len(self.owt_database_name) > 0:
@@ -95,7 +109,7 @@ class OWT():
 
         self.owt_index_name = "owt_index" + self.owt_database_name
         self.owt_dist_name = "owt_dist" + self.owt_database_name
-        self.Nclasses_dim ="Nclasses"
+        self.Nclasses_dim = "Nclasses"
         self.Nclasses_to_be_saved = Nclasses_to_be_saved
         self.owt_info = {}
 
@@ -216,8 +230,8 @@ class OWT():
     def multi_process(self):
         """Classify the image and build the OWT dataset (lazy for dask input).
 
-        Uses `sam_dataarray`: for dask-backed ``Rrs`` the SAM is computed
-        chunk by chunk by the dask scheduler; for in-memory data a parallel
+        Uses `sam_dataarray` or `euclidian_dataarray`: for dask-backed ``Rrs`` the SAM (or Euclidian distance)
+        is computed chunk by chunk by the dask scheduler; for in-memory data a parallel
         numba kernel is used. There is no shared memory and no worker pool.
 
         Returns
@@ -234,11 +248,11 @@ class OWT():
         if Rrs.chunks is not None and self.chunk:
             Rrs = Rrs.chunk({'y': self.chunk, 'x': self.chunk, 'wl': -1})
 
-        dist, index = sam_dataarray(Rrs,
-                                    self.Rrs_owt.values,
-                                    Nclasses_to_be_saved=self.Nclasses_to_be_saved,
-                                    wl_dim='wl',
-                                    name_dim=self.Nclasses_dim)
+        dist, index = self.spectral_distance(Rrs,
+                                             self.Rrs_owt.values,
+                                             Nclasses_to_be_saved=self.Nclasses_to_be_saved,
+                                             wl_dim='wl',
+                                             name_dim=self.Nclasses_dim)
 
         logging.info('construct xarray owt product')
         self.xowt = xr.Dataset({self.owt_dist_name: dist.rename(self.owt_dist_name),
@@ -294,6 +308,10 @@ class OWT_process():
     ----------
     raster : xarray.Dataset
         L2A raster with ``Rrs`` (see `OWT`).
+    spectral_distance : str, optional
+            Spectral distance to use (Default: ``'sam'``):
+                - 'sam' for Spectral Angle Mapper
+                - 'euclidean' for Euclidean Distance
     chunk : int, optional
         Spatial chunk size for dask-backed input (default 1024).
     Nproc : int, optional
@@ -312,9 +330,11 @@ class OWT_process():
 
     def __init__(self,
                  raster,
+                 spectral_distance='sam',
                  chunk=1024,
                  Nproc=8):
         self.raster = raster
+        self.spectral_distance = spectral_distance
         self.chunk = chunk
         self.Nproc = Nproc
 
@@ -324,6 +344,7 @@ class OWT_process():
                          owt_database=owt_database,
                          param='m_nRrs',
                          owt_database_name=owt_database,
+                         spectral_distance=self.spectral_distance,
                          chunk=self.chunk,
                          Nproc=self.Nproc,
                          Nclasses_to_be_saved=3
