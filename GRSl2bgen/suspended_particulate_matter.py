@@ -28,9 +28,13 @@ def _load_spm_owt_means():
 class Spm():
     def __init__(self,
                  raster,
-                 param='Rrs'):
+                 param='Rrs',
+                 xowt_prod=None,
+                 Nclasses=2):
         self.raster = raster
         self.Rrs = raster[param]
+        self.xowt_prod = xowt_prod
+        self.Nclasses = Nclasses
         self.output = None
 
     def process(self):

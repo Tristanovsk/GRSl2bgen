@@ -1,25 +1,17 @@
-import os
+"""Optical Water Type (OWT) classification with the Spectral Angle Mapper (lazy, dask-friendly)."""
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-
-from numba import njit
 import logging
 
-from multiprocessing import Pool  # Process pool
-from multiprocessing import sharedctypes
-import itertools
-
-import dask
-
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from importlib_resources import files
 
 from . import __package__
+from .sam import sam as _sam, sam_dataarray
 
 OWT_Spyrakos2018_file = 'Spyrakos_et_al_2018_OWT_inland_mean_standardised.csv'
 OWT_Bi2024_file = 'Bi_etal_2024_OWT_mean_spec_v01.csv'
@@ -34,23 +26,46 @@ OWT_tarasenko2025_file = files(__package__ +
 
 
 class OWT():
-    '''
-            Routine for Optical Water Types (OWT) retrieval from L2A images based on several OWT database and robust spectral metric.
+    """Optical Water Type (OWT) retrieval from L2A images.
 
-            :param raster: satellite image raster
-            :param owt_database: name of the OWT database to use within ["Spyrakos2018","Bi2024","Ta2025"]
-            :param param: choose the parameter to use:
-                          - for "Spyrakos2018", should be "m_nRrs" (normalized reflectance in nm-1)
-                          - for "Bi2024", 2 choices: "m_nRrs" (normalized reflectance in nm-1) or "m_Rrs" (reflectance in sr-1)
-            :param owt_database_name: string used to name the output xarray variable (e.g., "owt_index_" + owt_database_name)
-            :param provide_sam_distance: if True provide the array [Nclasses_to_be_saved, y, x] of the Nclasses_te_be_saved top SAM values
-            :type provide_sam_distance: Boolean
-            :param Nclasses_to_be_saved: number of top classes of SAM to be saved in array, default = 3
-                                (too high values might slow down further retrieval from "blended algorithms")
-            :param wl_range: spectral range to apply the Spectral angle mapper
-            :param chunk: chunk size for multiprocessing
-            :param Nproc: number of CPU for multiprocessing
-    '''
+        Classifies every pixel with the Spectral Angle Mapper (SAM) against the
+        mean spectra of an OWT database and keeps the `Nclasses_to_be_saved`
+        best-matching classes. The computation is lazy for dask-backed input:
+        nothing is evaluated until the result is written or computed.
+
+        Parameters
+        ----------
+        raster : xarray.Dataset
+            L2A raster with the variable ``Rrs`` (dimensions y, x, wl in any
+            order; ``wl`` in nm).
+        xowt : xarray.DataArray, optional
+            Externally supplied OWT spectra with dimensions (owt, wl). If given,
+            `owt_database` is ignored.
+        owt_database : {'Spyrakos2018', 'Bi2024'}, optional
+            Built-in OWT database.
+        owt_database_name : str, optional
+            Suffix for the output variable names, e.g. ``'Spyrakos2018'`` gives
+            ``owt_index_Spyrakos2018`` and ``owt_dist_Spyrakos2018``.
+        param : str, optional
+            Spectra to use. ``'m_nRrs'`` (normalised reflectance, nm-1) for
+            Spyrakos2018; ``'m_nRrs'`` or ``'m_Rrs'`` (sr-1) for Bi2024.
+        Nclasses_to_be_saved : int, optional
+            Number of best-matching classes kept per pixel (default 1). Higher
+            values slow down the blended retrievals that use them.
+        wl_range : slice, optional
+            Spectral range used for the SAM (default ``slice(350, 800)``).
+        chunk : int, optional
+            Spatial chunk size (pixels) for dask-backed input.
+        Nproc : int, optional
+            Deprecated and unused (kept for backward compatibility): parallelism
+            now comes from dask and numba.
+
+        Attributes
+        ----------
+        xowt : xarray.Dataset
+            Result of `multi_process`: ``owt_dist_<name>`` (radians) and
+            ``owt_index_<name>`` (1-based class position).
+        """
 
     def __init__(self,
                  raster,
@@ -69,7 +84,9 @@ class OWT():
         self.raster = raster
 
         self.Rrs = raster.Rrs.sel(wl=wl_range)
-        self.Nwl, self.height, self.width = self.Rrs.shape
+        self.Nwl = self.Rrs.sizes['wl']
+        self.height = self.Rrs.sizes['y']
+        self.width = self.Rrs.sizes['x']
 
         self.owt_database = owt_database
         self.owt_database_name = owt_database_name
@@ -80,11 +97,12 @@ class OWT():
         self.owt_dist_name = "owt_dist" + self.owt_database_name
         self.Nclasses_dim ="Nclasses"
         self.Nclasses_to_be_saved = Nclasses_to_be_saved
+        self.owt_info = {}
 
         if xowt is not None:
             self.owt = xowt
             self.attrs_owt = xowt.owt.values
-            self.cmap_owt = plt.cm.Spectral_r
+            self.cmap_owt = mpl.colormaps['Spectral_r']
         else:
             if self.owt_database == 'Spyrakos2018':
                 owt = pd.read_csv(OWT_Spyrakos2018_file, index_col=0).stack().to_xarray().astype(np.float32)
@@ -139,6 +157,8 @@ class OWT():
                     # 12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
                     # 13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
                 }
+            else:
+                raise ValueError(f'unknown OWT database {self.owt_database!r}')
 
             self.owt = owt[self.param]
             colors = []
@@ -151,72 +171,41 @@ class OWT():
             self.cmap_owt = mpl.colors.ListedColormap(colors)
 
         self.Nowt = len(self.owt.owt)
-        self.Rrs_owt = self.owt.interp(wl=self.Rrs.wl).astype(np.float32).squeeze()
+        # class spectra interpolated on the image wavelengths, shape (owt, wl)
+        self.Rrs_owt = (self.owt.interp(wl=self.Rrs.wl)
+                        .astype(np.float32)
+                        .squeeze()
+                        .transpose('owt', 'wl'))
         self.output = None
 
     @staticmethod
     def xSAM(R1, R2):
+        """Spectral angle (radians) between two xarray spectra along ``wl``."""
         denum = (R1 * R2).sum('wl')
         denom = (R1 ** 2).sum('wl') ** 0.5 * (R2 ** 2).sum('wl') ** 0.5
         return np.arccos(denum / denom)
 
     @staticmethod
-    @njit(parallel=True)
-    def SAM(Rrs, Rrs_owt, Nwl, Ny, Nx, Nclasses, Nclasses_to_be_saved):
-        '''
-            def SAM(R1,R2):
-            denum=(R1*R2).sum('wl')
-            denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
-            return np.arccos(denum/denom)
-        '''
-        arr_sam = np.full((Nclasses_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
-        arr_index = np.full((Nclasses_to_be_saved, Ny, Nx), np.nan, dtype=np.float32)
+    def SAM(Rrs, Rrs_owt, Nclasses_to_be_saved):
+        """Numba SAM with the legacy signature (kept for backward compatibility).
 
-        Rrs_owt_mod = np.zeros(Nclasses, dtype=np.float32)
-        for iowt in range(Nclasses):
-            s = 0.
-            for iwl in range(Nwl):
-                s += Rrs_owt[iowt, iwl] ** 2
-            Rrs_owt_mod[iowt] = s ** 0.5
+        Parameters
+        ----------
+        Rrs : ndarray, shape (Nwl, Ny, Nx)
+        Rrs_owt : ndarray, shape (Nowt, Nwl)
+        Nclasses_to_be_saved : int
+            Number of best classes kept per pixel.
 
-        for _iy in range(Ny):
-            tmp = np.empty(Nclasses, dtype=np.float32)  # contiguous, private per thread
-            for _ix in range(Nx):
-                if np.isnan(Rrs[0, _iy, _ix]):
-                    continue
-
-                Rrs_mod = 0.
-                for iwl in range(Nwl):
-                    Rrs_mod += Rrs[iwl, _iy, _ix] ** 2
-                Rrs_mod = Rrs_mod ** 0.5
-                if Rrs_mod == 0.:
-                    continue
-
-                for iowt in range(Nclasses):
-                    denum = 0.
-                    for iwl in range(Nwl):
-                        denum += Rrs[iwl, _iy, _ix] * Rrs_owt[iowt, iwl]
-                    cosang = denum / (Rrs_mod * Rrs_owt_mod[iowt])
-                    cosang = min(1., max(-1., cosang))
-                    tmp[iowt] = np.arccos(cosang)
-
-                # sort by increasing SAM and get indices
-                # get the smallest sam and respective owt number
-                for k in range(Nclasses_to_be_saved):
-                    best = 0
-                    bestval = np.inf
-                    for iowt in range(Nclasses):
-                        if tmp[iowt] < bestval:
-                            bestval = tmp[iowt]
-                            best = iowt
-                    arr_sam[k, _iy, _ix] = tmp[best]
-                    arr_index[k, _iy, _ix] = best + 1
-                    tmp[best] = np.inf  # exclude from the next pass
-
-        return arr_sam, arr_index
+        Returns
+        -------
+        dist, index : ndarray, shape (Nclasses_to_be_saved, Ny, Nx), float32
+            Angles in radians (ascending) and 1-based class positions.
+        """
+        return _sam(np.moveaxis(np.asarray(Rrs), 0, -1), Rrs_owt, Nclasses_to_be_saved)
 
     @staticmethod
     def SCS(R1, R2):
+        """Spectral correlation similarity between two xarray spectra along ``wl``."""
         R1_avg = R1.mean('wl')
         R2_avg = R2.mean('wl')
         R1_std = R1.std('wl')
@@ -225,67 +214,55 @@ class OWT():
         return 1 / (Nwl) * ((R1 - R1_avg) * (R2 - R2_avg)).sum('wl') / (R1_std * R2_std)
 
     def multi_process(self):
+        """Classify the image and build the OWT dataset (lazy for dask input).
 
-        chunk = self.chunk
-        height, width, Nowt = self.height, self.width, self.Nowt
+        Uses `sam_dataarray`: for dask-backed ``Rrs`` the SAM is computed
+        chunk by chunk by the dask scheduler; for in-memory data a parallel
+        numba kernel is used. There is no shared memory and no worker pool.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``owt_dist_<name>`` (radians) and ``owt_index_<name>`` (1-based
+            class position) with dimensions ``[Nclasses, y, x]``; the
+            ``Nclasses`` dimension is dropped when only one class is kept.
+        """
+
         logging.info('OWT classification')
-        global chunk_process
-        owt_index = np.ctypeslib.as_ctypes(np.full((self.Nclasses_to_be_saved,height, width), np.nan, dtype=np.float32))
-        owt_dist = np.ctypeslib.as_ctypes(np.full((self.Nclasses_to_be_saved,height, width), np.nan, dtype=np.float32))
 
-        shared_owt_index = sharedctypes.RawArray(owt_index._type_, owt_index)
-        shared_owt_dist = sharedctypes.RawArray(owt_dist._type_, owt_dist)
+        Rrs = self.Rrs
+        if Rrs.chunks is not None and self.chunk:
+            Rrs = Rrs.chunk({'y': self.chunk, 'x': self.chunk, 'wl': -1})
 
-        def chunk_process(args):
-            iy, ix = args
-            yc = min(height, iy + chunk)
-            xc = min(width, ix + chunk)
-            tmp_owt_index = np.ctypeslib.as_array(shared_owt_index)
-            tmp_owt_dist = np.ctypeslib.as_array(shared_owt_dist)
+        dist, index = sam_dataarray(Rrs,
+                                    self.Rrs_owt.values,
+                                    Nclasses_to_be_saved=self.Nclasses_to_be_saved,
+                                    wl_dim='wl',
+                                    name_dim=self.Nclasses_dim)
 
-            _Rrs = self.Rrs[:, iy:yc, ix:xc]
-            Nwl, Ny, Nx = _Rrs.shape
-            owt_sam, tmp_owt_index[:,iy:yc, ix:xc] = self.SAM(_Rrs.values,
-                                                            self.Rrs_owt.values,
-                                                            Nwl, Ny, Nx, Nowt,self.Nclasses_to_be_saved)
-
-            tmp_owt_dist[:, iy:yc, ix:xc]=owt_sam[:self.Nclasses_to_be_saved]
-
-            # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024): maybe not necessary small benefit for high computational cost!
-            # issue with reshape arrays
-            # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
-            # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
-
-        window_idxs = [(i, j) for i, j in
-                       itertools.product(range(0, height, chunk),
-                                         range(0, width, chunk))]
-
-        jobs = [dask.delayed(chunk_process)(arg) for arg in window_idxs]
-        dask.compute(jobs)
-
-        logging.info('success')
-
-        ######################################
-        # construct l2a object
-        ######################################
         logging.info('construct xarray owt product')
+        self.xowt = xr.Dataset({self.owt_dist_name: dist.rename(self.owt_dist_name),
+                                self.owt_index_name: index.rename(self.owt_index_name)})
+        self.xowt = self.xowt.assign_coords(
+            {self.Nclasses_dim: np.arange(self.Nclasses_to_be_saved)})
+        if self.Nclasses_to_be_saved == 1:
+            self.xowt = self.xowt.isel({self.Nclasses_dim: 0}, drop=True)
 
-
-        self.xowt = xr.Dataset(data_vars={self.owt_dist_name: ([self.Nclasses_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
-                                          self.owt_index_name: ([self.Nclasses_dim,"y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
-                               coords={self.Nclasses_dim:range(self.Nclasses_to_be_saved),
-                                       "x":self.Rrs.x,
-                                       "y":self.Rrs.y}
-                               ).squeeze()
+        self.xowt[self.owt_dist_name].attrs['units'] = 'radians'
         self.xowt[self.owt_index_name].attrs['definition'] = self.attrs_owt
 
         return self.xowt
 
     def set_range(self, param, minval=0, maxval=30):
+        """Mask values outside the open interval ``(minval, maxval)``."""
         return param.where((param > minval) & (param < maxval))
 
     def plot(self):
+        """Plot the OWT spectra with their colours (built-in databases only)."""
+        import matplotlib.pyplot as plt
 
+        if not self.owt_info:
+            raise NotImplementedError('plot needs owt_info, which is not available for externally supplied OWT')
         patch = []
         for key, info in self.owt_info.items():
             patch.append(mpatches.Patch(color=info['color'], label=info['label']))
@@ -307,17 +284,36 @@ class OWT():
 
 
 class OWT_process():
+    """Run the OWT classifications used by the L2B processing chain.
+
+    Classifies the raster against the Spyrakos et al. (2018) OWT (top 3
+    classes), the Bi et al. (2024) OWT and the Tarasenko et al. (2025) OWT
+    (best class each).
+
+    Parameters
+    ----------
+    raster : xarray.Dataset
+        L2A raster with ``Rrs`` (see `OWT`).
+    chunk : int, optional
+        Spatial chunk size for dask-backed input (default 1024).
+    Nproc : int, optional
+        Deprecated and unused.
+
+    Attributes
+    ----------
+    xowt_spyrakos2018, xowt_bi2024, xowt_Ta2025 : xarray.Dataset
+        Per-database results.
+    owt_sam_spyrakos2018 : xarray.Dataset
+        Spyrakos2018 result in the form expected by ``Chl``: variables
+        ``owt_dist`` and ``owt_index`` with dimensions ``[Nowt, y, x]``.
+    output : xarray.Dataset
+        Merge of the three results (variables with database suffix).
+    """
+
     def __init__(self,
                  raster,
                  chunk=1024,
                  Nproc=8):
-        '''
-
-        :param raster:
-        :param chunk:
-        :param Nproc:
-        '''
-
         self.raster = raster
         self.chunk = chunk
         self.Nproc = Nproc
@@ -345,7 +341,8 @@ class OWT_process():
         self.xowt_bi2024 = OWT_kernel.multi_process()
 
         # 2025-10-27 add OWT used in Tarasenko et al., 2025
-        xowt = xr.open_dataarray(OWT_tarasenko2025_file)
+        with xr.open_dataarray(OWT_tarasenko2025_file) as xowt:
+            xowt = xowt.load()
         OWT_kernel = OWT(self.raster,
                          xowt=xowt,
                          owt_database_name='Ta2025',
