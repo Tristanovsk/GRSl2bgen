@@ -79,7 +79,7 @@ spectrum are left undefined.
 Euclidean distance
 ~~~~~~~~~~~~~~~~~~
 
-Alternatively (``spectral_distance='euclidean'``, :py:mod:`GRSl2bgen.euclidian`):
+Alternatively (``spectral_distance='euclidean'``, :py:mod:`GRSl2bgen.euclidean`):
 
 .. math::
    :label: euclidean

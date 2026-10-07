@@ -10,9 +10,9 @@ import matplotlib.patches as mpatches
 
 from importlib_resources import files
 
-from . import __package__, euclidian
+from . import __package__
 from .sam import sam as _sam, sam_dataarray
-from .euclidian import euclidean as _euclidian, euclidean_dataarray
+from .euclidean import euclidean as _euclidean, euclidean_dataarray
 
 OWT_Spyrakos2018_file = 'Spyrakos_et_al_2018_OWT_inland_mean_standardised.csv'
 OWT_Bi2024_file = 'Bi_etal_2024_OWT_mean_spec_v01.csv'
@@ -229,7 +229,7 @@ class OWT():
     def multi_process(self):
         """Classify the image and build the OWT dataset (lazy for dask input).
 
-        Uses `sam_dataarray` or `euclidian_dataarray`: for dask-backed ``Rrs`` the SAM (or Euclidian distance)
+        Uses `sam_dataarray` or `euclidean_dataarray`: for dask-backed ``Rrs`` the SAM (or Euclidean distance)
         is computed chunk by chunk by the dask scheduler; for in-memory data a parallel
         numba kernel is used. There is no shared memory and no worker pool.
 
