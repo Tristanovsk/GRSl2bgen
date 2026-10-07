@@ -184,6 +184,143 @@ Outputs
      - m\ :sup:`-1`
      - Diffuse attenuation coefficient of PAR (Roy and Das 2022)
 
+Output formats
+~~~~~~~~~~~~~~
+
+The format follows the extension of the output path (see
+:py:meth:`GRSl2bgen.output.L2bProduct.export`). In all formats the content and the
+encoding are the same: continuous variables are packed into ``int16`` with a
+per-variable ``scale_factor``/``add_offset`` and ``_FillValue = -32768`` (unpacked
+automatically by ``xarray``), while ``flags`` and ``mask`` keep their own type.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 22 56
+
+   * - Format
+     - Selected by
+     - Description
+   * - NetCDF
+     - any other extension (e.g. ``.nc``)
+     - Single file, zlib compression (level 5), NetCDF chunks aligned with the
+       processing chunks (:py:meth:`~GRSl2bgen.output.L2bProduct.export_to_netcdf`).
+   * - Zarr
+     - ``.zarr``
+     - Single-resolution store, regular chunks equal to the processing chunks
+       (:py:meth:`~GRSl2bgen.output.L2bProduct.export_to_zarr`).
+   * - Zarr pyramid
+     - ``.zarr`` + ``--pyramid`` (CLI) or ``pyramid=True``
+       (:py:class:`~GRSl2bgen.process.Process`)
+     - Cloud-ready multiscale store
+       (:py:meth:`~GRSl2bgen.output.L2bProduct.export_to_zarr_pyramid`), see below.
+       ``--pyramid`` is ignored, with a warning, for NetCDF output.
+
+Zarr pyramid export
+^^^^^^^^^^^^^^^^^^^
+
+The pyramid store holds the L2B product at several spatial resolutions, so that a web
+viewer or a cloud client can display a whole tile quickly from a coarse level and fetch
+full-resolution chunks only where it zooms in.
+
+**Layout.** One Zarr group per resolution level, ``0`` being the full resolution and
+each next level being 2 times coarser. Every level is a complete L2B dataset (same
+variables, packing, CRS and ``spatial_ref``). File names below are those of the Zarr
+format 2 written with zarr-python 2.x:
+
+.. code-block:: text
+
+   S2B_MSIL2B_<...>.zarr/
+   ├── .zgroup
+   ├── .zattrs          # product attributes + "multiscales" description
+   ├── .zmetadata       # consolidated metadata of the whole hierarchy
+   ├── 0/               # full resolution (e.g. 10980 x 10980 px at 10 m)
+   ├── 1/               # 1/2  (5490 px, 20 m)
+   ├── 2/               # 1/4  (2745 px, 40 m)
+   ├── ...
+   └── 5/               # 1/32 (343 px, 320 m)
+
+**Number of levels.** Levels are added while the smaller image side of the next level
+stays at least 256 pixels: a 10980-pixel Sentinel-2 tile at 10 m gives levels 0 to 5;
+at 20 m (5490 pixels), levels 0 to 4.
+
+**Resampling.** From one level to the next, each block of 2 x 2 pixels is reduced to
+one pixel:
+
+- continuous variables (Chl-a, SPM, OWT distances, ...): block average ignoring NaN,
+
+  .. math::
+
+     v^{(l+1)}_{i,j} = \operatorname{mean}_{\text{valid}}
+     \left\{ v^{(l)}_{2i,2j},\ v^{(l)}_{2i+1,2j},\ v^{(l)}_{2i,2j+1},\ v^{(l)}_{2i+1,2j+1} \right\}
+
+- categorical variables (``flags``, ``mask``): nearest neighbour (top-left pixel of
+  the block), which preserves the flag values.
+
+Edge pixels that do not fill a complete block are trimmed, so the origin of the grid is
+unchanged and the pixel size doubles at every level; the ``GeoTransform`` of
+``spatial_ref`` is updated accordingly. All levels use the packing parameters of level 0.
+
+.. note::
+
+   The ``owt_index_*`` variables are class numbers but are block-averaged like the
+   continuous variables, so on coarse levels they can take non-integer values at class
+   boundaries. Use level ``0`` for quantitative OWT analysis.
+
+**Chunks.** 512 x 512 pixels at every level (or the whole level when it is smaller), a
+good size for web access.
+
+**Metadata.** The root group carries the product attributes and a ``multiscales``
+attribute describing the levels (following the evolving Zarr *multiscales*
+convention):
+
+.. code-block:: json
+
+   {
+     "multiscales": {
+       "layout": [
+         {"asset": "0"},
+         {"asset": "1", "derived_from": "0",
+          "transform": {"scale": [2.0, 2.0]}, "resampling_method": "average"}
+       ],
+       "resampling_method": "average",
+       "categorical_variables": ["flags", "mask"],
+       "categorical_resampling_method": "nearest",
+       "dims": ["y", "x"]
+     }
+   }
+
+The metadata of all groups are consolidated into a single ``.zmetadata`` file, so a
+client discovers the whole hierarchy with one request.
+
+**Performance.** The processing chain is evaluated only once, when level ``0`` is
+written; each coarser level is computed from the level just written (read back from
+the store), so the upstream processing is never repeated.
+
+**Writing and reading.** From the command line:
+
+.. code-block:: bash
+
+   GRSl2bgen <L2A_input> -o <odir>/S2B_MSIL2B_<...>.zarr --pyramid
+
+From Python, either through the processing chain or directly from an
+:py:class:`~GRSl2bgen.output.L2bProduct` (to choose the number of levels, the minimum
+size or the chunks):
+
+.. code-block:: python
+
+   import xarray as xr
+   from GRSl2bgen import Process
+
+   proc = Process(l2a_path, l2b_path='out/S2B_MSIL2B_<...>.zarr', pyramid=True)
+   proc.run()
+
+   # or, with custom settings, after proc.execute():
+   # proc.l2b.export_to_zarr_pyramid('out/....zarr', min_size=512, chunks={'y': 256, 'x': 256})
+
+   # read one level (the root group holds no data variables)
+   full = xr.open_zarr('out/S2B_MSIL2B_<...>.zarr', group='0')
+   overview = xr.open_zarr('out/S2B_MSIL2B_<...>.zarr', group='3')
+
 Return Codes
 ------------
 
