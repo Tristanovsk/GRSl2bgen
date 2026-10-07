@@ -113,10 +113,15 @@ html_theme_options = {
     'navigation_with_keys': True,
     'show_toc_level': 2,
     'secondary_sidebar_items': ['page-toc', 'edit-this-page'],
+    # transparent logos switched with the light/dark theme
+    'logo': {
+        'image_light': '_static/GRSl2bgen_light.png',
+        'image_dark': '_static/GRSl2bgen_dark.png',
+    },
 }
 
 html_title = ''
-html_logo = '_static/GRSl2bgen.png'
+html_logo = '_static/GRSl2bgen_light.png'
 html_favicon = '_static/grsl2bgen_logo_v0.svg'
 
 html_static_path = ['_static']
