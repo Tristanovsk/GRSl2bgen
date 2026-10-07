@@ -8,8 +8,6 @@ import pandas as pd
 
 import logging
 
-from s2cloudless import S2PixelCloudDetector
-
 FLAG_NAME = 'flags'
 
 

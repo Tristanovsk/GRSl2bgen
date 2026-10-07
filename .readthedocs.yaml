@@ -17,7 +17,7 @@ conda:
 python:
   install:
     - requirements: requirements.txt
+    # Sphinx/docs dependencies come from docs/requirements.txt,
+    # installed through the conda environment (docs/environment.yml)
     - method: pip
       path: .
-      extra_requirements:
-        - docs
