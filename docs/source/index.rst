@@ -1,4 +1,4 @@
-GRSl2bgen documentation
+file processing_chainGRSl2bgen documentation
 ========================
 
 .. include:: _readme.md
