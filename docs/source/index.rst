@@ -9,6 +9,7 @@ GRSl2bgen documentation
    :caption: Contents:
 
    processing_chain
+   algorithms
 
 
 .. toctree::

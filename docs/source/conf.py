@@ -68,6 +68,26 @@ napoleon_use_rtype = False
 
 todo_include_todos = True
 
+# -- Math --------------------------------------------------------------------
+
+# number labelled equations and refer to them as "Eq. (n)" with :eq:
+math_eqref_format = 'Eq. ({number})'
+math_numfig = True
+numfig = True
+
+# LaTeX macros shared by the .rst pages (MathJax) and notebooks/Markdown (MyST)
+mathjax3_config = {
+    'tex': {
+        'macros': {
+            'Rrs': r'R_{\mathrm{rs}}',
+        },
+    },
+}
+# same macros for the PDF build (Read the Docs builds all formats)
+latex_elements = {
+    'preamble': r'\newcommand{\Rrs}{R_{\mathrm{rs}}}',
+}
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'numpy': ('https://numpy.org/doc/stable', None),

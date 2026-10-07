@@ -111,16 +111,19 @@ class Spm():
         ''' Switching Semi-analytical algorithm to retrieve Turbidity (in FNU)
         from remote sensing reflectances (Rrs, in sr-1).
         This algorithm was published in Dogliotti et al., 2015
+        The switch thresholds apply to the water-leaving reflectance
+        rho_w = pi * Rrs, as in the original paper.
         '''
         red = self.Rrs.sel(wl=665)
+        rho_red = np.pi * red
         t_low = self.nechad_relationship(red, coef_l)
         t_high = self.nechad_relationship(red, coef_h)
-        w = (red - switch[0]) / (switch[1] - switch[0])
+        w = (rho_red - switch[0]) / (switch[1] - switch[0])
         t_mixing = (1 - w) * t_low + w * t_high
 
-        t = red.where(red > switch[0], t_low)
-        t = t.where(red < switch[1], t_high)
-        t = t.where((red <= switch[0]) | (red >= switch[1]), t_mixing)
+        t = red.where(rho_red > switch[0], t_low)
+        t = t.where(rho_red < switch[1], t_high)
+        t = t.where((rho_red <= switch[0]) | (rho_red >= switch[1]), t_mixing)
         return t.where(t >= valid_limit[0], 0).where(t <= valid_limit[1])
 
     def spm_N10(self, coefs=[342.1, 0.19563], valid_limit=[0, 2000]):
