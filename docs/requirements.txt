@@ -5,6 +5,7 @@ ipython
 sphinx
 sphinx-book-theme
 sphinx-copybutton
+sphinxcontrib-mermaid
 myst-nb
 myst-parser
 linkify-it-py

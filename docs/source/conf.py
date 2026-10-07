@@ -5,11 +5,17 @@
 
 import os
 import sys
-import GRSl2bgen
+from pathlib import Path
 
-__version__ = GRSl2bgen.__version__
+# Make the package importable without installation (local builds);
+# on Read the Docs the package is also pip-installed (see .readthedocs.yaml).
+DOCS_SOURCE = Path(__file__).resolve().parent
+REPO_ROOT = DOCS_SOURCE.parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
-sys.path.insert(0, os.path.abspath('../..'))
+import GRSl2bgen  # noqa: E402
+
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -17,130 +23,109 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'GRSl2bgen'
 copyright = '2026, CNES/Magellium'
 author = 'Tristan Harmel, Soham Mukherjee'
-release = __version__
-today_fmt = "%Y-%m-%d"
+release = GRSl2bgen.__version__
+version = '.'.join(release.split('.')[:2])
+today_fmt = '%Y-%m-%d'
 
 # -- General configuration ---------------------------------------------------
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.apidoc',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.viewcode',
     'sphinx.ext.autosummary',
-    'sphinx.ext.duration',
-    'sphinx.ext.doctest',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.todo',
+    'sphinx.ext.viewcode',
+    'sphinx_copybutton',
+    'sphinxcontrib.mermaid',
     'myst_nb',
-    'IPython.sphinxext.ipython_console_highlighting'
-
+    'IPython.sphinxext.ipython_console_highlighting',
 ]
-## Include Python objects as they appear in source files
-## Default: alphabetically ('alphabetical')
-autodoc_member_order = 'bysource'
-## Default flags used by autodoc directives
-autodoc_default_flags = ['members', 'show-inheritance']
-## Generate autodoc stubs with summaries from code
-autosummary_generate = True
-# Add any paths that contain templates here, relative to this directory.
+
 templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ['_build', '_readme.md', '**.ipynb_checkpoints', 'Thumbs.db', '.DS_Store']
 
+# -- Autodoc / autosummary ---------------------------------------------------
 
-
-
-# -- Options for HTML output -------------------------------------------------
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
-
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-#html_theme = 'alabaster'
-#html_theme = 'sphinx_rtd_theme'
-html_theme = 'sphinx_book_theme'
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
-
-html_theme_options = {
-    "repository_url": "https://github.com/Tristanovsk/GRSl2bgen",
-    "repository_branch": "master",
-    "use_repository_button": True,
-    "use_issues_button": True,
-    "use_edit_page_button": True,
-    "navigation_with_keys":True,
-    "path_to_docs": "docs",
-}
-
-
-html_logo = "_static/GRSl2bgen.png"
-html_title = ""
-
-html_favicon = "_static/grsl2bgen_logo_v0.svg"
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
-html_css_files = ["custom.css"]
-
-# Custom sidebar templates, must be a dictionary that maps document names
-# to template names.
-
-html_show_sourcelink = False
-
-html_last_updated_fmt = today_fmt
-
-# -- Options for HTMLHelp output ------------------------------------------
-
-# Output file base name for HTML help builder.
-htmlhelp_basename = "grsl2bgen_doc"
-
-# -------------------------------
-# For Jupyter notebook rendering
-# --------------------------------
-
-myst_enable_extensions = [
-    "amsmath",
-    "colon_fence",
-    "deflist",
-    "dollarmath",
-    "html_admonition",
-    "html_image",
-    "linkify",
-    "replacements",
-    "smartquotes",
-    "substitution",
-]
-
-# Autodoc
+autosummary_generate = True
+autoclass_content = 'class'
+autodoc_typehints = 'description'
+# 'members' is set in the autosummary templates (_templates/) to avoid
+# documenting objects twice
 autodoc_default_options = {
-    'member-order': 'groupwise',
+    'member-order': 'bysource',
     'show-inheritance': True,
 }
 
-# Notebook integration parameters
-nbsphinx_execute = 'auto'
-#nb_execution_mode = "off"
-nb_execution_mode = "cache"
+# NumPy-style docstrings
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_use_rtype = False
+
+todo_include_todos = True
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable', None),
+    'pandas': ('https://pandas.pydata.org/docs', None),
+    'xarray': ('https://docs.xarray.dev/en/stable', None),
+    'dask': ('https://docs.dask.org/en/stable', None),
+    'zarr': ('https://zarr.readthedocs.io/en/stable', None),
+}
+
+# -- Options for HTML output -------------------------------------------------
+
+html_theme = 'sphinx_book_theme'
+pygments_style = 'sphinx'
+
+html_theme_options = {
+    'repository_url': 'https://github.com/Tristanovsk/GRSl2bgen',
+    'repository_branch': 'master',
+    'path_to_docs': 'docs/source',
+    'use_repository_button': True,
+    'use_issues_button': True,
+    'use_edit_page_button': True,
+    'use_download_button': True,
+    'navigation_with_keys': True,
+    'show_toc_level': 2,
+    'secondary_sidebar_items': ['page-toc', 'edit-this-page'],
+}
+
+html_title = ''
+html_logo = '_static/GRSl2bgen.png'
+html_favicon = '_static/grsl2bgen_logo_v0.svg'
+
+html_static_path = ['_static']
+html_show_sourcelink = False
+html_last_updated_fmt = today_fmt
+
+htmlhelp_basename = 'grsl2bgen_doc'
+
+# -- MyST / notebook rendering -----------------------------------------------
+
+myst_enable_extensions = [
+    'amsmath',
+    'colon_fence',
+    'deflist',
+    'dollarmath',
+    'html_admonition',
+    'html_image',
+    'linkify',
+    'replacements',
+    'smartquotes',
+    'substitution',
+]
+
+# Notebooks are executed only when their content changed; outputs are cached
+# in docs/build/.jupyter_cache, which is committed so that Read the Docs can
+# reuse it instead of re-running the (data-dependent) processing.
+nb_execution_mode = 'cache'
+nb_execution_cache_path = str(DOCS_SOURCE.parent / 'build' / '.jupyter_cache')
 nb_execution_timeout = -1
 nb_execution_allow_errors = True
-
-# Manage new READTHEDOCS output mechanism
-cache_path = os.getenv('READTHEDOCS_OUTPUT')
-if cache_path is not None:
-    nb_execution_cache_path = f"{cache_path}/../docs/build/.jupyter_cache"
-
-# Merge stderr and stdout
+nb_execution_raise_on_error = False
 nb_merge_streams = True

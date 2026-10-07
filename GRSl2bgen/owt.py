@@ -9,7 +9,6 @@ import matplotlib as mpl
 import matplotlib.patches as mpatches
 
 from importlib_resources import files
-from satpy.composites import spectral
 
 from . import __package__, euclidian
 from .sam import sam as _sam, sam_dataarray

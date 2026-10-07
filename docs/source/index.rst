@@ -1,7 +1,7 @@
 GRSl2bgen documentation
 ========================
 
-.. include:: ../../README.md
+.. include:: _readme.md
    :parser: myst_parser.sphinx_
 
 .. toctree::
@@ -23,7 +23,7 @@ GRSl2bgen documentation
    :caption: GRSl2bgen API
    :hidden:
 
-   api.rst
+   api
 
 
 
