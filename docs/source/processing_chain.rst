@@ -1,6 +1,18 @@
 Processing Chain Description
 =============================
 
+.. image:: _static/GRSl2bgen_light.png
+   :alt: GRSl2bgen logo
+   :width: 160px
+   :align: right
+   :class: only-light
+
+.. image:: _static/GRSl2bgen_dark.png
+   :alt: GRSl2bgen logo
+   :width: 160px
+   :align: right
+   :class: only-dark
+
 This page documents GRSl2bgen following the
 `Processing Chain Documentation Template <https://processing-chain-guidelines.readthedocs.io/en/latest/Data_processing_chain_template/>`_.
 
@@ -11,10 +23,19 @@ Description
 ~~~~~~~~~~~
 
 GRSl2bgen is a scientific processor that derives water-quality parameters from a GRS
-Level-2A (Rrs, water-leaving reflectance) product. Given one L2A product, it successively
-computes an Optical Water Type (OWT) classification, chlorophyll-a concentration, suspended
-particulate matter (SPM), colored dissolved organic matter (CDOM), and water transparency,
-then merges all of these into a single Level-2B netCDF product.
+Level-2A (Rrs, remote-sensing reflectance) product. Given one L2A product, it:
+
+1. restricts the processing to valid water pixels (L2A ``mask == 0``);
+2. classifies every pixel into Optical Water Types (OWT) against three databases
+   (Spyrakos et al. 2018, Bi et al. 2024, Tarasenko et al. 2025) with the Spectral Angle
+   Mapper (or, optionally, the Euclidean distance);
+3. retrieves chlorophyll-a (stand-alone algorithms and an OWT-blended product), suspended
+   particulate matter (SPM) and turbidity, colored dissolved organic matter (CDOM), and
+   water transparency (Kd(PAR));
+4. merges all of these into a single Level-2B product, written as NetCDF or Zarr
+   (optionally as a multiscale Zarr pyramid for cloud visualisation).
+
+The equations of every retrieval are given in :doc:`algorithms`.
 
 The processor is invoked through the ``GRSl2bgen`` command-line executable
 (entry point ``GRSl2bgen.run:main``, see :py:mod:`GRSl2bgen.run`), which wraps the core
@@ -28,16 +49,17 @@ acquisition date and one tile/footprint**, read as a single ``.nc``/``.zarr`` fi
 directory containing a main file and its ``_anc.nc`` ancillary file (see
 :py:class:`GRSl2bgen.product.Product`).
 
-The output granule is a single Level-2B water-quality product (netCDF) covering the same
-footprint and resolution as the input L2A product.
+The output granule is a single Level-2B water-quality product (NetCDF, or Zarr when the
+output path ends in ``.zarr``) covering the same footprint and resolution as the input L2A
+product.
 
 Scheduling and Triggers
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 GRSl2bgen has no built-in scheduler; it is triggered externally, granule by granule:
 
-- **Interactively / single granule**: manual call to ``GRSl2bgen <input_file>`` (see
-  :doc:`index` "Example" section for a CLI example).
+- **Interactively / single granule**: manual call to ``GRSl2bgen <input_file>`` or to
+  :py:class:`GRSl2bgen.process.Process` from Python (see `Examples`_ below).
 - **Containerized**: via the Docker image built from
   `Dockerfile <https://github.com/CNES/GRSl2bgen/blob/main/Dockerfile>`_ and run with
   `run_docker.sh <https://github.com/CNES/GRSl2bgen/blob/main/run_docker.sh>`_ (see
@@ -47,6 +69,46 @@ GRSl2bgen has no built-in scheduler; it is triggered externally, granule by gran
 
 There is no periodicity of its own; scheduling (e.g. reprocessing on new GRS L2A outputs)
 is delegated to the calling scripts/workflow.
+
+Examples
+~~~~~~~~
+
+**Command line.** Process one L2A product into a NetCDF L2B product:
+
+.. code-block:: bash
+
+   img_dir=/your_path_for_image_folder
+   GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc \
+       -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc
+
+Without ``-o``, the output is written to ``--odir`` (default: current directory) with
+``L2Agrs`` replaced by ``L2B`` in the input file name. Add ``--no_clobber`` to skip
+products that are already processed.
+
+Write a cloud-ready multiscale Zarr store instead (the format follows the output
+extension; ``--pyramid`` is ignored for NetCDF):
+
+.. code-block:: bash
+
+   GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc \
+       -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.zarr --pyramid
+
+**Python.** The same chain, run on a local dask cluster:
+
+.. code-block:: python
+
+   from GRSl2bgen import Process
+
+   proc = Process(
+       'S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc',
+       l2b_path='L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc',
+       n_workers=4,          # local dask.distributed cluster (None: threaded scheduler)
+       persist_input=True,   # keep the masked L2A raster in memory, read it once
+   )
+   proc.run()                # execute() + write_output() in the same dask context
+
+See the :doc:`tutorials/basics` and :doc:`tutorials/advanced` notebooks for
+step-by-step examples of the OWT classification and blending.
 
 Dataflow
 --------
@@ -80,12 +142,47 @@ Outputs
    * - Data Type Name
      - Cardinality
      - Description
-   * - Level-2B water quality product (netCDF)
+   * - Level-2B water quality product (NetCDF or Zarr)
      - 1..1
-     - Merged product (see :py:class:`GRSl2bgen.output.L2bProduct`) containing the OWT
-       indices/distances for three classifications (Spyrakos2018, Bi2024, Tarasenko2025),
-       chlorophyll-a, SPM, CDOM and transparency variables, plus the ``flags``/``mask``
-       variables carried over from the input product (see `Data Types`_ below for naming).
+     - Merged product (see :py:class:`GRSl2bgen.output.L2bProduct`), see the variable
+       list below, plus the ``flags``/``mask`` variables carried over from the input
+       product (see `Data Types`_ below for naming).
+
+.. list-table:: Level-2B variables
+   :header-rows: 1
+   :widths: 35 15 50
+
+   * - Variable
+     - Unit
+     - Description
+   * - ``owt_index_Spyrakos2018``, ``owt_dist_Spyrakos2018``
+     - --, rad
+     - 3 best Spyrakos et al. (2018) classes (1-based) and their spectral angles,
+       along the ``Nclasses`` dimension
+   * - ``owt_index_Bi2024``, ``owt_dist_Bi2024``
+     - --, rad
+     - Best Bi et al. (2024) class and its spectral angle
+   * - ``owt_index_Ta2025``, ``owt_dist_Ta2025``
+     - --, rad
+     - Best Tarasenko et al. (2025) class and its spectral angle
+   * - ``Chla_OC2nasa``, ``Chla_M09B``, ``Chla_NIRB``
+     - mg m\ :sup:`-3`
+     - Chlorophyll-a from NASA OC2, Moses et al. (2009) and the NIR-blue ratio
+   * - ``Chla_OWTblend_Ta2025``
+     - mg m\ :sup:`-3`
+     - OWT-blended chlorophyll-a (Tavares et al. 2025 recipe)
+   * - ``SPM_nechad``, ``SPM_obs2co``
+     - mg L\ :sup:`-1`
+     - Suspended particulate matter
+   * - ``TURB_dogliotti``
+     - FNU
+     - Turbidity (Dogliotti et al. 2015)
+   * - ``acdom_B15``
+     - m\ :sup:`-1`
+     - CDOM absorption at 440 nm (Brezonik et al. 2015)
+   * - ``Kd_par``
+     - m\ :sup:`-1`
+     - Diffuse attenuation coefficient of PAR (Roy and Das 2022)
 
 Return Codes
 ------------
@@ -113,9 +210,15 @@ Required Resources
 
 No SLURM/HPC job scripts or documented resource budgets ship with this repository (unlike
 GRSprocessor). Actual CPU/RAM/runtime needs depend on the input product's spatial resolution
-and tile size; the OWT classification step is the main configurable cost driver via the
-``chunk``/``Nproc`` parameters of :py:class:`GRSl2bgen.owt.OWT_process` (multiprocessing via
-``dask.delayed``).
+and tile size. The chain is lazy (dask): data are read and computed chunk by chunk when the
+output is written. The main settings are:
+
+- ``n_workers`` / ``threads_per_worker`` of :py:class:`GRSl2bgen.process.Process`: run on a
+  local ``dask.distributed`` cluster instead of the default threaded scheduler;
+- ``persist_input``: keep the water-masked input raster in memory so that it is read only
+  once (faster, needs enough RAM for the masked raster);
+- ``chunk`` of :py:class:`GRSl2bgen.owt.OWT_process`: spatial chunk size of the OWT
+  classification, computed by numba-compiled kernels (``Nproc`` is deprecated and unused).
 
 .. list-table::
    :header-rows: 1
@@ -128,8 +231,9 @@ and tile size; the OWT classification step is the main configurable cost driver 
      - size of one GRS L2A product (netCDF/Zarr, plus ancillary file if any)
      - depends on sensor/resolution
    * - Disk — output
-     - one Level-2B netCDF product, ``int16``-encoded with zlib compression (complevel 5)
-     - written to ``-o``/``--odir`` (see :py:meth:`GRSl2bgen.output.L2bProduct.export_to_netcdf`)
+     - one Level-2B product, continuous variables packed as ``int16`` (NetCDF: zlib
+       compression, complevel 5; Zarr: optionally with pyramid levels)
+     - written to ``-o``/``--odir`` (see :py:meth:`GRSl2bgen.output.L2bProduct.export`)
 
 Data Types
 ----------
@@ -147,7 +251,7 @@ Data Types
      - one tile, one date
      - e.g. ``S2B_MSIL2Agrs_<datetime>_N<baseline>_R<orbit>_T<tile>_<datetime>.nc``
    * - Level-2B output product
-     - netCDF water-quality product (OWT, chlorophyll-a, SPM, CDOM, transparency)
+     - NetCDF or Zarr water-quality product (OWT, chlorophyll-a, SPM, CDOM, transparency)
      - one tile, one date
      - input basename with ``L2Agrs`` replaced by ``L2B``, e.g.
        ``S2B_MSIL2B_<datetime>_N<baseline>_R<orbit>_T<tile>_<datetime>.nc`` (see

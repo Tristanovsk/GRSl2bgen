@@ -4,25 +4,28 @@ flowchart LR
     end
 
     PROC["GRSl2bgen Processing Chain<br/>GRSl2bgen CLI / GRSl2bgen.process.Process"]
+    MASK["Water mask<br/>(L2A mask == 0)"]
 
     subgraph steps["Water quality retrievals"]
-        S1["OWT classification<br/>(Spyrakos2018, Bi2024, Tarasenko2025)"]
-        S2["Chlorophyll-a"]
-        S3["Suspended particulate matter"]
+        S1["OWT classification (SAM)<br/>(Spyrakos2018, Bi2024, Tarasenko2025)"]
+        S2["Chlorophyll-a<br/>(incl. OWT-blended)"]
+        S3["SPM and turbidity"]
         S4["CDOM"]
-        S5["Transparency"]
+        S5["Transparency (Kd PAR)"]
     end
 
     subgraph out["Output Data"]
-        OUT1["Level-2B water quality product<br/>NetCDF<br/>Disk/POSIX"]
+        OUT1["Level-2B water quality product<br/>NetCDF or Zarr (optional pyramid)<br/>Disk/POSIX"]
     end
 
     IN1 --> PROC
-    PROC --> S1
-    PROC --> S2
-    PROC --> S3
-    PROC --> S4
-    PROC --> S5
+    PROC --> MASK
+    MASK --> S1
+    MASK --> S2
+    MASK --> S3
+    MASK --> S4
+    MASK --> S5
+    S1 -. "Spyrakos2018 top classes" .-> S2
     S1 --> OUT1
     S2 --> OUT1
     S3 --> OUT1
@@ -36,7 +39,7 @@ flowchart LR
     classDef groupStyle fill:#f3f3f3,stroke:#999999,stroke-dasharray: 4 3,color:#333333
 
     class IN1 mainStyle
-    class PROC procStyle
+    class PROC,MASK procStyle
     class S1,S2,S3,S4,S5 stepStyle
     class OUT1 outStyle
     class main,steps,out groupStyle
