@@ -108,10 +108,13 @@ class L2bProduct():
     def compute_scale_and_offset(array, nbit=16):
         """Compute NetCDF packing parameters for an integer encoding.
 
-        The data range ``[min, max]`` is stretched over the ``2**nbit - 1``
-        steps of an ``nbit`` signed integer, centred on zero, so that
+        The data range ``[min, max]`` is stretched over the packed values
+        ``[-(2**(nbit - 1) - 1), 2**(nbit - 1) - 1]`` (``[-32767, 32767]``
+        for 16 bits), so that
         ``packed = (value - add_offset) / scale_factor`` and
-        ``value = packed * scale_factor + add_offset``.
+        ``value = packed * scale_factor + add_offset``. The lowest integer,
+        ``-2**(nbit - 1)`` (-32768), is left free for the ``_FillValue``
+        used on export.
 
         Parameters
         ----------
@@ -123,17 +126,15 @@ class L2bProduct():
         Returns
         -------
         scale_factor : float
-            ``(max - min) / (2**nbit - 1)``.
+            ``(max - min) / (2**nbit - 2)``.
         add_offset : float
-            ``min + 2**(nbit - 1) * scale_factor``.
+            ``min + (2**(nbit - 1) - 1) * scale_factor``.
 
         Notes
         -----
-        With this formula the minimum maps to ``-2**(nbit - 1)`` (-32768 for
-        16 bits), which is also the ``_FillValue`` used in
-        `export_to_netcdf`, so the smallest value would be read back as
-        missing. The scale factor is 0 for constant arrays and NaN for
-        all-NaN arrays.
+        For a constant array, ``scale_factor = 1`` and ``add_offset = min``
+        (all values packed to 0). For an all-NaN array, ``scale_factor = 1``
+        and ``add_offset = 0`` (all values packed to the fill value).
         """
         return L2bProduct.scale_and_offset_from_range(np.nanmin(array),
                                                       np.nanmax(array),
@@ -157,10 +158,16 @@ class L2bProduct():
         -------
         scale_factor, add_offset : float
         """
-        # stretch/compress data to the available packed range
-        scale_factor = (max_ - min_) / (2 ** nbit - 1)
-        # translate the range to be symmetric about zero
-        add_offset = min_ + 2 ** (nbit - 1) * scale_factor
+        if not (np.isfinite(min_) and np.isfinite(max_)):
+            # no valid data: any non-zero scale factor works
+            return 1., 0.
+        if max_ == min_:
+            # constant field: avoid a zero scale factor (division by zero)
+            return 1., float(min_)
+        # stretch the data over [-(2**(nbit-1) - 1), 2**(nbit-1) - 1]; the lowest
+        # integer, -2**(nbit-1), is kept for the _FillValue
+        scale_factor = (max_ - min_) / (2 ** nbit - 2)
+        add_offset = min_ + (2 ** (nbit - 1) - 1) * scale_factor
         return scale_factor, add_offset
 
     def export(self, ofile, persist=False, pyramid=False):

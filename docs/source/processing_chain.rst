@@ -148,6 +148,9 @@ Outputs
        list below, plus the ``flags``/``mask`` variables carried over from the input
        product (see `Data Types`_ below for naming).
 
+The main variables are listed below; see :doc:`output_product` for the full
+description (dimensions, attributes, quality flags, packing).
+
 .. list-table:: Level-2B variables
    :header-rows: 1
    :widths: 35 15 50

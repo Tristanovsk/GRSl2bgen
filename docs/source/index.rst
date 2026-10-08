@@ -9,6 +9,7 @@ file processing_chainGRSl2bgen documentation
    :caption: Contents:
 
    processing_chain
+   output_product
    algorithms
 
 
