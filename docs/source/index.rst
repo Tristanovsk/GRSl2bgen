@@ -1,5 +1,5 @@
-file processing_chainGRSl2bgen documentation
-========================
+Tristanovsk/GRSl2bgen documentation
+===================================
 
 .. include:: _readme.md
    :parser: myst_parser.sphinx_
@@ -19,6 +19,7 @@ file processing_chainGRSl2bgen documentation
 
    tutorials/basics
    tutorials/advanced
+   tutorials/case_studies
 
 .. toctree::
    :maxdepth: 3
