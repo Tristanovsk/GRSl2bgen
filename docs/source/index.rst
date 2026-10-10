@@ -20,6 +20,7 @@ Tristanovsk/GRSl2bgen documentation
    tutorials/basics
    tutorials/advanced
    tutorials/case_studies
+   tutorials/research
 
 .. toctree::
    :maxdepth: 3
