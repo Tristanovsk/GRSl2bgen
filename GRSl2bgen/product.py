@@ -145,7 +145,7 @@ class Product():
         Rrs_g = self.raster[Rrs_g_vars].to_array(dim='wl', name='Rrs_g').chunk({'wl': 1})
         Rrs_g = Rrs_g.assign_coords({'wl': wls})
         raster = raster.drop_vars(Rrs_g_vars)
-        self.raster = xr.merge([raster, Rrs, Rrs_g])
+        self.raster = xr.merge([raster, Rrs, Rrs_g], compat='no_conflicts', join='outer')
 
     def close(self):
         """Close the files opened from disk by `__init__`.

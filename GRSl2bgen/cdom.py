@@ -29,7 +29,7 @@ class Cdom():
             'units': 'm-1',
             'range':[0,60]}
 
-        self.output = xr.merge([acdom_B15])
+        self.output = xr.merge([acdom_B15], compat='no_conflicts', join='outer')
 
     def set_range(self,param,minval=0,maxval=30):
         return param.where((param>minval)&(param<maxval) )

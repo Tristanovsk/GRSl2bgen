@@ -75,10 +75,11 @@ class Spm():
         # TODO add blended once optimized
         #self.process_blended(n=2, limits=True)
 
+        # compat/join: current xarray defaults, set explicitly as they will change
         self.output = xr.merge([
             self.spm_obs2co, self.turbi_dogliotti, self.spm_nechad,
             #self.spm_blend, self.owt_index_spm,
-        ]).drop_vars('wl')
+        ], compat='no_conflicts', join='outer').drop_vars('wl')
         #self.output = self.output.compute(scheduler='processes')
 
     # ------------------------------------------------------------------

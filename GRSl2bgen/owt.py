@@ -374,4 +374,4 @@ class OWT_process():
 
         self.output = xr.merge([self.xowt_spyrakos2018,
                                 self.xowt_bi2024,
-                                self.xowt_Ta2025])
+                                self.xowt_Ta2025], compat='no_conflicts', join='outer')

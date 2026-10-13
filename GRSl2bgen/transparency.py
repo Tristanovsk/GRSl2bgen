@@ -30,7 +30,7 @@ class Transparency():
         }
 
         # where to add new parameters
-        self.output = xr.merge([self.Kd_par])
+        self.output = xr.merge([self.Kd_par], compat='no_conflicts', join='outer')
         # proceed with dask computing
         self.output = self.output.compute()
 
