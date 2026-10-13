@@ -26,25 +26,22 @@ RUN if [ -f "/kaniko/run/secrets/http_proxy" ]; then export http_proxy=$(cat /ka
         zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
-# OBS2CO_L2BGEN INSTALL
+# GRSL2BGEN INSTALL
 SHELL ["/bin/sh", "-c"]
 WORKDIR /home/
-COPY GRSl2bgen /home/obs2co_l2bgen
-COPY exe /home/obs2co_l2bgen/exe
-COPY setup.py /home
+COPY GRSl2bgen /opt/GRSl2bgen/GRSl2bgen
+COPY exe /opt/GRSl2bgen/exe
+COPY pyproject.toml requirements.txt README.md LICENSE /opt/GRSl2bgen/
 
 # Add additionnal dependencies + L2BGEN
 RUN if [ -f "/kaniko/run/secrets/http_proxy" ]; then export http_proxy=$(cat /kaniko/run/secrets/http_proxy); export https_proxy=$(cat /kaniko/run/secrets/https_proxy); fi \
+    # Ubuntu 22.04 pip (22.0.2) installs pyproject-only packages as UNKNOWN-0.0.0
     && pip3 install \
         --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org \
-        --no-cache-dir \
-        # requirements
-        dask \
-        docopt \
-        matplotlib \
-        netcdf4 \
-        rioxarray \
-        "xarray<=2023.4.2" \
-    && pip3 install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org .
+        --no-cache-dir --upgrade pip setuptools \
+    # dependencies come from requirements.txt, as in the CI tests
+    && pip3 install \
+        --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org \
+        --no-cache-dir /opt/GRSl2bgen
 
-#ENTRYPOINT ["obs2co_l2bgen"]
+#ENTRYPOINT ["GRSl2bgen"]
