@@ -194,7 +194,8 @@ class Spm():
         stack = np.stack([R443, R490, R560, R665], axis=0)
         rrs   = stack / (0.52 + 1.7 * stack)
         u     = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs)) / (2 * 0.125)
-        x     = np.log10((rrs[0] + rrs[1]) / (rrs[2] + 5 * rrs[3] ** 2 / rrs[1]))
+        x     = (rrs[0] + rrs[1]) / (rrs[2] + 5 * rrs[3] ** 2 / rrs[1])
+        x     = np.log10(np.where(x > 0, x, np.nan))
         a560  = aw[2] + 10 ** (-1.146 - 1.366 * x - 0.469 * x ** 2)
         bbp   = (u[2] * a560) / (1 - u[2]) - bbw[2]
         return (94.48785 * bbp).astype(np.float32)

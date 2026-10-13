@@ -282,10 +282,9 @@ class Chl():
         chla = np.full((H, W), np.nan, dtype=np.float32)
 
         # Pre-compute OC2 ratio
-        oc2_ratio = np.log10(
-            self.Rrs.sel(wl=490).values.squeeze() /
-            self.Rrs.sel(wl=560).values.squeeze()
-        )
+        oc2_ratio = (self.Rrs.sel(wl=490).values.squeeze() /
+                     self.Rrs.sel(wl=560).values.squeeze())
+        oc2_ratio = np.log10(np.where(oc2_ratio > 0, oc2_ratio, np.nan))
 
         def _ocx(ratio, acoef):
             logchl = sum(acoef[i] * ratio ** i for i in range(len(acoef)))
@@ -379,7 +378,10 @@ class Chl():
         Rrs : xarray.DataArray
             Reflectance with a ``wl`` dimension containing 490 and 560 nm.
         """
-        return np.log10(Rrs.sel(wl=490) / Rrs.sel(wl=560))
+        ratio = Rrs.sel(wl=490) / Rrs.sel(wl=560)
+        # mask non-positive ratios: their log is NaN (or -inf) anyway, masking
+        # first avoids the 'invalid value in log' warning
+        return np.log10(ratio.where(ratio > 0))
 
     def OC3_ratio(self, Rrs):
         """Return ``log10(max(Rrs443, Rrs490) / Rrs560)``.
@@ -390,7 +392,8 @@ class Chl():
             Reflectance with a ``wl`` dimension containing 443, 490, 560 nm.
         """
         blue = Rrs.sel(wl=[443, 490]).max(dim='wl')
-        return np.log10(blue / Rrs.sel(wl=560))
+        ratio = blue / Rrs.sel(wl=560)
+        return np.log10(ratio.where(ratio > 0))
 
     def OC2(self, Rrs, acoef):
         """OC2 Chl-a from the 490/560 ratio and polynomial coefficients.
@@ -431,7 +434,8 @@ class Chl():
         for the scene; `OC3_ratio` computes the maximum per pixel.
         """
         blue = np.max(Rrs.sel(wl=[443, 490]))
-        ratio = np.log10(blue / Rrs.sel(wl=560))
+        ratio = blue / Rrs.sel(wl=560)
+        ratio = np.log10(ratio.where(ratio > 0))
         return self.OCX_chl(ratio, acoef)
 
     def RED2(self, Rrs):

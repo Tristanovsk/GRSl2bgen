@@ -35,4 +35,7 @@ class Cdom():
         return param.where((param>minval)&(param<maxval) )
 
     def brezonik15(self, acoef = [1.872, -0.83]):
-        return np.exp(acoef[0] + acoef[1] * np.log(self.Rrs.sel(wl=490) / self.Rrs.sel(wl=740)))
+        ratio = self.Rrs.sel(wl=490) / self.Rrs.sel(wl=740)
+        # mask non-positive ratios: their log is NaN (or -inf) anyway, masking
+        # first avoids the 'invalid value in log' warning
+        return np.exp(acoef[0] + acoef[1] * np.log(ratio.where(ratio > 0)))
