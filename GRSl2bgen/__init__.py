@@ -7,11 +7,16 @@ v1.0.0:
     - documentation with readthedocs
 v1.0.1:
     - fix for a fractional power of a negative number
+v1.0.2:
+    - fix for the log of negative band ratios (CDOM, Chl-a OCx ratios)
+    - remove the 'All-NaN slice' and xr.merge FutureWarning warnings
+    - version read from GRSl2bgen.__version__ in pyproject.toml
+    - Docker image built from pyproject.toml (setup.py removed)
 '''
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 from .product import Product
 from .output import L2bProduct
