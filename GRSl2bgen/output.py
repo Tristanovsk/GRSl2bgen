@@ -136,8 +136,11 @@ class L2bProduct():
         (all values packed to 0). For an all-NaN array, ``scale_factor = 1``
         and ``add_offset = 0`` (all values packed to the fill value).
         """
-        return L2bProduct.scale_and_offset_from_range(np.nanmin(array),
-                                                      np.nanmax(array),
+        # fmin/fmax ignore NaN like nanmin/nanmax, without the 'All-NaN slice'
+        # warning: an all-NaN array gives NaN, handled in scale_and_offset_from_range
+        array = np.asarray(array)
+        return L2bProduct.scale_and_offset_from_range(np.fmin.reduce(array, axis=None),
+                                                      np.fmax.reduce(array, axis=None),
                                                       nbit=nbit)
 
     @staticmethod
@@ -220,8 +223,11 @@ class L2bProduct():
         packed = [v for v in self.variables if v not in ['mask', 'flags']]
         stats = {}
         if packed:
-            ranges = dask.compute(*[(self.l2b_prod[v].min(skipna=True),
-                                     self.l2b_prod[v].max(skipna=True))
+            # NaN replaced by +/-inf: same result as min/max(skipna=True) without
+            # the 'All-NaN slice' warning raised for every all-NaN chunk (land,
+            # clouds); an all-NaN variable gives +/-inf, i.e. no valid data
+            ranges = dask.compute(*[(self.l2b_prod[v].fillna(np.inf).min(skipna=False),
+                                     self.l2b_prod[v].fillna(-np.inf).max(skipna=False))
                                     for v in packed])
             stats = {v: (float(lo), float(hi)) for v, (lo, hi) in zip(packed, ranges)}
 
