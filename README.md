@@ -32,7 +32,7 @@ Level-2B water quality product. For each granule (one tile, one date), it:
 The chain is lazy (dask): data are read and computed chunk by chunk when the output is
 written, and the OWT classification runs on numba-compiled kernels.
 
-![example files](illustration/test_Chla_OC2nasa.png)
+![example files](illustration/L2B_products.png)
 
 ## Level-2B variables
 
