@@ -2,11 +2,16 @@
 v0.0.1: version adapted from obs2co_l2bgen
 v0.0.2: add OWT retrieval and multiple source L2A input
 v0.1.0: add Xtrem quality blended algorithm + CI env
+v1.0.0:
+    - first stable version for CNES
+    - documentation with readthedocs
+v1.0.1:
+    - fix for a fractional power of a negative number
 '''
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 from .product import Product
 from .output import L2bProduct
