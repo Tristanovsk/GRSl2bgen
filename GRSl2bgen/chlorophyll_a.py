@@ -477,7 +477,9 @@ class Chl():
             Chl-a (mg m-3).
         """
         index = Rrs.sel(wl=705) / Rrs.sel(wl=443)
-        return acoef[0] * index ** acoef[1]
+        # mask negative bases: a fractional power of a negative number is NaN
+        # anyway, masking first avoids the 'invalid value in power' warning
+        return acoef[0] * index.where(index >= 0) ** acoef[1]
 
     def G10B(self, Rrs, acoef=np.array([113.36, -16.45, 1.124])):
         """Gitelson-type power law on RED3: ``(a0 * RED3 + a1) ** a2``.
@@ -495,7 +497,8 @@ class Chl():
             Chl-a (mg m-3).
         """
         index = self.RED3(Rrs)
-        return ((acoef[0] * index + acoef[1]) ** acoef[2])
+        base = acoef[0] * index + acoef[1]
+        return base.where(base >= 0) ** acoef[2]
 
     def G11B(self, Rrs, acoef=np.array([315.5, 215.95, -25.66])):
         """Gitelson-type quadratic on RED3: ``a0 * RED3**2 + a1 * RED3 + a2``.
@@ -588,7 +591,7 @@ class Chl():
 
         aw665, aw708, a, b = acoef
         bb = 1.61 * R783 / (0.082 - 0.6 * R783)
-        return ((R705 / R665) * (aw708 + bb) - aw665 - bb ** a) / b
+        return ((R705 / R665) * (aw708 + bb) - aw665 - bb.where(bb >= 0) ** a) / b
 
     def chl_ndci(self,
                  Rrs,
@@ -665,7 +668,8 @@ class Chl():
         R705 = Rrs.sel(wl=wls[1], method=method)
 
         a, b = acoef
-        return (0.7864 * (R705 / R665) / a - 0.4245 / a) ** b
+        base = 0.7864 * (R705 / R665) / a - 0.4245 / a
+        return base.where(base >= 0) ** b
 
     @staticmethod
     def create_mask_from_owt(xowt_raster,
