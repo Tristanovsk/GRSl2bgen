@@ -109,6 +109,7 @@ class Process():
         self.persist_input = persist_input
         self.pyramid = pyramid
         self.l2b = None
+        self.l2a = None
         self.successful = False
 
     def execute(self, ):
@@ -137,6 +138,7 @@ class Process():
         l2a_obj = self.l2a_obj
 
         prod = Product(l2a_obj)
+        self.l2a = prod
 
         # Apply water mask: restrict all processing to valid water pixels (mask == 0)
         raster = prod.raster.where(prod.raster['mask'] == 0)
@@ -209,7 +211,15 @@ class Process():
         `n_workers` is set: the distributed cluster must stay alive until the
         file is written, because the L2B product is evaluated lazily and the
         computation happens in `write_output`.
+
+        The input L2A files are closed at the end, also on error, so that
+        several products can be processed in a row from the same Python
+        session without accumulating open files.
         """
         with _dask_client(self.n_workers, self.threads_per_worker):
-            self.execute()
-            self.write_output()
+            try:
+                self.execute()
+                self.write_output()
+            finally:
+                if self.l2a is not None:
+                    self.l2a.close()

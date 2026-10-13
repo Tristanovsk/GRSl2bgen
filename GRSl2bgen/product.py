@@ -80,6 +80,9 @@ class Product():
         """
 
         self.processor = __package__ + '_' + __version__
+        # datasets opened from disk here, closed by `close`; a dataset passed
+        # in by the caller is not ours to close
+        self._opened = []
         if chunks is None:
             chunks = {'wl': -1, 'y': 1024, 'x': 1024}
 
@@ -93,9 +96,11 @@ class Product():
             if extension == 'nc':
                 self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks=chunks)
                 self.ancillary = None
+                self._opened = [self.raster]
             elif 'zarr' in extension:
                 self.raster = xr.open_zarr(l2a_obj, decode_coords='all')
                 self.ancillary = None
+                self._opened = [self.raster]
 
             elif os.path.isdir(l2a_obj):
 
@@ -105,6 +110,7 @@ class Product():
 
                 self.raster = xr.open_dataset(main_file, decode_coords='all', chunks=chunks)
                 self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
+                self._opened = [self.raster, self.ancillary]
 
 
             else:
@@ -141,6 +147,12 @@ class Product():
         raster = raster.drop_vars(Rrs_g_vars)
         self.raster = xr.merge([raster, Rrs, Rrs_g])
 
+    def close(self):
+        """Close the files opened from disk by `__init__`.
 
-
-
+        A dataset passed directly as ``l2a_obj`` is left open. Lazy arrays
+        derived from the closed datasets reopen their file if accessed again.
+        """
+        for ds in self._opened:
+            ds.close()
+        self._opened = []
