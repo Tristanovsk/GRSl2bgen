@@ -11,9 +11,23 @@ readme = "README.md"
 authors = [{ name = "Tristan Harmel", email = "tristan.harmel@gmail.com" }]
 license = { file = "LICENSE" }
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: Image Processing",
 ]
 keywords = ["Sentinel-2","Landsat-8","Landsat-9","water quality", "EO satellite"]
 requires-python = ">=3.9"
@@ -29,6 +43,8 @@ where = ["."]
 
 [project.scripts]
 GRSl2bgen = "GRSl2bgen.run:main"
+# legacy name, kept for existing callers of the Docker image
+obs2co_l2bgen = "GRSl2bgen.run:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "GRSl2bgen.__version__" }
