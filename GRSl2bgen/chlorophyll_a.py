@@ -282,9 +282,12 @@ class Chl():
         chla = np.full((H, W), np.nan, dtype=np.float32)
 
         # Pre-compute OC2 ratio
-        oc2_ratio = (self.Rrs.sel(wl=490).values.squeeze() /
-                     self.Rrs.sel(wl=560).values.squeeze())
-        oc2_ratio = np.log10(np.where(oc2_ratio > 0, oc2_ratio, np.nan))
+        R490 = self.Rrs.sel(wl=490).values.squeeze()
+        R560 = self.Rrs.sel(wl=560).values.squeeze()
+        # mask non-positive bands, not the ratio: two negative bands give a
+        # positive but meaningless ratio
+        oc2_ratio = np.log10(np.where(R490 > 0, R490, np.nan) /
+                             np.where(R560 > 0, R560, np.nan))
 
         def _ocx(ratio, acoef):
             logchl = sum(acoef[i] * ratio ** i for i in range(len(acoef)))
@@ -378,10 +381,11 @@ class Chl():
         Rrs : xarray.DataArray
             Reflectance with a ``wl`` dimension containing 490 and 560 nm.
         """
-        ratio = Rrs.sel(wl=490) / Rrs.sel(wl=560)
-        # mask non-positive ratios: their log is NaN (or -inf) anyway, masking
-        # first avoids the 'invalid value in log' warning
-        return np.log10(ratio.where(ratio > 0))
+        R490, R560 = Rrs.sel(wl=490), Rrs.sel(wl=560)
+        # mask non-positive bands, not the ratio: two negative bands give a
+        # positive but meaningless ratio (and, near zero, a log10 so large
+        # that the OCx polynomial overflows)
+        return np.log10(R490.where(R490 > 0) / R560.where(R560 > 0))
 
     def OC3_ratio(self, Rrs):
         """Return ``log10(max(Rrs443, Rrs490) / Rrs560)``.
@@ -392,8 +396,8 @@ class Chl():
             Reflectance with a ``wl`` dimension containing 443, 490, 560 nm.
         """
         blue = Rrs.sel(wl=[443, 490]).max(dim='wl')
-        ratio = blue / Rrs.sel(wl=560)
-        return np.log10(ratio.where(ratio > 0))
+        R560 = Rrs.sel(wl=560)
+        return np.log10(blue.where(blue > 0) / R560.where(R560 > 0))
 
     def OC2(self, Rrs, acoef):
         """OC2 Chl-a from the 490/560 ratio and polynomial coefficients.
@@ -434,13 +438,14 @@ class Chl():
         for the scene; `OC3_ratio` computes the maximum per pixel.
         """
         blue = np.max(Rrs.sel(wl=[443, 490]))
-        ratio = blue / Rrs.sel(wl=560)
-        ratio = np.log10(ratio.where(ratio > 0))
+        R560 = Rrs.sel(wl=560)
+        ratio = np.log10(blue.where(blue > 0) / R560.where(R560 > 0))
         return self.OCX_chl(ratio, acoef)
 
     def RED2(self, Rrs):
         """Two-band red-edge ratio ``Rrs705 / Rrs665``."""
-        return Rrs.sel(wl=705) / Rrs.sel(wl=665)
+        R665, R705 = Rrs.sel(wl=665), Rrs.sel(wl=705)
+        return R705.where(R705 >= 0) / R665.where(R665 > 0)
 
     def RED3(self, Rrs):
         """Three-band red-edge index ``(1/Rrs665 - 1/Rrs705) * Rrs740``."""
@@ -480,10 +485,11 @@ class Chl():
         xarray.DataArray
             Chl-a (mg m-3).
         """
-        index = Rrs.sel(wl=705) / Rrs.sel(wl=443)
-        # mask negative bases: a fractional power of a negative number is NaN
-        # anyway, masking first avoids the 'invalid value in power' warning
-        return acoef[0] * index.where(index >= 0) ** acoef[1]
+        R443, R705 = Rrs.sel(wl=443), Rrs.sel(wl=705)
+        # mask negative bands, not the ratio: two negative bands give a
+        # positive but meaningless ratio
+        index = R705.where(R705 >= 0) / R443.where(R443 > 0)
+        return acoef[0] * index ** acoef[1]
 
     def G10B(self, Rrs, acoef=np.array([113.36, -16.45, 1.124])):
         """Gitelson-type power law on RED3: ``(a0 * RED3 + a1) ** a2``.
@@ -595,7 +601,8 @@ class Chl():
 
         aw665, aw708, a, b = acoef
         bb = 1.61 * R783 / (0.082 - 0.6 * R783)
-        return ((R705 / R665) * (aw708 + bb) - aw665 - bb.where(bb >= 0) ** a) / b
+        ratio = R705.where(R705 >= 0) / R665.where(R665 > 0)
+        return (ratio * (aw708 + bb) - aw665 - bb.where(bb >= 0) ** a) / b
 
     def chl_ndci(self,
                  Rrs,
@@ -672,7 +679,8 @@ class Chl():
         R705 = Rrs.sel(wl=wls[1], method=method)
 
         a, b = acoef
-        base = 0.7864 * (R705 / R665) / a - 0.4245 / a
+        ratio = R705.where(R705 >= 0) / R665.where(R665 > 0)
+        base = 0.7864 * ratio / a - 0.4245 / a
         return base.where(base >= 0) ** b
 
     @staticmethod

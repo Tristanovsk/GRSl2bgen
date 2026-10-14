@@ -95,10 +95,10 @@ class Spm():
         This algorithm was calibrated on GET radiometric database (Morin 2019)
         """
         red, nir = self.Rrs.sel(wl=665), self.Rrs.sel(wl=865)
-        ratio = nir / red
-        # mask negative bases: a fractional power of a negative number is NaN
-        # anyway, masking first avoids the 'invalid value in power' warning
-        spm_high = coef1[0] * ratio.where(ratio >= 0) ** coef1[1]
+        # mask negative bands, not the ratio: two negative bands give a
+        # positive but meaningless ratio
+        ratio = nir.where(nir >= 0) / red.where(red > 0)
+        spm_high = coef1[0] * ratio ** coef1[1]
         spm_low = self.nechad_relationship(red, coef0)
         w = (red - switch[0]) / (switch[1] - switch[0])
         spm_mixing = (1 - w) * spm_low + w * spm_high
@@ -209,8 +209,9 @@ class Spm():
         stack = np.stack([R443, R490, R560, R665], axis=0)
         rrs   = stack / (0.52 + 1.7 * stack)
         u     = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs)) / (2 * 0.125)
-        ratio = R665 / (R443 + R490)
-        a665  = aw[3] + 0.39 * np.where(ratio >= 0, ratio, np.nan) ** 1.14
+        blue  = R443 + R490
+        ratio = np.where(R665 >= 0, R665, np.nan) / np.where(blue > 0, blue, np.nan)
+        a665  = aw[3] + 0.39 * ratio ** 1.14
         bbp   = (u[3] * a665) / (1 - u[3]) - bbw[3]
         return (113.87498 * bbp).astype(np.float32)
 
