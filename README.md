@@ -153,4 +153,4 @@ To run the Docker image in a container on a S2 raster you can use the `run_docke
 
 ## License
 
-Apache License 2.0, see [LICENSE](LICENSE).
+Apache License 2.0, see [LICENSE](https://github.com/CNES/GRSl2bgen/blob/main/LICENSE).
