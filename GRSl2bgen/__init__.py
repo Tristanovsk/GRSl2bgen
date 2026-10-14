@@ -12,7 +12,7 @@ v1.0.2:
     - remove the 'All-NaN slice' and xr.merge FutureWarning warnings
     - version read from GRSl2bgen.__version__ in pyproject.toml
     - Docker image built from pyproject.toml (setup.py removed)
-v1.1.0dev:
+v1.1.0dev0:
     - OWT-blended SPM from the Cordeiro (2022) SPM OWT (merge of feature/SPM)
     - QAA v6 adg443 for MSI (adg443_QAAv6), with the OWT-blended Chl-a as first guess
     - Secchi disk depth of Lee et al. (2015) from QAA v6 IOPs (Zsd_Lee15)
@@ -27,7 +27,7 @@ v1.1.0dev:
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '1.1.0dev'
+__version__ = '1.1.0dev0'
 
 from .product import Product
 from .output import L2bProduct
