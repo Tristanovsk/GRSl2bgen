@@ -51,6 +51,7 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        acdom_B15               (y, x) float64 ...
        adg443_QAAv6            (y, x) float64 ...
        Kd_par                  (y, x) float64 ...
+       Zsd_Lee15               (y, x) float64 ...
        flags                   (y, x) int64 ...
        mask                    (y, x) uint8 ...
    Attributes: (73)
@@ -256,12 +257,18 @@ CDOM and transparency
      - m\ :sup:`-1`
      - ]0, 3000[
      - Diffuse attenuation coefficient of PAR, Roy and Das (2022) (:eq:`kdpar`).
+   * - ``Zsd_Lee15``
+     - m
+     - ]0, 100[
+     - Secchi disk depth, Lee et al. (2015) (:eq:`zsd`), from QAA v6 IOPs and the
+       Kd model of Lee et al. (2013) at the most transparent band (443--665 nm);
+       only written when the L2A product has the solar zenith angle ``sza``.
 
 .. note::
 
    The ``range`` attribute stored with some variables (e.g. ``[0, 2000]`` for Chl-a,
    ``[0, 60]`` for ``acdom_B15``, ``[0, 30]`` for ``adg443_QAAv6``, ``[0, 200]`` for
-   ``Kd_par``) is informative metadata
+   ``Kd_par``, ``[0, 100]`` for ``Zsd_Lee15``) is informative metadata
    and differs from the filter actually applied, given in the tables above.
 
 Quality flags and mask

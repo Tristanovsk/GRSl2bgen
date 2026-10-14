@@ -33,7 +33,7 @@ Level-2A (Rrs, remote-sensing reflectance) product. Given one L2A product, it:
 3. retrieves chlorophyll-a and suspended particulate matter (SPM), each with stand-alone
    algorithms and an OWT-blended product, turbidity, colored dissolved organic matter
    (CDOM, including a QAA product that uses the OWT-blended chlorophyll-a), and water
-   transparency (Kd(PAR));
+   transparency (Kd(PAR) and Secchi disk depth);
 4. merges all of these into a single Level-2B product, written as NetCDF or Zarr
    (optionally as a multiscale Zarr pyramid for cloud visualisation).
 
@@ -198,6 +198,9 @@ description (dimensions, attributes, quality flags, packing).
    * - ``Kd_par``
      - m\ :sup:`-1`
      - Diffuse attenuation coefficient of PAR (Roy and Das 2022)
+   * - ``Zsd_Lee15``
+     - m
+     - Secchi disk depth (Lee et al. 2015)
 
 Output formats
 ~~~~~~~~~~~~~~

@@ -429,7 +429,8 @@ with the decomposition step adapted to the MSI bands
 :py:class:`GRSl2bgen.utils.iopw`, with the temperature and salinity correction
 of Röttgers et al. (2014) (:math:`T = 20` °C, :math:`S = 0` by default).
 
-**Steps 0--5 (QAA v6).** Below-water reflectance and the ratio
+**Steps 0--5 (QAA v6)**, shared with the Secchi disk depth
+(:py:func:`GRSl2bgen.utils.qaa_v6_iops`). Below-water reflectance and the ratio
 :math:`u = b_b / (a + b_b)`:
 
 .. math::
@@ -461,6 +462,7 @@ Then
    \eta = 2 \left[1 - 1.2 \exp\left(-0.9\, \frac{r_{rs}(443)}{r_{rs}(560)}\right)\right]
 
 .. math::
+   :label: qaa-a
 
    a(\lambda) = \frac{\left[1 - u(\lambda)\right] \left[b_{bw}(\lambda) + b_{bp}(\lambda)\right]}{u(\lambda)}
 
@@ -510,6 +512,50 @@ Roy and Das (2022, table 3, eq. 13):
 
 in m\ :sup:`-1`, kept within :math:`0 < K_d(\mathrm{PAR}) < 3000` m\ :sup:`-1`.
 
+Secchi disk depth (``Zsd_Lee15``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Secchi disk depth from the mechanistic model of Lee et al. (2015)
+(:py:meth:`~GRSl2bgen.transparency.Transparency.zsd_Lee15`), computed when the
+L2A product provides the solar zenith angle :math:`\theta_s` (variable ``sza``,
+degrees):
+
+**Step A.** Total absorption :math:`a(\lambda)` and backscattering
+:math:`b_b(\lambda) = b_{bw}(\lambda) + b_{bp}(\lambda)` at 443, 490, 560 and
+665 nm from QAA v6, steps 0--5 of the CDOM section (:eq:`qaa-a`).
+
+**Step B.** Diffuse attenuation coefficient at each band (Lee et al., 2013):
+
+.. math::
+   :label: kd-lee13
+
+   K_d(\lambda) = (1 + m_0\, \theta_s)\, a(\lambda)
+   + \left(1 - \gamma\, \frac{b_{bw}(\lambda)}{b_b(\lambda)}\right) m_1
+     \left(1 - m_2\, e^{-m_3\, a(\lambda)}\right) b_b(\lambda)
+
+with :math:`m_0 = 0.005`, :math:`m_1 = 4.259`, :math:`m_2 = 0.52`,
+:math:`m_3 = 10.8` and :math:`\gamma = 0.265`.
+
+**Step C.** Transparent window: :math:`\lambda_{tr}` is the band of minimum
+:math:`K_d` among 443--665 nm, with :math:`K_d^{tr} = K_d(\lambda_{tr})` and
+:math:`R^{tr} = \Rrs(\lambda_{tr})`.
+
+**Step D.**
+
+.. math::
+   :label: zsd
+
+   Z_{SD} = \frac{1}{2.5\, K_d^{tr}}
+            \ln\left(\frac{\left|0.14 - R^{tr}\right|}{0.013}\right)
+
+**Step E (quality control).** :math:`Z_{SD}` is NaN where
+:math:`K_d^{tr} \le 0`, :math:`Z_{SD} \le 0`, or :math:`a(\lambda) < a_w(\lambda)`
+at one of the bands, then kept within :math:`0 < Z_{SD} < 100` m. The model
+assumes optically deep water: if a bathymetry is passed to
+:py:meth:`~GRSl2bgen.transparency.Transparency.zsd_Lee15`, the pixels where
+:math:`Z_{SD}` exceeds the water depth are flagged ``bottom_limited`` (not done
+by the processing chain, which has no bathymetry input).
+
 References
 ----------
 
@@ -543,6 +589,13 @@ References
   112386.
 - IOCCG (2014). Update of the Quasi-Analytical Algorithm (QAA_v6).
   International Ocean Colour Coordinating Group.
+- Lee, Z., Hu, C., Shang, S., Du, K., Lewis, M., Arnone, R., Brewin, R. (2013).
+  Penetration of UV-visible solar radiation in the global oceans: insights from
+  ocean color remote sensing. *Journal of Geophysical Research: Oceans*, 118,
+  4241--4255.
+- Lee, Z., Shang, S., Hu, C., Du, K., Weidemann, A., Hou, W., Lin, J., Lin, G.
+  (2015). Secchi disk depth: a new theory and mechanistic model for underwater
+  visibility. *Remote Sensing of Environment*, 169, 139--149.
 - Lee, Z. P., Carder, K. L., Arnone, R. A. (2002). Deriving inherent optical
   properties from water color: a multiband quasi-analytical algorithm for
   optically deep waters. *Applied Optics*, 41, 5755--5772.
