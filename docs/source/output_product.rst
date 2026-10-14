@@ -137,9 +137,7 @@ Optical Water Types
    * - ``owt_dist_Cordeiro2022SPM``
      - (Nclasses, y, x)
      - sr\ :sup:`-1`
-     - Euclidean distance :math:`d` (:eq:`euclidean`) to each of these classes. The
-       ``units`` attribute of the variable reads ``radians``, which is wrong for
-       this distance.
+     - Euclidean distance :math:`d` (:eq:`euclidean`) to each of these classes.
 
 The meaning of each class number is stored in the ``definition`` attribute of the
 ``owt_index_*`` variables:
@@ -352,7 +350,8 @@ Variable attributes
    * - Attribute
      - Content
    * - ``units``
-     - Physical unit (``radians`` for the ``owt_dist_*`` variables).
+     - Physical unit (``radians`` for the SAM ``owt_dist_*`` variables, ``sr-1`` for
+       ``owt_dist_Cordeiro2022SPM``).
    * - ``description``
      - Short description of the retrieval and of the bands used.
    * - ``applicability``
