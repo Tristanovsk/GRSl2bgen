@@ -74,12 +74,12 @@ pip install -e .
 ### Command line
 
 ```
-GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--no_clobber]
+GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--level <level>] [--no_clobber]
 ```
 
-`<input_file>` is a GRS L2A `.nc` file, a `.zarr` store, or a directory containing
-`<name>.nc` and its `<name>_anc.nc` ancillary file. Process one L2A product into a NetCDF
-L2B product:
+`<input_file>` is a GRS L2A `.nc` file, a `.zarr` store (possibly a multiscale pyramid),
+or a directory `<name>/` containing either `<name>.zarr` or `<name>.nc` with its
+`<name>_anc.nc` ancillary file. Process one L2A product into a NetCDF L2B product:
 
 ```bash
 img_dir=/your_path_for_image_folder
@@ -87,8 +87,11 @@ GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T1248
     -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc
 ```
 
-- Without `-o`, the output is written to `--odir` (default: current directory) with
-  `L2Agrs` replaced by `L2B` in the input file name.
+- Without `-o`, the output is written to `--odir` (default: current directory) as
+  `<input name>.nc`, with `L2Agrs` (any case, e.g. `L2AGRS`) replaced by `L2B`.
+- For a Zarr pyramid input, `--level k` processes level `k` of the pyramid, `2**k`
+  coarser than the full resolution (default `0`), e.g. for a quick look:
+  `GRSl2bgen <name>/ -o <name>_L2B_level3.nc --level 3`.
 - The output format follows the extension: `.zarr` gives a Zarr store, anything else
   NetCDF. Add `--pyramid` to a `.zarr` output to write a cloud-ready multiscale store.
 - `--no_clobber` skips products that are already processed.

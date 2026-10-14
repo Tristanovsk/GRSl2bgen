@@ -47,13 +47,13 @@ Application Domain (Granule)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 One processing run (one granule) corresponds to **one GRS Level-2A product for one
-acquisition date and one tile/footprint**, read as a single ``.nc``/``.zarr`` file or as a
-directory containing a main file and its ``_anc.nc`` ancillary file (see
-:py:class:`GRSl2bgen.product.Product`).
+acquisition date and one tile/footprint**, read as a single ``.nc``/``.zarr`` file
+(possibly a multiscale Zarr pyramid) or as a directory containing it (see
+:py:class:`GRSl2bgen.product.Product` and `Inputs`_).
 
 The output granule is a single Level-2B water-quality product (NetCDF, or Zarr when the
 output path ends in ``.zarr``) covering the same footprint and resolution as the input L2A
-product.
+product, or as the selected level of a Zarr pyramid input (``--level``).
 
 Scheduling and Triggers
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,9 +83,17 @@ Examples
    GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc \
        -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc
 
-Without ``-o``, the output is written to ``--odir`` (default: current directory) with
-``L2Agrs`` replaced by ``L2B`` in the input file name. Add ``--no_clobber`` to skip
-products that are already processed.
+Without ``-o``, the output is written to ``--odir`` (default: current directory) as
+``<input name>.nc``, with ``L2Agrs`` (any case, e.g. ``L2AGRS``) replaced by ``L2B``. Add
+``--no_clobber`` to skip products that are already processed.
+
+Process a coarser level of a Zarr pyramid input, e.g. for a quick look of the whole tile
+(level ``k`` is ``2**k`` coarser than the full resolution, default ``0``):
+
+.. code-block:: bash
+
+   GRSl2bgen $img_dir/S2A_MSIL2AGRS_20170412T110621_N0500_R137_T30TWT_20231111T110836_V3.0.1dev \
+       -o $img_dir/L2B/S2A_MSIL2B_20170412T110621_N0500_R137_T30TWT_level3.nc --level 3
 
 Write a cloud-ready multiscale Zarr store instead (the format follows the output
 extension; ``--pyramid`` is ignored for NetCDF):
@@ -106,6 +114,7 @@ extension; ``--pyramid`` is ignored for NetCDF):
        l2b_path='L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc',
        n_workers=4,          # local dask.distributed cluster (None: threaded scheduler)
        persist_input=True,   # keep the masked L2A raster in memory, read it once
+       level=0,              # level read from a Zarr pyramid input (0: full resolution)
    )
    proc.run()                # execute() + write_output() in the same dask context
 
@@ -130,9 +139,26 @@ Inputs
    * - GRS Level-2A product (``<input_file>``)
      - 1..1 (mandatory)
      - Water-leaving reflectance (Rrs) product produced by
-       `GRSprocessor <https://github.com/CNES/GRSprocessor>`_: a ``.nc`` file, a ``.zarr``
-       store, or a directory containing ``<name>.nc`` plus its ``<name>_anc.nc`` ancillary
-       file, passed as the positional CLI argument.
+       `GRSprocessor <https://github.com/CNES/GRSprocessor>`_, passed as the positional
+       CLI argument: a ``.nc`` file, a ``.zarr`` store (possibly a multiscale pyramid, see
+       below), or a directory ``<name>/`` containing ``<name>.zarr``, or ``<name>.nc``
+       plus its ``<name>_anc.nc`` ancillary file.
+
+**Zarr pyramid input.** A Zarr store whose root group has a ``multiscales`` attribute
+(as written by GRS) is read as a pyramid: one group per resolution level (``0``, ``1``,
+..., level ``k`` being ``2**k`` coarser) plus an ``ancillary`` group, for example
+
+.. code-block:: text
+
+   S2A_MSIL2AGRS_<...>_V3.0.1dev/
+   └── S2A_MSIL2AGRS_<...>_V3.0.1dev.zarr/
+       ├── 0/  1/  2/  3/  4/      # Rrs, mask, flags, sza, ... at each level
+       └── ancillary/              # coarse ancillary data (yc, xc grid)
+
+Only the group of the requested level (``--level`` on the command line, ``level`` of
+:py:class:`~GRSl2bgen.process.Process` and :py:class:`~GRSl2bgen.product.Product`,
+default ``0``) is read and processed; the L2B product has the grid of that level. A Zarr
+store without ``multiscales`` is read as a single dataset.
 
 Outputs
 -------

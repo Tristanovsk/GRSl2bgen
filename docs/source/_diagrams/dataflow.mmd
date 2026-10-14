@@ -1,6 +1,6 @@
 flowchart LR
     subgraph main["Input Main data"]
-        IN1["GRS Level-2A product (Rrs)<br/>NetCDF / Zarr, or dir + _anc.nc<br/>Disk/POSIX"]
+        IN1["GRS Level-2A product (Rrs)<br/>NetCDF + _anc.nc, Zarr or Zarr pyramid (--level)<br/>Disk/POSIX"]
     end
 
     PROC["GRSl2bgen Processing Chain<br/>GRSl2bgen CLI / GRSl2bgen.process.Process"]
