@@ -50,6 +50,7 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        SPM_OWTblend_Ta2025     (y, x) float32 ...
        acdom_B15               (y, x) float64 ...
        adg443_QAAv6            (y, x) float64 ...
+       adg443_QAAv6Chl         (y, x) float64 ...
        Kd_par                  (y, x) float64 ...
        Zsd_Lee15               (y, x) float64 ...
        flags                   (y, x) uint32 ...
@@ -254,6 +255,12 @@ CDOM and transparency
      - Detritus and CDOM absorption at 443 nm, QAA v6 adapted to MSI (443/490 nm
        decomposition, :eq:`qaa-adg`), with ``Chla_OWTblend_Ta2025`` as first guess for
        the phytoplankton absorption ratio.
+   * - ``adg443_QAAv6Chl``
+     - m\ :sup:`-1`
+     - ]0, 30[
+     - Detritus and CDOM absorption at 443 nm, QAA v6 non-water absorption minus the
+       phytoplankton absorption of Bricaud et al. (1998) computed from
+       ``Chla_OWTblend_Ta2025`` (:eq:`qaa-adg-chl`); not validated yet.
    * - ``Kd_par``
      - m\ :sup:`-1`
      - ]0, 3000[
@@ -268,7 +275,7 @@ CDOM and transparency
 .. note::
 
    The ``range`` attribute stored with some variables (e.g. ``[0, 2000]`` for Chl-a,
-   ``[0, 60]`` for ``acdom_B15``, ``[0, 30]`` for ``adg443_QAAv6``, ``[0, 200]`` for
+   ``[0, 60]`` for ``acdom_B15``, ``[0, 30]`` for ``adg443_QAAv6`` and ``adg443_QAAv6Chl``, ``[0, 200]`` for
    ``Kd_par``, ``[0, 100]`` for ``Zsd_Lee15``) is informative metadata
    and differs from the filter actually applied, given in the tables above.
 

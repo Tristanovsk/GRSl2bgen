@@ -497,6 +497,38 @@ Chl-a from 0.01 to 1000 mg m\ :sup:`-3`).
 or where one of the 443, 490, 560 and 665 nm bands is not positive. The product
 is then kept within :math:`0 < a_{dg}(443) < 30` m\ :sup:`-1`.
 
+The decomposition is ill-conditioned: :math:`\zeta' \approx 1.47` and
+:math:`\xi' \approx 2.16` are close, so :math:`1 - \zeta'/\xi' \approx 0.32` and
+errors on :math:`a(443)` and :math:`a(490)` are amplified about 3 times. A valid
+pixel needs :math:`\zeta' < \left[a(443) - a_w(443)\right] / \left[a(490) - a_w(490)\right] < \xi'`;
+a small overestimation of :math:`\Rrs(443)` by the atmospheric correction
+(5\ :math:`\times` 10\ :sup:`-4` sr\ :sup:`-1`) pushes the ratio below
+:math:`\zeta'` and gives :math:`a_{dg}(443) \le 0` on a large part of the image
+(17 to 65 % of the water pixels on a Sentinel-2 test tile), hence NaN.
+
+Phytoplankton absorption from Chl-a (``adg443_QAAv6Chl``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Alternative to step 6 (:py:meth:`~GRSl2bgen.cdom.Cdom.a_dg443_QAA_v6_chl`): the
+phytoplankton absorption at 443 nm is computed from the Chl-a with the model of
+Bricaud et al. (1998) and subtracted from the QAA v6 non-water absorption
+(:eq:`qaa-a`):
+
+.. math::
+   :label: qaa-adg-chl
+
+   a_{\phi}(443) = A_{\phi}(443)\, \mathrm{Chl}^{E_{\phi}(443)}, \qquad
+   a_{dg}(443) = a(443) - a_w(443) - a_{\phi}(443)
+
+with the OWT-blended ``Chla_OWTblend_Ta2025`` (:eq:`chl-blend`). No error is
+amplified, so far fewer pixels are lost than with step 6, but the result relies on
+the Chl-a and on the Bricaud et al. (1998) specific absorption, which varies with
+the phytoplankton community. :math:`a_{dg}(443)` is NaN where it is not positive,
+where the Chl-a is not valid or where one of the 443, 490, 560 and 665 nm bands is
+not positive, then kept within :math:`0 < a_{dg}(443) < 30` m\ :sup:`-1`. The two
+products are correlated (r ≈ 0.8 on the test tiles) but ``adg443_QAAv6Chl`` is
+higher; it has not been validated against in situ data yet.
+
 Transparency
 ------------
 

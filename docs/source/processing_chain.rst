@@ -221,6 +221,10 @@ description (dimensions, attributes, quality flags, packing).
    * - ``adg443_QAAv6``
      - m\ :sup:`-1`
      - Detritus and CDOM absorption at 443 nm (QAA v6 adapted to MSI)
+   * - ``adg443_QAAv6Chl``
+     - m\ :sup:`-1`
+     - Detritus and CDOM absorption at 443 nm (QAA v6 minus phytoplankton absorption
+       from Chl-a)
    * - ``Kd_par``
      - m\ :sup:`-1`
      - Diffuse attenuation coefficient of PAR (Roy and Das 2022)

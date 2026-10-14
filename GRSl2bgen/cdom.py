@@ -13,7 +13,8 @@ class Cdom():
     Groups the Brezonik et al. (2015) band-ratio model and a QAA (v6)
     decomposition of the total absorption into detrital plus CDOM absorption
     (``adg``) and phytoplankton absorption (``aph``), adapted to the MSI
-    bands.
+    bands, either by the QAA 443/490 decomposition or with ``aph`` computed
+    from the Chl-a.
 
     Parameters
     ----------
@@ -25,8 +26,8 @@ class Cdom():
         in sr-1).
     chl : xarray.DataArray, optional
         First-guess Chl-a (mg m-3), dimensions ``[y, x]``, e.g. the
-        OWT-blended ``Chla_OWTblend_Ta2025``. Used for the QAA product, which
-        is only computed when it is given.
+        OWT-blended ``Chla_OWTblend_Ta2025``. Used for the QAA products, which
+        are only computed when it is given.
 
     Attributes
     ----------
@@ -55,8 +56,9 @@ class Cdom():
 
         Computes ``acdom_B15`` (Brezonik et al. 2015, 490/740 ratio) and, if
         a first-guess Chl-a is available (``self.chl``), ``adg443_QAAv6``
-        (QAA v6 adapted to MSI, 443/490 decomposition), masks values outside
-        0-30 m-1 with `set_range` and attaches metadata.
+        (QAA v6 adapted to MSI, 443/490 decomposition) and ``adg443_QAAv6Chl``
+        (QAA v6 minus the phytoplankton absorption from the Chl-a), masks
+        values outside 0-30 m-1 with `set_range` and attaches metadata.
         """
 
         # Brezonik et al, 2015
@@ -96,6 +98,25 @@ class Cdom():
             'range': [0, 30]}
 
         merge_list.append(adg443)
+
+        # QAA v6 total absorption minus Bricaud (1998) phytoplankton absorption
+        adg443_chl = self.a_dg443_QAA_v6_chl(self.Rrs, self.chl)['adg443']
+        adg443_chl = self.set_range(adg443_chl)
+        adg443_chl.name = 'adg443_QAAv6Chl'
+        adg443_chl.attrs = {
+            'description': 'Detrital and CDOM absorption at 443 nm: QAA v6 a(443) - aw(443) minus the '
+                           'phytoplankton absorption aph(443) of Bricaud et al. (1998) computed from '
+                           'the Chl-a (' + str(self.chl.name) + ')',
+            'applicability': 'general',
+            'reference': 'Lee, Z.P.; Carder, K.L.; Arnone, R.A. Deriving inherent optical properties '
+                         'from water color: a multiband quasi-analytical algorithm for optically deep '
+                         'waters. Appl. Opt. 2002, 41, 5755-5772; QAA v6 (IOCCG, 2014); '
+                         'Bricaud, A.; Morel, A.; Babin, M.; Allali, K.; Claustre, H. '
+                         'J. Geophys. Res. 1998, 103, 31033-31044',
+            'units': 'm-1',
+            'range': [0, 30]}
+
+        merge_list.append(adg443_chl)
         self.output = xr.merge(merge_list, compat='no_conflicts', join='outer')
 
     def set_range(self,param,minval=0,maxval=30):
@@ -196,3 +217,60 @@ class Cdom():
         return xr.Dataset({'adg443': adg443.where(valid),
                            'aph443': aph443.where(valid),
                            'bbp': bbp.transpose('wl', ...)})
+
+    def a_dg443_QAA_v6_chl(self,
+                           Rrs,
+                           chl,
+                           g0=0.089,
+                           g1=0.1245,
+                           Twater=20,
+                           Salinity=0,
+                           wls=[443, 490, 560, 665],
+                           method=SEL_XARRAY_METHOD):
+        """``adg`` at 443 nm from the QAA v6 total absorption and the Chl-a.
+
+        Steps 0-5 follow QAA v6 (see `GRSl2bgen.utils.qaa_v6_iops`): total
+        absorption ``a`` at 443 nm. The phytoplankton absorption is not
+        obtained by the 443/490 decomposition of `a_dg443_QAA_v6`, very
+        sensitive to errors in Rrs(443) (amplified by ``1 / (1 - zeta / xi)``,
+        about 3), but from the Chl-a with the Bricaud et al. (1998) model:
+        ``aph443 = Aphi443 * chl**Ephi443`` and
+        ``adg443 = (a443 - aw443) - aph443``.
+
+        Parameters
+        ----------
+        Rrs : xarray.DataArray
+            Reflectance (sr-1) with a ``wl`` dimension.
+        chl : xarray.DataArray or float
+            Chl-a (mg m-3); pixels with ``chl <= 0`` or NaN are NaN.
+        g0, g1 : float, optional
+            QAA v6 coefficients of the ``rrs`` to ``u`` relationship (default
+            0.089 and 0.1245).
+        Twater : float, optional
+            Water temperature (deg C) for the pure water absorption
+            (default 20).
+        Salinity : float, optional
+            Salinity (PSU) for the pure water absorption (default 0).
+        wls : list of float, optional
+            Blue, blue-green, green and red wavelengths (nm) used by QAA,
+            default ``[443, 490, 560, 665]``.
+        method : str, optional
+            Selection method passed to ``Rrs.sel`` (default
+            ``config.SEL_XARRAY_METHOD``).
+
+        Returns
+        -------
+        xarray.Dataset
+            ``adg443`` and ``aph443`` (m-1), NaN where ``adg443 <= 0``.
+        """
+        iops = qaa_v6_iops(Rrs, g0=g0, g1=g1, Twater=Twater, Salinity=Salinity,
+                           wls=wls, method=method)
+        wl0 = iops.wl.values[0]
+        Aphi, Ephi = aphi_bricaud1998(wl0)
+        chl = xr.DataArray(chl) if np.isscalar(chl) else chl
+        aph443 = float(Aphi) * chl.where(chl > 0) ** float(Ephi)
+        adg443 = iops.a.sel(wl=wl0) - iops.aw.sel(wl=wl0) - aph443
+
+        valid = adg443 > 0
+        return xr.Dataset({'adg443': adg443.where(valid).drop_vars('wl', errors='ignore'),
+                           'aph443': aph443.where(valid)})

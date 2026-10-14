@@ -15,6 +15,7 @@ v1.0.2:
 v1.1.0dev0:
     - OWT-blended SPM from the Cordeiro (2022) SPM OWT (merge of feature/SPM)
     - QAA v6 adg443 for MSI (adg443_QAAv6), with the OWT-blended Chl-a as first guess
+    - adg443 from QAA v6 a(443) minus Bricaud (1998) aph(443) from the Chl-a (adg443_QAAv6Chl)
     - Secchi disk depth of Lee et al. (2015) from QAA v6 IOPs (Zsd_Lee15)
     - utils: pure water IOPs with T/S correction (iopw), Bricaud (1998) aphi, QAA v6 IOPs
     - read GRS L2A Zarr pyramids, with a level option (Product, Process, CLI --level)
