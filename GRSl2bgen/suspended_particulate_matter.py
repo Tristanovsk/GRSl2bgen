@@ -179,7 +179,10 @@ class Spm():
         rrs490 = R490 / (0.52 + 1.7 * R490)
         rrs560 = R560 / (0.52 + 1.7 * R560)
         rrs665 = R665 / (0.52 + 1.7 * R665)
-        u560 = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs560)) / (2 * 0.125)
+        # mask a negative sqrt argument (rrs560 < -0.0158): NaN anyway, masking
+        # first avoids the 'invalid value in sqrt' warning
+        delta = 0.089 ** 2 + 4 * 0.125 * rrs560
+        u560 = (-0.0895 + np.sqrt(delta.where(delta >= 0))) / (2 * 0.125)
         x = (rrs443 + rrs490) / (rrs560 + 5 * rrs665 ** 2 / rrs490)
         x = np.log10(x.where(x > 0))
         a560 = 0.06299986 + 10 ** (-1.146 - 1.366 * x - 0.469 * x ** 2)
@@ -190,7 +193,10 @@ class Spm():
     def _spm_jiang_red(R443, R490, R560, R665):
         """Jiang et al. 2021, QAA at 665 nm (OWT 2, moderate)."""
         rrs665 = R665 / (0.52 + 1.7 * R665)
-        u665 = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs665)) / (2 * 0.125)
+        # mask a negative sqrt argument (rrs665 < -0.0158): NaN anyway, masking
+        # first avoids the 'invalid value in sqrt' warning
+        delta = 0.089 ** 2 + 4 * 0.125 * rrs665
+        u665 = (-0.0895 + np.sqrt(delta.where(delta >= 0))) / (2 * 0.125)
         # mask negative bands, not the ratio: two negative bands give a
         # positive but meaningless ratio
         blue = R443 + R490
