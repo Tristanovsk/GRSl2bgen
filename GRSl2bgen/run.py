@@ -29,11 +29,25 @@ Options:
       GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc
 '''
 
-import os, sys
+import os, sys, re
 from docopt import docopt
 import logging
 from . import __package__, __version__
 from . import Process
+
+
+def default_output_name(file):
+    """L2B file name derived from the L2A input path.
+
+    The ``.nc`` or ``.zarr`` extension of the input, if any, is replaced by
+    ``.nc`` (other dots, e.g. in a version ``V3.0.1dev``, are kept), and the
+    ``L2Agrs`` level tag is replaced by ``L2B`` whatever its case (``L2Agrs``,
+    ``L2AGRS``, ...).
+    """
+    basename = os.path.basename(file.rstrip('/'))
+    basename = re.sub(r'\.(nc|zarr)$', '', basename)
+    basename = re.sub('L2Agrs', 'L2B', basename, flags=re.IGNORECASE)
+    return basename + '.nc'
 
 
 def main():
@@ -52,10 +66,7 @@ def main():
     outfile = args['-o']
 
     if outfile == None:
-        basename = os.path.basename(file)
-        if basename[-3:] != '.nc':
-            basename = basename + '.nc'
-        basename = basename.replace('L2Agrs', 'L2B')
+        basename = default_output_name(file)
         odir = args['--odir']
         if odir == './':
             odir = os.getcwd()
