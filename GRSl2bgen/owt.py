@@ -24,6 +24,8 @@ OWT_Bi2024_file = files(__package__ +
 
 OWT_tarasenko2025_file = files(__package__ +
                                '.data').joinpath('owt_tarasenko2025.nc')
+OWT_cordeiro2022_spm_file = files(__package__ +
+                                  '.data').joinpath('owt_cordeiro2022_spm.nc')
 
 
 class OWT():
@@ -42,8 +44,10 @@ class OWT():
         xowt : xarray.DataArray, optional
             Externally supplied OWT spectra with dimensions (owt, wl). If given,
             `owt_database` is ignored.
-        owt_database : {'Spyrakos2018', 'Bi2024'}, optional
-            Built-in OWT database.
+        owt_database : {'Spyrakos2018', 'Bi2024', 'Tarasenko2025',
+                        'Cordeiro2022SPM'}, optional
+            Built-in OWT database. ``Cordeiro2022SPM`` uses its raw ``m_Rrs``
+            spectra and always uses Euclidean distance.
         owt_database_name : str, optional
             Suffix for the output variable names, e.g. ``'Spyrakos2018'`` gives
             ``owt_index_Spyrakos2018`` and ``owt_dist_Spyrakos2018``.
@@ -83,6 +87,10 @@ class OWT():
                  wl_range=slice(350, 800),
                  chunk=1024,
                  Nproc=8):
+
+        # Cordeiro's raw-Rrs OWT definition uses Euclidean distance.
+        if xowt is None and owt_database == 'Cordeiro2022SPM':
+            spectral_distance = 'euclidean'
 
         self.param = param
         self.chunk = chunk
@@ -170,18 +178,37 @@ class OWT():
                     # 12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
                     # 13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
                 }
+            elif self.owt_database == 'Tarasenko2025':
+                with xr.open_dataarray(OWT_tarasenko2025_file) as data:
+                    self.owt = data.load()
+                self.param = self.owt.name
+                self.attrs_owt = self.owt.owt.values
+                self.cmap_owt = mpl.colormaps['Spectral_r']
+            elif self.owt_database == 'Cordeiro2022SPM':
+                with xr.open_dataarray(OWT_cordeiro2022_spm_file) as data:
+                    self.owt = data.load()
+                self.param = self.owt.name
+                self.owt_info = {
+                    1: dict(color='#4dac26', label='OWT1: Clear'),
+                    2: dict(color='#b8e186', label='OWT2: Moderate'),
+                    3: dict(color='#f1b6da', label='OWT3: Turbid'),
+                    4: dict(color='#d01c8b', label='OWT4: Very turbid'),
+                }
             else:
                 raise ValueError(f'unknown OWT database {self.owt_database!r}')
 
-            self.owt = owt[self.param]
-            colors = []
-            attrs = ''
-            for key, info in self.owt_info.items():
-                colors.append(info['color'])
-                attrs += str(key) + ":" + info['label'] + '\n'
+            if self.owt_database in ('Spyrakos2018', 'Bi2024'):
+                self.owt = owt[self.param]
 
-            self.attrs_owt = attrs
-            self.cmap_owt = mpl.colors.ListedColormap(colors)
+            if self.owt_database in ('Spyrakos2018', 'Bi2024', 'Cordeiro2022SPM'):
+                colors = []
+                attrs = ''
+                for key, info in self.owt_info.items():
+                    colors.append(info['color'])
+                    attrs += str(key) + ":" + info['label'] + '\n'
+
+                self.attrs_owt = attrs
+                self.cmap_owt = mpl.colors.ListedColormap(colors)
 
         self.Nowt = len(self.owt.owt)
         # class spectra interpolated on the image wavelengths, shape (owt, wl)
@@ -300,8 +327,10 @@ class OWT_process():
     """Run the OWT classifications used by the L2B processing chain.
 
     Classifies the raster against the Spyrakos et al. (2018) OWT (top 3
-    classes), the Bi et al. (2024) OWT and the Tarasenko et al. (2025) OWT
-    (best class each).
+    classes), the Bi et al. (2024) OWT, the Tarasenko et al. (2025) OWT, and
+    the Cordeiro (2022) SPM OWT (best two classes).  The Cordeiro OWT always
+    uses Euclidean distance on unnormalised Rrs, independently of
+    ``spectral_distance``.
 
     Parameters
     ----------
@@ -318,13 +347,13 @@ class OWT_process():
 
     Attributes
     ----------
-    xowt_spyrakos2018, xowt_bi2024, xowt_Ta2025 : xarray.Dataset
+    xowt_spyrakos2018, xowt_bi2024, xowt_Ta2025, xowt_Cordeiro2022SPM : xarray.Dataset
         Per-database results.
     owt_sam_spyrakos2018 : xarray.Dataset
         Spyrakos2018 result in the form expected by ``Chl``: variables
         ``owt_dist`` and ``owt_index`` with dimensions ``[Nowt, y, x]``.
     output : xarray.Dataset
-        Merge of the three results (variables with database suffix).
+        Merge of the four results (variables with database suffix).
     """
 
     def __init__(self,
@@ -336,6 +365,7 @@ class OWT_process():
         self.spectral_distance = spectral_distance
         self.chunk = chunk
         self.Nproc = Nproc
+        self.cmaps = {}
 
     def execute(self):
         owt_database = 'Spyrakos2018'
@@ -348,6 +378,7 @@ class OWT_process():
                          Nproc=self.Nproc,
                          Nclasses_to_be_saved=3
                          )
+        self.cmaps['Spyrakos2018'] = OWT_kernel.cmap_owt
         self.xowt_spyrakos2018 = OWT_kernel.multi_process()
 
         owt_database = 'Bi2024'
@@ -358,20 +389,38 @@ class OWT_process():
                          chunk=self.chunk,
                          Nproc=self.Nproc
                          )
+        self.cmaps['Bi2024'] = OWT_kernel.cmap_owt
         self.xowt_bi2024 = OWT_kernel.multi_process()
 
         # 2025-10-27 add OWT used in Tarasenko et al., 2025
-        with xr.open_dataarray(OWT_tarasenko2025_file) as xowt:
-            xowt = xowt.load()
+        owt_database = 'Tarasenko2025'
         OWT_kernel = OWT(self.raster,
-                         xowt=xowt,
+                         owt_database=owt_database,
                          owt_database_name='Ta2025',
                          param='m_nRrs',
                          chunk=self.chunk,
                          Nproc=self.Nproc
                          )
+        self.cmaps['Tarasenko2025'] = OWT_kernel.cmap_owt
         self.xowt_Ta2025 = OWT_kernel.multi_process()
+
+        # NOTE: Cordeiro (2022) SPM OWT mean spectra are unnormalised Rrs.so,
+        # always this is executed with magnitude-driven distance metrics, such as
+        #  with Euclidean distance.
+        owt_database = 'Cordeiro2022SPM'
+        OWT_kernel = OWT(self.raster,
+                         owt_database=owt_database,
+                         owt_database_name='Cordeiro2022SPM',
+                         param='m_Rrs',
+                         spectral_distance='euclidean',
+                         chunk=self.chunk,
+                         Nproc=self.Nproc,
+                         Nclasses_to_be_saved=2,
+                         )
+        self.cmaps['Cordeiro2022SPM'] = OWT_kernel.cmap_owt
+        self.xowt_Cordeiro2022SPM = OWT_kernel.multi_process()
 
         self.output = xr.merge([self.xowt_spyrakos2018,
                                 self.xowt_bi2024,
-                                self.xowt_Ta2025])
+                                self.xowt_Ta2025,
+                                self.xowt_Cordeiro2022SPM])

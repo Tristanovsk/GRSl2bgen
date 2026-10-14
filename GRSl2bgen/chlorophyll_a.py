@@ -150,6 +150,10 @@ class Chl():
 
         return param.where((param > minval) & (param < maxval))
 
+    # ------------------------------------------------------------------
+    # OWT blending following Tavares et al. (2025)
+    # ------------------------------------------------------------------
+
     def owt_blending(self,
                      xowt_prod,
                      Nclasses = 3,
@@ -257,98 +261,97 @@ class Chl():
         return chla
 
 
+    # def _owt_chl_from_class(self, class_px, limits=True):
+    #     """Dispatch per-pixel OWT class IDs to the appropriate Chl-a algorithm.
 
-    # ------------------------------------------------------------------
-    # OWT blending following Tavares et al. (2025)
-    # ------------------------------------------------------------------
+    #     Parameters
+    #     ----------
+    #     class_px : ndarray (H, W) float32 : 1-based OWT class IDs (NaN = invalid).
+    #     limits   : bool : apply per-algorithm valid range clipping.
 
+    #     Returns
+    #     -------
+    #     chla : ndarray (H, W) float32
+    #     """
+    #     R665 = self.Rrs.sel(wl=665).values.squeeze()
+    #     R705 = self.Rrs.sel(wl=705).values.squeeze()
+    #     R783 = self.Rrs.sel(wl=783).values.squeeze()
+    #     H, W = R665.shape
+    #     chla = np.full((H, W), np.nan, dtype=np.float32)
 
-    def _owt_chl_from_class(self, class_px, limits=True):
-        """Dispatch per-pixel OWT class IDs to the appropriate Chl-a algorithm.
+    #     # Pre-compute OC2 ratio
+    #     oc2_ratio = np.log10(
+    #         self.Rrs.sel(wl=490).values.squeeze() /
+    #         self.Rrs.sel(wl=560).values.squeeze()
+    #     )
 
-        Parameters
-        ----------
-        class_px : ndarray (H, W) float32 : 1-based OWT class IDs (NaN = invalid).
-        limits   : bool : apply per-algorithm valid range clipping.
+    #     def _ocx(ratio, acoef):
+    #         logchl = sum(acoef[i] * ratio ** i for i in range(len(acoef)))
+    #         return (10.0 ** logchl).astype(np.float32)
 
-        Returns
-        -------
-        chla : ndarray (H, W) float32
-        """
-        R665 = self.Rrs.sel(wl=665).values.squeeze()
-        R705 = self.Rrs.sel(wl=705).values.squeeze()
-        R783 = self.Rrs.sel(wl=783).values.squeeze()
-        H, W = R665.shape
-        chla = np.full((H, W), np.nan, dtype=np.float32)
+    #     # OWT 1, 6, 10 : Gons
+    #     mask = np.isin(class_px, [1, 6, 10])
+    #     if mask.any():
+    #         val = self._chl_gons(R665, R705, R783).astype(np.float32)
+    #         if limits:
+    #             val = np.where((val > 1) & (val < 250), val, np.nan)
+    #         chla = np.where(mask, val, chla)
 
-        # Pre-compute OC2 ratio
-        oc2_ratio = np.log10(
-            self.Rrs.sel(wl=490).values.squeeze() /
-            self.Rrs.sel(wl=560).values.squeeze()
-        )
+    #     # OWT 2, 4, 5, 11, 12 : NDCI
+    #     mask_ndci = np.isin(class_px, [2, 4, 5, 11, 12])
+    #     if mask_ndci.any():
+    #         val = self._chl_ndci(R665, R705).astype(np.float32)
+    #         if limits:
+    #             val = np.where((val > 5) & (val < 250), val, np.nan)
+    #         chla = np.where(mask_ndci, val, chla)
 
-        def _ocx(ratio, acoef):
-            logchl = sum(acoef[i] * ratio ** i for i in range(len(acoef)))
-            return (10.0 ** logchl).astype(np.float32)
+    #     # OWT 2, 12 when NDCI > 20 : Gilerson2 override
+    #     ndci_val = self._chl_ndci(R665, R705)
+    #     mask_g2_override = np.isin(class_px, [2, 12]) & (ndci_val > 20)
+    #     if mask_g2_override.any():
+    #         val = self._chl_gilerson2(R665, R705).astype(np.float32)
+    #         if limits:
+    #             val = np.where((val > 5) & (val < 500), val, np.nan)
+    #         chla = np.where(mask_g2_override, val, chla)
 
-        # OWT 1, 6, 10 : Gons
-        mask = np.isin(class_px, [1, 6, 10])
-        if mask.any():
-            val = self._chl_gons(R665, R705, R783).astype(np.float32)
-            if limits:
-                val = np.where((val > 1) & (val < 250), val, np.nan)
-            chla = np.where(mask, val, chla)
+    #     # OWT 7, 8 : Gilerson2
+    #     mask = np.isin(class_px, [7, 8])
+    #     if mask.any():
+    #         val = self._chl_gilerson2(R665, R705).astype(np.float32)
+    #         if limits:
+    #             val = np.where((val > 5) & (val < 500), val, np.nan)
+    #         chla = np.where(mask, val, chla)
 
-        # OWT 2, 4, 5, 11, 12 : NDCI
-        mask_ndci = np.isin(class_px, [2, 4, 5, 11, 12])
-        if mask_ndci.any():
-            val = self._chl_ndci(R665, R705).astype(np.float32)
-            if limits:
-                val = np.where((val > 5) & (val < 250), val, np.nan)
-            chla = np.where(mask_ndci, val, chla)
+    #     # OWT 3 : OC2 (blue water)
+    #     mask = class_px == 3
+    #     if mask.any():
+    #         val = _ocx(oc2_ratio, [0.1098, -0.755, -14.12, -117.0, -17.76])
+    #         if limits:
+    #             val = np.where((val > 0.01) & (val < 50), val, np.nan)
+    #         chla = np.where(mask, val, chla)
 
-        # OWT 2, 12 when NDCI > 20 : Gilerson2 override
-        ndci_val = self._chl_ndci(R665, R705)
-        mask_g2_override = np.isin(class_px, [2, 12]) & (ndci_val > 20)
-        if mask_g2_override.any():
-            val = self._chl_gilerson2(R665, R705).astype(np.float32)
-            if limits:
-                val = np.where((val > 5) & (val < 500), val, np.nan)
-            chla = np.where(mask_g2_override, val, chla)
+    #     # OWT 9 : OC2 (turbid blue)
+    #     mask = class_px == 9
+    #     if mask.any():
+    #         val = _ocx(oc2_ratio, [0.0536, 7.308, 116.2, 412.4, 463.5])
+    #         if limits:
+    #             val = np.where((val > 0.01) & (val < 50), val, np.nan)
+    #         chla = np.where(mask, val, chla)
 
-        # OWT 7, 8 : Gilerson2
-        mask = np.isin(class_px, [7, 8])
-        if mask.any():
-            val = self._chl_gilerson2(R665, R705).astype(np.float32)
-            if limits:
-                val = np.where((val > 5) & (val < 500), val, np.nan)
-            chla = np.where(mask, val, chla)
+    #     # OWT 13 : OC2 (very clear)
+    #     mask = class_px == 13
+    #     if mask.any():
+    #         val = _ocx(oc2_ratio, [-5020.0, 2.9e4, -6.1e4, 5.749e4, -2.026e4])
+    #         if limits:
+    #             val = np.where((val > 0.01) & (val < 50), val, np.nan)
+    #         chla = np.where(mask, val, chla)
 
-        # OWT 3 : OC2 (blue water)
-        mask = class_px == 3
-        if mask.any():
-            val = _ocx(oc2_ratio, [0.1098, -0.755, -14.12, -117.0, -17.76])
-            if limits:
-                val = np.where((val > 0.01) & (val < 50), val, np.nan)
-            chla = np.where(mask, val, chla)
+    #     return chla.astype(np.float32)
 
-        # OWT 9 : OC2 (turbid blue)
-        mask = class_px == 9
-        if mask.any():
-            val = _ocx(oc2_ratio, [0.0536, 7.308, 116.2, 412.4, 463.5])
-            if limits:
-                val = np.where((val > 0.01) & (val < 50), val, np.nan)
-            chla = np.where(mask, val, chla)
-
-        # OWT 13 : OC2 (very clear)
-        mask = class_px == 13
-        if mask.any():
-            val = _ocx(oc2_ratio, [-5020.0, 2.9e4, -6.1e4, 5.749e4, -2.026e4])
-            if limits:
-                val = np.where((val > 0.01) & (val < 50), val, np.nan)
-            chla = np.where(mask, val, chla)
-
-        return chla.astype(np.float32)
+    
+# ------------------------------------------------------------------
+# Individual Chl-a algorithms
+# ------------------------------------------------------------------
 
     def OCX_chl(self, ratio, acoef):
         """Evaluate an OCx polynomial: ``10 ** sum(acoef[i] * ratio**i)``.

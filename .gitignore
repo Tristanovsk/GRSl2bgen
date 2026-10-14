@@ -97,6 +97,7 @@ celerybeat-schedule
 # Environments
 .env
 .venv
+.venv_SPM
 env/
 venv/
 ENV/

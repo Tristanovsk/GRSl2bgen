@@ -5,25 +5,6 @@ import xarray as xr
 from importlib_resources import files
 from . import __package__
 
-_SPM_OWT_WLS   = [443, 490, 560, 665, 705, 740, 783, 842, 865]
-_SPM_OWT_MEANS = None  # module-level cache; populated on first call
-
-
-def _load_spm_owt_means():
-    """Load Cordeiro2022 4-class SPM OWT mean spectra as (4, 9) float32 array."""
-    global _SPM_OWT_MEANS
-    if _SPM_OWT_MEANS is not None:
-        return _SPM_OWT_MEANS
-    f = files(__package__ + '.data').joinpath('Means_OWT_Cordeiro_S2A_SPM.json')
-    with f.open('r') as fp:
-        data = json.load(fp)
-    band_keys = ['Band1', 'Band2', 'Band3', 'Band4', 'Band5', 'Band6', 'Band7', 'Band8', 'Band8A']
-    _SPM_OWT_MEANS = np.array(
-        [[data[f'OWT{k}'][b] for b in band_keys] for k in range(1, 5)],
-        dtype=np.float32,
-    )  # (4, 9)
-    return _SPM_OWT_MEANS
-
 
 class Spm():
     def __init__(self,
@@ -72,13 +53,17 @@ class Spm():
             'range': valid_limit
         }
 
-        # TODO add blended once optimized
-        #self.process_blended(n=2, limits=True)
+        merge_list = [self.spm_obs2co, self.turbi_dogliotti, self.spm_nechad]
+        if self.xowt_prod is not None:
+            spm_blend = self.spm_blending(
+                self.xowt_prod,
+                Nclasses=self.Nclasses,
+                owt_dist_var='owt_dist_Cordeiro2022SPM',
+                owt_index_var='owt_index_Cordeiro2022SPM',
+            )
+            merge_list.append(self.set_range(spm_blend))
 
-        self.output = xr.merge([
-            self.spm_obs2co, self.turbi_dogliotti, self.spm_nechad,
-            #self.spm_blend, self.owt_index_spm,
-        ]).drop_vars('wl')
+        self.output = xr.merge(merge_list, compat='override').drop_vars('wl')
         #self.output = self.output.compute(scheduler='processes')
 
     # ------------------------------------------------------------------
@@ -144,68 +129,65 @@ class Spm():
     # OWT-blended SPM (Tavares et al. 2025 / Cordeiro 2022)
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def compute_spm_owt_distances(Rrs):
-        """Per-pixel Euclidean distance to each of the 4 Cordeiro2022 SPM OWT mean spectra.
-        Returns dist (4, H, W) float32. NaN where any of the 9 bands is NaN.
-        """
-        owt_means = _load_spm_owt_means()   # (4, 9)
-        # sel on a list preserves the wl dim -> (9, H, W); one dask compute for all 9 bands
-        rrs_stack = Rrs.sel(wl=_SPM_OWT_WLS).values.astype(np.float32)  # (9, H, W)
-        nan_mask  = ~np.all(np.isfinite(rrs_stack), axis=0)              # (H, W)
-        H, W = rrs_stack.shape[1], rrs_stack.shape[2]
-        dist = np.full((4, H, W), np.nan, dtype=np.float32)
-        for k in range(4):
-            diff = rrs_stack - owt_means[k, :, None, None]
-            dist[k] = np.where(nan_mask, np.nan, np.sqrt(np.sum(diff ** 2, axis=0)))
-        return dist  # (4, H, W)
+    # @staticmethod
+    # def compute_spm_owt_distances(Rrs):
+    #     """Per-pixel Euclidean distance to each of the 4 Cordeiro2022 SPM OWT mean spectra.
+    #     Returns dist (4, H, W) float32. NaN where any of the 9 bands is NaN.
+    #     """
+    #     owt_means = _load_spm_owt_means()   # (4, 9)
+    #     # sel on a list preserves the wl dim -> (9, H, W); one dask compute for all 9 bands
+    #     rrs_stack = Rrs.sel(wl=_SPM_OWT_WLS).values.astype(np.float32)  # (9, H, W)
+    #     nan_mask  = ~np.all(np.isfinite(rrs_stack), axis=0)              # (H, W)
+    #     H, W = rrs_stack.shape[1], rrs_stack.shape[2]
+    #     dist = np.full((4, H, W), np.nan, dtype=np.float32)
+    #     for k in range(4):
+    #         diff = rrs_stack - owt_means[k, :, None, None]
+    #         dist[k] = np.where(nan_mask, np.nan, np.sqrt(np.sum(diff ** 2, axis=0)))
+    #     return dist  # (4, H, W)
 
-    @staticmethod
-    def compute_owt_weights(dist_np, n=2):
-        """Top-n OWT classes and blending weights from an (N, H, W) Euclidean distance array.
-        Smaller distance = better match. Same formula as Chl.compute_owt_weights.
-        Returns owt_classes (n, H, W) float32 (1-based) and owt_weights (n, H, W) float32.
-        """
-        N, H, W     = dist_np.shape
-        sorted_idx  = np.argsort(dist_np, axis=0)
-        sorted_dist = np.take_along_axis(dist_np, sorted_idx, axis=0)
-        top_dist    = sorted_dist[:n + 1]    # (n+1, H, W)
-        top_idx     = sorted_idx[:n]         # (n, H, W), 0-based
-        d_best      = top_dist[0]
-        d_ref       = top_dist[n]            # (n+1)-th as reference
-        denom       = d_best - d_ref
-        owt_classes = (top_idx + 1).astype(np.float32)
-        owt_weights = np.full((n, H, W), np.nan, dtype=np.float32)
-        valid       = np.isfinite(denom) & (denom != 0)
-        for i in range(n):
-            owt_weights[i] = np.where(
-                valid, (top_dist[i] - d_ref) / denom, np.nan
-            ).astype(np.float32)
-        return owt_classes, owt_weights
+    # @staticmethod
+    # def compute_owt_weights(dist_np, n=2):
+    #     """Top-n OWT classes and blending weights from an (N, H, W) Euclidean distance array.
+    #     Smaller distance = better match. Same formula as Chl.compute_owt_weights.
+    #     Returns owt_classes (n, H, W) float32 (1-based) and owt_weights (n, H, W) float32.
+    #     """
+    #     N, H, W     = dist_np.shape
+    #     sorted_idx  = np.argsort(dist_np, axis=0)
+    #     sorted_dist = np.take_along_axis(dist_np, sorted_idx, axis=0)
+    #     top_dist    = sorted_dist[:n + 1]    # (n+1, H, W)
+    #     top_idx     = sorted_idx[:n]         # (n, H, W), 0-based
+    #     d_best      = top_dist[0]
+    #     d_ref       = top_dist[n]            # (n+1)-th as reference
+    #     denom       = d_best - d_ref
+    #     owt_classes = (top_idx + 1).astype(np.float32)
+    #     owt_weights = np.full((n, H, W), np.nan, dtype=np.float32)
+    #     valid       = np.isfinite(denom) & (denom != 0)
+    #     for i in range(n):
+    #         owt_weights[i] = np.where(
+    #             valid, (top_dist[i] - d_ref) / denom, np.nan
+    #         ).astype(np.float32)
+    #     return owt_classes, owt_weights
 
     @staticmethod
     def _spm_jiang_green(R443, R490, R560, R665):
         """Jiang et al. 2021, QAA at 560 nm (OWT 1, clear)."""
-        aw  = np.array([0.00515124, 0.01919594, 0.06299986, 0.41395333], dtype=np.float32)
-        bbw = np.array([0.00215037, 0.00138116, 0.00078491, 0.00037474], dtype=np.float32)
-        stack = np.stack([R443, R490, R560, R665], axis=0)
-        rrs   = stack / (0.52 + 1.7 * stack)
-        u     = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs)) / (2 * 0.125)
-        x     = np.log10((rrs[0] + rrs[1]) / (rrs[2] + 5 * rrs[3] ** 2 / rrs[1]))
-        a560  = aw[2] + 10 ** (-1.146 - 1.366 * x - 0.469 * x ** 2)
-        bbp   = (u[2] * a560) / (1 - u[2]) - bbw[2]
+        rrs443 = R443 / (0.52 + 1.7 * R443)
+        rrs490 = R490 / (0.52 + 1.7 * R490)
+        rrs560 = R560 / (0.52 + 1.7 * R560)
+        rrs665 = R665 / (0.52 + 1.7 * R665)
+        u560 = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs560)) / (2 * 0.125)
+        x = np.log10((rrs443 + rrs490) / (rrs560 + 5 * rrs665 ** 2 / rrs490))
+        a560 = 0.06299986 + 10 ** (-1.146 - 1.366 * x - 0.469 * x ** 2)
+        bbp = (u560 * a560) / (1 - u560) - 0.00078491
         return (94.48785 * bbp).astype(np.float32)
 
     @staticmethod
     def _spm_jiang_red(R443, R490, R560, R665):
         """Jiang et al. 2021, QAA at 665 nm (OWT 2, moderate)."""
-        aw  = np.array([0.00515124, 0.01919594, 0.06299986, 0.41395333], dtype=np.float32)
-        bbw = np.array([0.00215037, 0.00138116, 0.00078491, 0.00037474], dtype=np.float32)
-        stack = np.stack([R443, R490, R560, R665], axis=0)
-        rrs   = stack / (0.52 + 1.7 * stack)
-        u     = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs)) / (2 * 0.125)
-        a665  = aw[3] + 0.39 * (R665 / (R443 + R490)) ** 1.14
-        bbp   = (u[3] * a665) / (1 - u[3]) - bbw[3]
+        rrs665 = R665 / (0.52 + 1.7 * R665)
+        u665 = (-0.0895 + np.sqrt(0.089 ** 2 + 4 * 0.125 * rrs665)) / (2 * 0.125)
+        a665 = 0.41395333 + 0.39 * (R665 / (R443 + R490)) ** 1.14
+        bbp = (u665 * a665) / (1 - u665) - 0.00037474
         return (113.87498 * bbp).astype(np.float32)
 
     @staticmethod
@@ -224,104 +206,226 @@ class Spm():
         denom = (0.54 * 128.123 / np.pi) + 0.48 * rho
         return (scale * (2.8 * rho / denom - 0.00027)).astype(np.float32)
 
-    def _owt_spm_from_class(self, class_px, limits=True):
-        """Dispatch 1-based OWT class map (H, W) to the appropriate SPM algorithm."""
-        R443 = self.Rrs.sel(wl=443).values.squeeze()
-        R490 = self.Rrs.sel(wl=490).values.squeeze()
-        R560 = self.Rrs.sel(wl=560).values.squeeze()
-        R665 = self.Rrs.sel(wl=665).values.squeeze()
-        R705 = self.Rrs.sel(wl=705).values.squeeze()
-        R740 = self.Rrs.sel(wl=740).values.squeeze()
-        H, W = R665.shape
-        spm  = np.full((H, W), np.nan, dtype=np.float32)
+    # def _owt_spm_from_class(self, class_px, limits=True):
+    #     """Dispatch 1-based OWT class map (H, W) to the appropriate SPM algorithm."""
+    #     R443 = self.Rrs.sel(wl=443).values.squeeze()
+    #     R490 = self.Rrs.sel(wl=490).values.squeeze()
+    #     R560 = self.Rrs.sel(wl=560).values.squeeze()
+    #     R665 = self.Rrs.sel(wl=665).values.squeeze()
+    #     R705 = self.Rrs.sel(wl=705).values.squeeze()
+    #     R740 = self.Rrs.sel(wl=740).values.squeeze()
+    #     H, W = R665.shape
+    #     spm  = np.full((H, W), np.nan, dtype=np.float32)
 
-        mask = class_px == 1
-        if mask.any():
-            val = self._spm_jiang_green(R443, R490, R560, R665)
-            if limits:
-                val = np.where((val >= 0) & (val <= 50), val, np.nan)
-            spm = np.where(mask, val, spm)
+    #     mask = class_px == 1
+    #     if mask.any():
+    #         val = self._spm_jiang_green(R443, R490, R560, R665)
+    #         if limits:
+    #             val = np.where((val >= 0) & (val <= 50), val, np.nan)
+    #         spm = np.where(mask, val, spm)
 
-        mask = class_px == 2
-        if mask.any():
-            val = self._spm_jiang_red(R443, R490, R560, R665)
-            if limits:
-                val = np.where((val >= 10) & (val <= 500), val, np.nan)
-            spm = np.where(mask, val, spm)
+    #     mask = class_px == 2
+    #     if mask.any():
+    #         val = self._spm_jiang_red(R443, R490, R560, R665)
+    #         if limits:
+    #             val = np.where((val >= 10) & (val <= 500), val, np.nan)
+    #         spm = np.where(mask, val, spm)
 
-        mask = class_px == 3
-        if mask.any():
-            val = self._spm_zhang2014(R705)
-            if limits:
-                val = np.where((val >= 20) & (val <= 1000), val, np.nan)
-            spm = np.where(mask, val, spm)
+    #     mask = class_px == 3
+    #     if mask.any():
+    #         val = self._spm_zhang2014(R705)
+    #         if limits:
+    #             val = np.where((val >= 20) & (val <= 1000), val, np.nan)
+    #         spm = np.where(mask, val, spm)
 
-        mask = class_px == 4
-        if mask.any():
-            val = self._spm_binding2010(R740)
-            if limits:
-                val = np.where((val >= 50) & (val <= 2000), val, np.nan)
-            spm = np.where(mask, val, spm)
+    #     mask = class_px == 4
+    #     if mask.any():
+    #         val = self._spm_binding2010(R740)
+    #         if limits:
+    #             val = np.where((val >= 50) & (val <= 2000), val, np.nan)
+    #         spm = np.where(mask, val, spm)
 
-        return spm.astype(np.float32)
+    #     return spm.astype(np.float32)
 
-    def process_blended(self, n=2, limits=True):
-        """OWT-blended SPM (Tavares et al. 2025), Cordeiro2022 4-class Euclidean OWT.
-        Sets self.spm_blend (SPM_OWTblend) and self.owt_index_spm (owt_index_Cordeiro2022_SPM).
+    def spm_blending(self,
+                     xowt_prod,
+                     Nclasses=2,
+                     owt_dist_var='owt_dist',
+                     owt_index_var='owt_index',
+                     eps=1e-6,
+                     limits=True):
+        """Blend OWT-classified SPM estimates using the ranked OWT distances.
+
+        This follows :meth:`GRSl2bgen.chlorophyll_a.Chl.owt_blending`: the
+        best ``Nclasses`` ranked OWT matches are selected, each estimate is
+        weighted by ``1 / (distance + eps)``, and the weighted sum is divided
+        by the sum of those weights.  The Cordeiro2022 OWT-to-algorithm recipe is
+        OWT 1: Jiang et al. (2021, green), OWT 2: Jiang et al. (2021, red),
+        OWT 3: Zhang et al. (2014), and OWT 4: Binding et al. (2010).
+
+        Parameters
+        ----------
+        xowt_prod : xarray.Dataset
+            Cordeiro2022 OWT output containing ranked distance and 1-based class
+            index variables with dimensions ``(Nclasses, y, x)``.
+        Nclasses : int, optional
+            Number of ranked OWT matches to blend (default 2).  It is capped
+            at the number present in ``xowt_prod``.
+        owt_dist_var, owt_index_var : str, optional
+            Names of the Cordeiro distance and class-index variables.
+        eps : float, optional
+            Small positive value added to distances before inversion.
+        limits : bool, optional
+            Apply the existing class-specific SPM validity ranges.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``SPM_OWTblend_Ta2025`` in mg L-1.
         """
-        owt_dist = self.compute_spm_owt_distances(self.Rrs)     # (4, H, W)
-        # capture before any zeroing: NaN dist means non-water pixel
-        water_mask = np.any(np.isfinite(owt_dist), axis=0)
-        owt_classes, owt_weights = self.compute_owt_weights(owt_dist, n=n)
+        if 'Nclasses' not in xowt_prod.dims:
+            raise ValueError(
+                'Cordeiro2022 OWT blending requires ranked OWT >= 2'
+                'Set the Nclasses_to_be_saved >= 2'
+            )
 
-        aux_spm = np.stack(
-            [self._owt_spm_from_class(owt_classes[i], limits=limits) for i in range(n)]
-        )  # (n, H, W)
+        Nclasses = min(xowt_prod.sizes['Nclasses'], Nclasses)
+        xowt_prod = xowt_prod.isel(Nclasses=range(Nclasses))
 
-        ref = aux_spm[0]
-        for i in range(1, n):
-            outlier = np.abs(aux_spm[i] - ref) > 4 * np.abs(ref)
-            owt_weights[i] = np.where(outlier, 0.0, owt_weights[i])
-            aux_spm[i]     = np.where(outlier, 0.0, aux_spm[i])
+        # inverse-distance weighting as in Chl.owt_blending.
+        norm = 1 / (xowt_prod[owt_dist_var] + eps)
+        norm = norm.sum('Nclasses')
+        norm = norm.where(norm > 0)
 
-        for i in range(n):
-            nan_mask = ~np.isfinite(aux_spm[i])
-            owt_weights[i] = np.where(nan_mask, 0.0, owt_weights[i])
-            aux_spm[i]     = np.where(nan_mask, 0.0, aux_spm[i])
+        R443 = self.Rrs.sel(wl=443)
+        R490 = self.Rrs.sel(wl=490)
+        R560 = self.Rrs.sel(wl=560)
+        R665 = self.Rrs.sel(wl=665)
+        R705 = self.Rrs.sel(wl=705)
+        R740 = self.Rrs.sel(wl=740)
 
-        weight_sum = owt_weights.sum(axis=0)
-        spm_blend  = np.where(
-            weight_sum > 0,
-            (owt_weights * aux_spm).sum(axis=0) / weight_sum,
-            np.nan,
-        ).astype(np.float32)
+        # OWT 1: Jiang et al. (2021), green-band QAA.
+        owt_index_to_keep = [1]
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
+        owt1_spm = self._spm_jiang_green(R443, R490, R560, R665)
+        if limits:
+            owt1_spm = owt1_spm.where((owt1_spm >= 0) & (owt1_spm <= 50))
+        spm = (owt1_spm * weights).fillna(0)
 
-        ref_da = self.Rrs.sel(wl=665).drop_vars('wl', errors='ignore')
-        scalar_coords = [c for c in ref_da.coords if c not in ref_da.dims and ref_da[c].ndim == 0]
-        ref_da = ref_da.drop_vars(scalar_coords, errors='ignore')
+        # OWT 2: Jiang et al. (2021), red-band QAA.
+        owt_index_to_keep = [2]
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
+        owt2_spm = self._spm_jiang_red(R443, R490, R560, R665)
+        if limits:
+            owt2_spm = owt2_spm.where((owt2_spm >= 10) & (owt2_spm <= 500))
+        spm += (owt2_spm * weights).fillna(0)
 
-        self.spm_blend = xr.DataArray(
-            spm_blend,
-            dims=ref_da.dims,
-            coords=ref_da.coords,
-            name='SPM_OWTblend',
-            attrs={
-                'description': 'OWT-blended SPM (Tavares et al. 2025), Cordeiro2022 4-class Euclidean OWT',
-                'units': 'mg/L',
-                'n_classes_blended': n,
-                'reference': (
-                    'Cordeiro, T. (2022); Jiang et al. (2021); '
-                    'Zhang et al. (2014); Binding et al. (2010)'
-                ),
-            },
-        )
+        # OWT 3: Zhang et al. (2014), 705-nm power law.
+        owt_index_to_keep = [3]
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
+        owt3_spm = self._spm_zhang2014(R705)
+        if limits:
+            owt3_spm = owt3_spm.where((owt3_spm >= 20) & (owt3_spm <= 1000))
+        spm += (owt3_spm * weights).fillna(0)
 
-        # dominant class index for diagnostics, analogous to owt_index_Spyrakos2018
-        dominant   = owt_classes[0].astype(np.float32)
-        self.owt_index_spm = xr.DataArray(
-            np.where(water_mask, dominant, np.nan),
-            dims=ref_da.dims,
-            coords=ref_da.coords,
-            name='owt_index_Cordeiro2022_SPM',
-            attrs={'description': 'Dominant SPM OWT class (Cordeiro2022, 4-class Euclidean distance)'},
-        )
+        # OWT 4: Binding et al. (2010), 740-nm semi-analytical model.
+        owt_index_to_keep = [4]
+        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
+        owt4_spm = self._spm_binding2010(R740)
+        if limits:
+            owt4_spm = owt4_spm.where((owt4_spm >= 50) & (owt4_spm <= 2000))
+        spm += (owt4_spm * weights).fillna(0)
+
+        spm = spm.sum('Nclasses') / norm
+        spm = spm.astype(np.float32)
+        spm.name = 'SPM_OWTblend_Ta2025'
+        spm.attrs = {
+            'description': (
+                'OWT-blended SPM from Tavares (2025) OWT and class-specific '
+                'SPM algorithms, weighted by inverse Euclidean distance'
+            ),
+            'references': (
+                'Cordeiro, T. (2022); Jiang et al. (2021); '
+                'Zhang et al. (2014); Binding et al. (2010)'
+            ),
+            'units': 'mg L-1',
+            'n_classes_blended': Nclasses,
+        }
+        return spm
+
+    @staticmethod
+    def create_mask_from_owt(xowt_raster, owt_index_to_keep):
+        """Provide a boolean mask from a 1-based OWT index."""
+        first = True
+        for owt_num in owt_index_to_keep:
+            if first:
+                mask = xowt_raster == owt_num
+                first = False
+            else:
+                mask |= xowt_raster == owt_num
+        return mask
+
+    # def process_blended(self, n=2, limits=True):
+    #     """OWT-blended SPM (Tavares et al. 2025), Cordeiro2022 4-class Euclidean OWT.
+    #     Sets self.spm_blend (SPM_OWTblend) and self.owt_index_spm (owt_index_Cordeiro2022_SPM).
+    #     """
+    #     owt_dist = self.compute_spm_owt_distances(self.Rrs)     # (4, H, W)
+    #     # capture before any zeroing: NaN dist means non-water pixel
+    #     water_mask = np.any(np.isfinite(owt_dist), axis=0)
+    #     owt_classes, owt_weights = self.compute_owt_weights(owt_dist, n=n)
+
+    #     aux_spm = np.stack(
+    #         [self._owt_spm_from_class(owt_classes[i], limits=limits) for i in range(n)]
+    #     )  # (n, H, W)
+
+    #     ref = aux_spm[0]
+    #     for i in range(1, n):
+    #         outlier = np.abs(aux_spm[i] - ref) > 4 * np.abs(ref)
+    #         owt_weights[i] = np.where(outlier, 0.0, owt_weights[i])
+    #         aux_spm[i]     = np.where(outlier, 0.0, aux_spm[i])
+
+    #     for i in range(n):
+    #         nan_mask = ~np.isfinite(aux_spm[i])
+    #         owt_weights[i] = np.where(nan_mask, 0.0, owt_weights[i])
+    #         aux_spm[i]     = np.where(nan_mask, 0.0, aux_spm[i])
+
+    #     weight_sum = owt_weights.sum(axis=0)
+    #     spm_blend  = np.where(
+    #         weight_sum > 0,
+    #         (owt_weights * aux_spm).sum(axis=0) / weight_sum,
+    #         np.nan,
+    #     ).astype(np.float32)
+
+    #     ref_da = self.Rrs.sel(wl=665).drop_vars('wl', errors='ignore')
+    #     scalar_coords = [c for c in ref_da.coords if c not in ref_da.dims and ref_da[c].ndim == 0]
+    #     ref_da = ref_da.drop_vars(scalar_coords, errors='ignore')
+
+    #     self.spm_blend = xr.DataArray(
+    #         spm_blend,
+    #         dims=ref_da.dims,
+    #         coords=ref_da.coords,
+    #         name='SPM_OWTblend',
+    #         attrs={
+    #             'description': 'OWT-blended SPM (Tavares et al. 2025), Cordeiro2022 4-class Euclidean OWT',
+    #             'units': 'mg/L',
+    #             'n_classes_blended': n,
+    #             'reference': (
+    #                 'Cordeiro, T. (2022); Jiang et al. (2021); '
+    #                 'Zhang et al. (2014); Binding et al. (2010)'
+    #             ),
+    #         },
+    #     )
+
+    #     # dominant class index for diagnostics, analogous to owt_index_Spyrakos2018
+    #     dominant   = owt_classes[0].astype(np.float32)
+    #     self.owt_index_spm = xr.DataArray(
+    #         np.where(water_mask, dominant, np.nan),
+    #         dims=ref_da.dims,
+    #         coords=ref_da.coords,
+    #         name='owt_index_Cordeiro2022_SPM',
+    #         attrs={'description': 'Dominant SPM OWT class (Cordeiro2022, 4-class Euclidean distance)'},
+    #     )
