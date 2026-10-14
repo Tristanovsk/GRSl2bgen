@@ -47,11 +47,11 @@ class Product():
         Parameters
         ----------
         chunks : dict, optional
-            Dask chunks for NetCDF inputs. Default
-            ``{'wl': -1, 'y': 1024, 'x': 1024}``: one chunk along ``wl``
-            (band maths and ``sel`` need all bands) and tiles in space, so
-            work is parallel and memory per task is bounded. Not applied to
-            Zarr inputs, which keep their stored chunks.
+            Dask chunks for NetCDF inputs. Default: the chunks stored in the
+            file (each stored chunk is read once, without the xarray warning
+            raised when requested chunks split stored ones), then merged into
+            one chunk along ``wl`` (band maths and ``sel`` need all bands).
+            Not applied to Zarr inputs, which keep their stored chunks.
 
         l2a_obj : str or xarray.Dataset
             Input product, one of:
@@ -83,8 +83,12 @@ class Product():
         # datasets opened from disk here, closed by `close`; a dataset passed
         # in by the caller is not ours to close
         self._opened = []
+        # chunks requested at opening must not split the stored chunks, so the
+        # default opens with the stored ones and only merges `wl` afterwards
+        rechunk = None
         if chunks is None:
-            chunks = {'wl': -1, 'y': 1024, 'x': 1024}
+            chunks = {}
+            rechunk = {'wl': -1}
 
         ##################################
         # Get image data
@@ -94,9 +98,10 @@ class Product():
             # get extension
             extension = l2a_obj.split('.')[-1]
             if extension == 'nc':
-                self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks=chunks)
+                raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks=chunks)
+                self.raster = self._rechunk(raster, rechunk)
                 self.ancillary = None
-                self._opened = [self.raster]
+                self._opened = [raster]
             elif 'zarr' in extension:
                 self.raster = xr.open_zarr(l2a_obj, decode_coords='all')
                 self.ancillary = None
@@ -108,9 +113,10 @@ class Product():
                 main_file = opj(l2a_obj, basename + '.nc')
                 ancillary_file = opj(l2a_obj, basename + '_anc.nc')
 
-                self.raster = xr.open_dataset(main_file, decode_coords='all', chunks=chunks)
+                raster = xr.open_dataset(main_file, decode_coords='all', chunks=chunks)
+                self.raster = self._rechunk(raster, rechunk)
                 self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
-                self._opened = [self.raster, self.ancillary]
+                self._opened = [raster, self.ancillary]
 
 
             else:
@@ -146,6 +152,14 @@ class Product():
         Rrs_g = Rrs_g.assign_coords({'wl': wls})
         raster = raster.drop_vars(Rrs_g_vars)
         self.raster = xr.merge([raster, Rrs, Rrs_g], compat='no_conflicts', join='outer')
+
+    @staticmethod
+    def _rechunk(raster, rechunk):
+        """Apply `rechunk` to the dimensions of `raster` that have it."""
+        if rechunk is None:
+            return raster
+        rechunk = {d: c for d, c in rechunk.items() if d in raster.dims}
+        return raster.chunk(rechunk) if rechunk else raster
 
     def close(self):
         """Close the files opened from disk by `__init__`.
