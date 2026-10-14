@@ -10,6 +10,43 @@ import logging
 
 FLAG_NAME = 'flags'
 
+FLAG_NAME_L2B = 'flags_l2b'
+
+# L2B processing flags, written as the uint32 bit field ``flags_l2b``
+# (the GRS L2A ``flags`` are copied unchanged).
+# name: (bit, description)
+L2B_FLAGS = {
+    'zsd_a_below_aw': (0, 'Zsd_Lee15: QAA v6 total absorption below the pure water absorption '
+                          'at the transparent band, set to aw'),
+}
+
+
+def l2b_flags(template, conditions, number_of_flags=32):
+    '''
+    Build the ``flags_l2b`` bit field from the L2B processing flags (see `L2B_FLAGS`).
+
+    :param template: xarray DataArray on the image grid (y, x)
+    :param conditions: dict {flag name: boolean DataArray}, True where the bit is set
+    :param number_of_flags: size of the flag name/description tables
+    :return: uint32 DataArray ``flags_l2b`` with the attributes ``long_name``,
+        ``flag_names`` and ``flag_descriptions`` (all registered flags, set or not)
+    '''
+    names = np.full(number_of_flags, 'None', dtype=object)
+    descriptions = np.full(number_of_flags, 'None', dtype=object)
+    for name, (bit, description) in L2B_FLAGS.items():
+        names[bit], descriptions[bit] = name, description
+
+    flags = xr.zeros_like(template, dtype=np.uint32)
+    for name, cond in conditions.items():
+        bit = L2B_FLAGS[name][0]
+        flags = flags | (cond.astype(np.uint32) * np.uint32(1 << bit))
+
+    flags.attrs = {'long_name': 'flags computed by the L2B processing',
+                   'flag_names': names.astype(str).tolist(),
+                   'flag_descriptions': descriptions.astype(str).tolist()}
+    flags.name = FLAG_NAME_L2B
+    return flags
+
 
 class Settings:
     '''

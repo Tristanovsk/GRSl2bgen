@@ -11,6 +11,10 @@ import logging
 import datetime
 
 from . import __package__, __version__
+from .mask import l2b_flags
+
+# integer variables: not packed, nearest-neighbour resampling in the pyramid
+CATEGORICAL = ('flags', 'flags_l2b', 'mask')
 
 
 def _json_safe(value):
@@ -41,6 +45,9 @@ class L2bProduct():
         may provide ``flags`` and ``mask``.
     l2_raster_list : list of xarray.DataArray or xarray.Dataset
         L2 rasters to merge into the L2B product (all on the same grid).
+    flags : dict, optional
+        L2B processing flags {name: boolean DataArray}, written as the bits
+        of ``flags_l2b`` (see `GRSl2bgen.mask.L2B_FLAGS`).
 
     Attributes
     ----------
@@ -58,10 +65,11 @@ class L2bProduct():
         zlib compression level used on export (default 5).
     """
 
-    def __init__(self, prod, l2_raster_list):
+    def __init__(self, prod, l2_raster_list, flags=None):
         self.processor = __package__ + '_' + __version__
         self.prod = prod
         self.l2b_raster_list = l2_raster_list
+        self.l2b_flags = flags or {}
         self.variables = None
         self.l2b_prod = None
         self.complevel = 5
@@ -75,7 +83,9 @@ class L2bProduct():
         1. Merge the L2 rasters with ``compat='override'`` (for conflicting
            values the first object wins).
         2. Add ``flags`` and ``mask`` from the input product; if absent,
-           create them as ``uint8`` arrays of zeros on the image grid.
+           create them as ``uint8`` arrays of zeros on the image grid. Add
+           ``flags_l2b``, the bit field of the L2B processing flags
+           (`GRSl2bgen.mask.l2b_flags`).
         3. Copy the attributes of the input raster and add
            ``processing_time`` (local time, ISO 8601) and ``processor``.
 
@@ -93,6 +103,7 @@ class L2bProduct():
             l2b_prod['flags'] = self.prod.raster['flags']
         else:
             l2b_prod['flags'] = xr.zeros_like(self.prod.raster.Rrs.isel(wl=0, drop=True).squeeze().astype(np.uint8))
+        l2b_prod['flags_l2b'] = l2b_flags(self.prod.raster.Rrs.isel(wl=0, drop=True).squeeze(), self.l2b_flags)
         if 'mask' in self.prod.raster.keys():
             l2b_prod['mask'] = self.prod.raster['mask']
         else:
@@ -199,7 +210,7 @@ class L2bProduct():
     def _packing_encoding(self, persist=False):
         """Build the packing part of the output encoding (format independent).
 
-        ``flags`` and ``mask`` keep their dtype. All other variables are
+        ``flags``, ``flags_l2b`` and ``mask`` keep their dtype. All other variables are
         packed into ``int16`` with per-variable ``scale_factor`` and
         ``add_offset`` (see `compute_scale_and_offset`) and
         ``_FillValue = -32768``. For lazy (dask) variables the minimum and
@@ -220,7 +231,7 @@ class L2bProduct():
         if persist:
             self.l2b_prod = self.l2b_prod.persist()
 
-        packed = [v for v in self.variables if v not in ['mask', 'flags']]
+        packed = [v for v in self.variables if v not in CATEGORICAL]
         stats = {}
         if packed:
             # NaN replaced by +/-inf: same result as min/max(skipna=True) without
@@ -233,7 +244,7 @@ class L2bProduct():
 
         encoding = {}
         for variable in self.variables:
-            if variable in ['mask', 'flags']:
+            if variable in CATEGORICAL:
                 encoding[variable] = {"grid_mapping": "spatial_ref"}
             else:
                 scale_factor, add_offset = self.scale_and_offset_from_range(*stats[variable], nbit=16)
@@ -266,7 +277,7 @@ class L2bProduct():
                          persist=False):
         """Write the L2B dataset to a compressed NetCDF file.
 
-        ``flags`` and ``mask`` are written with their own dtype. All other
+        ``flags``, ``flags_l2b`` and ``mask`` are written with their own dtype. All other
         variables are packed into ``int16`` with a per-variable
         ``scale_factor`` and ``add_offset`` (see `compute_scale_and_offset`),
         ``_FillValue = -32768``. All variables are zlib-compressed at level
@@ -353,6 +364,11 @@ class L2bProduct():
         ds = ds.copy(deep=False)
         for variable in self.variables:
             ds[variable].encoding = {}
+        # coordinates read from a Zarr L2A keep its (zarr v2) compressors,
+        # refused by the zarr v3 writer
+        for coord in ds.coords.values():
+            for key in ('compressor', 'compressors', 'filters'):
+                coord.encoding.pop(key, None)
 
         chunks = {d: s for d, s in chunks.items() if d in ds.dims}
         if chunks:
@@ -374,7 +390,7 @@ class L2bProduct():
 
         Same content and packing as `export_to_netcdf` (``int16`` with
         ``scale_factor``/``add_offset`` and ``_FillValue = -32768`` for the
-        geophysical variables, ``flags`` and ``mask`` unpacked), written with
+        geophysical variables, ``flags``, ``flags_l2b`` and ``mask`` unpacked), written with
         the default Zarr compressor. The store can be read back with
         ``xr.open_zarr`` (or ``Product``), which unpacks the values
         automatically. An existing `ofile` is deleted first.
@@ -422,11 +438,11 @@ class L2bProduct():
         return
 
     @staticmethod
-    def _downsample(ds, dims=('y', 'x'), factor=2, categorical=('flags', 'mask')):
+    def _downsample(ds, dims=('y', 'x'), factor=2, categorical=CATEGORICAL):
         """Reduce the spatial resolution of `ds` by an integer `factor`.
 
         Continuous variables are block-averaged ignoring NaN. Categorical
-        variables (``flags``, ``mask``) are taken from the top-left pixel of
+        variables (``flags``, ``flags_l2b``, ``mask``) are taken from the top-left pixel of
         each block (nearest neighbour), which preserves their values and
         dtype. Edge pixels that do not fill a complete block are trimmed, so
         the origin is unchanged and the pixel size is multiplied by `factor`.
@@ -496,7 +512,7 @@ class L2bProduct():
         discover everything and then fetches only the chunks it needs.
 
         Resampling: block average (NaN-aware) for continuous variables,
-        nearest neighbor for ``flags`` and ``mask``. The geotransform is
+        nearest neighbor for ``flags``, ``flags_l2b`` and ``mask``. The geotransform is
         updated at every level. All levels use the packing parameters
         (``scale_factor``/``add_offset``) of level 0.
 
@@ -577,7 +593,7 @@ class L2bProduct():
         root.attrs['multiscales'] = {
             'layout': layout,
             'resampling_method': 'average',
-            'categorical_variables': ['flags', 'mask'],
+            'categorical_variables': list(CATEGORICAL),
             'categorical_resampling_method': 'nearest',
             'dims': list(dims),
         }

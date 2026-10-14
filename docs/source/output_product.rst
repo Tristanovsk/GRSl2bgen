@@ -52,7 +52,8 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        adg443_QAAv6            (y, x) float64 ...
        Kd_par                  (y, x) float64 ...
        Zsd_Lee15               (y, x) float64 ...
-       flags                   (y, x) int64 ...
+       flags                   (y, x) uint32 ...
+       flags_l2b               (y, x) uint32 ...
        mask                    (y, x) uint8 ...
    Attributes: (73)
        ...
@@ -275,12 +276,13 @@ Quality flags and mask
 ~~~~~~~~~~~~~~~~~~~~~~
 
 ``flags`` and ``mask`` are copied from the input GRS L2A product (or set to 0 if the
-input has none) and are stored without packing.
+input has none) and are stored without packing. The flags set by GRSl2bgen are in a
+separate bit field, ``flags_l2b`` (see below).
 
 ``mask`` (``uint8``): ``0`` = valid water pixel, processed; ``1`` = rejected pixel
 (land, cloud, glint, negative reflectance, ...).
 
-``flags`` (``int64``) is a bit field: bit :math:`i` is set when the condition
+``flags`` (``uint32``) is a bit field: bit :math:`i` is set when the condition
 ``flag_names[i]`` is met. A pixel can have several flags. With the current GRS
 flags:
 
@@ -355,6 +357,23 @@ product, and the fraction of the image covered by each flag in the global attrib
 For example, ``flags = 536 = 8 + 16 + 512`` means that both water indices and the
 SurfWater mask detect water.
 
+``flags_l2b`` (``uint32``) is the bit field of the flags set by GRSl2bgen, with the
+same ``flag_names`` and ``flag_descriptions`` attributes and the same decoding:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 8 12 30 50
+
+   * - Bit
+     - Value
+     - Name
+     - Description
+   * - 0
+     - 1
+     - ``zsd_a_below_aw``
+     - ``Zsd_Lee15``: QAA v6 total absorption below the pure water absorption at the
+       transparent band, set to :math:`a_w`
+
 Variable attributes
 -------------------
 
@@ -382,7 +401,7 @@ Variable attributes
    * - ``n_classes_blended``
      - (``Chla_OWTblend_Ta2025``) number of OWT classes blended.
    * - ``flag_names``, ``flag_descriptions``
-     - (``flags``, ``mask``) name and description of each bit.
+     - (``flags``, ``flags_l2b``, ``mask``) name and description of each bit.
    * - ``grid_mapping``
      - ``spatial_ref`` (written on export).
 

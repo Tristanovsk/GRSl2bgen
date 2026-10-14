@@ -195,7 +195,7 @@ class Process():
             spm_prod.output,
             cdom_prod.output,
             trans_prod.output]
-        self.l2b = L2bProduct(prod, l2_raster_list)
+        self.l2b = L2bProduct(prod, l2_raster_list, flags=trans_prod.flags)
         self.successful = True
 
     def write_output(self):

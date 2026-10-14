@@ -48,6 +48,7 @@ class Transparency():
         self.Rrs = raster[param]
         self.sza = raster.get(sza)
         self.output = None
+        self.flags = {}
 
     def process(self):
         """Compute the transparency products and store them in ``self.output``.
@@ -55,7 +56,9 @@ class Transparency():
         Computes ``Kd_par`` (Roy and Das 2022) and, if the solar zenith angle
         is available (``self.sza``), ``Zsd_Lee15`` (Secchi disk depth, Lee et
         al. 2015), masks values outside their valid range with `set_range`,
-        attaches metadata and computes the result eagerly.
+        attaches metadata and computes the result eagerly. The boolean
+        ``zsd_a_below_aw`` (``a`` set to ``aw`` at the transparent band) is
+        stored in ``self.flags`` for the ``flags_l2b`` bit field.
         """
         # Kd(PAR) Roy and Das, 2022
         acoef = [3.09, -90.17]
@@ -74,7 +77,8 @@ class Transparency():
 
         # Secchi disk depth, Lee et al., 2015
         if self.sza is not None:
-            self.Zsd = self.zsd_Lee15(self.Rrs, self.sza)['Zsd']
+            zsd = self.zsd_Lee15(self.Rrs, self.sza)
+            self.Zsd = zsd['Zsd']
             self.Zsd = self.set_range(self.Zsd, maxval=100)
             self.Zsd.name = 'Zsd_Lee15'
             self.Zsd.attrs = {
@@ -93,10 +97,14 @@ class Transparency():
                 'range': [0, 100]
             }
             merge_list.append(self.Zsd)
+            merge_list.append(zsd['a_below_aw'].rename('zsd_a_below_aw'))
 
         self.output = xr.merge(merge_list, compat='no_conflicts', join='outer')
         # proceed with dask computing
         self.output = self.output.compute()
+        # boolean flags go to the ``flags_l2b`` bit field (see mask.L2B_FLAGS)
+        self.flags = {name: self.output[name] for name in ['zsd_a_below_aw'] if name in self.output}
+        self.output = self.output.drop_vars(list(self.flags))
 
         return
 
@@ -120,7 +128,10 @@ class Transparency():
         underwater visibility. Remote Sens. Environ. 2015, 169, 139-149.
 
         Step A: total absorption ``a`` and backscattering
-        ``bb = bbw + bbp`` from QAA v6 (see `GRSl2bgen.utils.qaa_v6_iops`).
+        ``bb = bbw + bbp`` from QAA v6 (see `GRSl2bgen.utils.qaa_v6_iops`);
+        ``a`` is set to the pure water absorption ``aw`` where ``a < aw`` (in
+        clear water, with the 560 nm QAA reference, ``a665`` is extrapolated
+        and often falls just below ``aw665``).
 
         Step B: diffuse attenuation at each band (Lee et al. 2013),
         ``Kd = (1 + m0 sza) a + (1 - gamma bbw / bb) m1 (1 - m2 exp(-m3 a)) bb``
@@ -131,8 +142,9 @@ class Transparency():
 
         Step D: ``Zsd = 1 / (2.5 Kd_tr) ln(|0.14 - Rrs_tr| / 0.013)``.
 
-        Step E: NaN where ``Kd_tr <= 0``, ``Zsd <= 0`` or ``a < aw`` at any
-        band.
+        Step E: NaN where ``Kd_tr <= 0`` or ``Zsd <= 0``; ``a_below_aw``
+        marks the valid pixels where ``a`` was set to ``aw`` at the
+        transparent band.
 
         Parameters
         ----------
@@ -163,8 +175,8 @@ class Transparency():
         Returns
         -------
         xarray.Dataset
-            ``Zsd`` (m), ``wl_tr`` (nm), ``Kd_tr`` (m-1) and ``Kd`` (m-1) at
-            the `wls` bands; plus ``bottom_limited`` (bool) if `bathymetry`
+            ``Zsd`` (m), ``wl_tr`` (nm), ``Kd_tr`` (m-1), ``a_below_aw``
+            (bool) and ``Kd`` (m-1) at the `wls` bands; plus ``bottom_limited`` (bool) if `bathymetry`
             is given.
         """
 
@@ -173,6 +185,8 @@ class Transparency():
         # Step A: QAA v6 IOPs
         iops = qaa_v6_iops(Rrs, Twater=Twater, Salinity=Salinity, wls=wls, method=method)
         a, bbw = iops.a, iops.bbw
+        below_aw = a < iops.aw
+        a = a.where(~below_aw, iops.aw)
         bb = bbw + iops.bbp
 
         # Step B: Kd at each band (Lee et al. 2013)
@@ -194,10 +208,11 @@ class Transparency():
         Zsd = 1 / (2.5 * Kd_tr) * np.log(arg.where(arg > 0))
 
         # Step E: QC
-        valid = (Kd_tr > 0) & (Zsd > 0) & ~(a < iops.aw).any('wl')
+        valid = (Kd_tr > 0) & (Zsd > 0)
         out = xr.Dataset({'Zsd': Zsd.where(valid),
                           'wl_tr': wl_tr.where(valid),
                           'Kd_tr': Kd_tr.where(valid),
+                          'a_below_aw': below_aw.where(is_tr, False).any('wl') & valid,
                           'Kd': Kd.transpose('wl', ...)})
         if bathymetry is not None:
             out['bottom_limited'] = out.Zsd > bathymetry
