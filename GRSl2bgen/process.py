@@ -157,7 +157,7 @@ class Process():
         # get SPM parameters
         # ----------------------
         logging.info('get SPM parameters')
-        spm_prod = Spm(raster)
+        spm_prod = Spm(raster, xowt_prod=owt_process.xowt_Cordeiro2022SPM)
         spm_prod.process()
 
         # ----------------------
