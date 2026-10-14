@@ -3,7 +3,7 @@
 import numpy as np
 import xarray as xr
 
-from .utils import iopw, aphi_bricaud1998
+from .utils import aphi_bricaud1998, qaa_v6_iops
 from .config import SEL_XARRAY_METHOD
 
 
@@ -126,13 +126,9 @@ class Cdom():
         for optically deep waters. Appl. Opt. 2002, 41, 5755-5772, with the
         v6 updates (IOCCG, 2014).
 
-        Steps 0-5 follow QAA v6: below-water reflectance
-        ``rrs = Rrs / (0.52 + 1.7 Rrs)``,
-        ``u = (-g0 + sqrt(g0**2 + 4 g1 rrs)) / (2 g1)``, total absorption at
-        the reference wavelength (560 nm if ``Rrs665 < 0.0015``, 665 nm
-        otherwise), ``bbp`` at the reference wavelength extrapolated with
-        ``eta = 2 (1 - 1.2 exp(-0.9 rrs443 / rrs560))`` and
-        ``a = (1 - u) (bbw + bbp) / u`` at every band.
+        Steps 0-5 follow QAA v6 (see `GRSl2bgen.utils.qaa_v6_iops`): total
+        absorption ``a`` and particulate backscattering ``bbp`` at the
+        ``wls`` bands.
 
         Step 6 is modified for MSI: ``a - aw`` at 443 and 490 nm (instead of
         412 and 443 nm) is decomposed with
@@ -176,42 +172,13 @@ class Cdom():
             ``aph443 < 0``, and ``bbp`` (m-1) at the ``wls`` bands.
         """
 
-        wl = Rrs.wl.sel(wl=wls, method=method).values
-        Rrs = Rrs.sel(wl=wls, method=method).assign_coords(wl=wl)
-        # mask non-positive bands: rrs enters ratios and logarithms below
-        Rrs = Rrs.where(Rrs > 0)
-        R443, R490, R560, R665 = [Rrs.sel(wl=w) for w in wl]
-
-        aw, bbw = iopw().get_iopw(wl, Twater=Twater, Salinity=Salinity)
-        aw = aw.assign_coords(wl=wl)
-        bbw = bbw.assign_coords(wl=wl)
-        aw443, aw490, aw560, aw665 = aw.values
-        bbw560, bbw665 = bbw.values[2:]
-
-        # Step 0: above -> below water
-        rrs = Rrs / (0.52 + 1.7 * Rrs)
-        rrs443, rrs490, rrs560, rrs665 = [rrs.sel(wl=w) for w in wl]
-
-        # Step 1
-        u = (-g0 + np.sqrt(g0 ** 2 + 4 * g1 * rrs)) / (2 * g1)
-        u560, u665 = u.sel(wl=wl[2]), u.sel(wl=wl[3])
-
-        # Step 2: total absorption at the reference wavelength
-        chi = np.log10((rrs443 + rrs490) / (rrs560 + 5 * rrs665 / rrs490 * rrs665))
-        a560 = aw560 + 10 ** (-1.146 - 1.366 * chi - 0.469 * chi ** 2)
-        a665 = aw665 + 0.39 * (R665 / (R443 + R490)) ** 1.14
-        green_ref = R665 < 0.0015
-
-        # Step 3: particulate backscattering at the reference wavelength
-        bbp560 = u560 * a560 / (1 - u560) - bbw560
-        bbp665 = u665 * a665 / (1 - u665) - bbw665
-        bbp0 = xr.where(green_ref, bbp560, bbp665)
-        wl0 = xr.where(green_ref, wl[2], wl[3])
-
-        # Steps 4-5: spectral bbp and total absorption
-        eta = 2.0 * (1 - 1.2 * np.exp(-0.9 * rrs443 / rrs560))
-        bbp = bbp0 * (wl0 / rrs.wl) ** eta
-        a = (1 - u) * (bbw + bbp) / u
+        # Steps 0-5: QAA v6 total absorption and backscattering
+        iops = qaa_v6_iops(Rrs, g0=g0, g1=g1, Twater=Twater, Salinity=Salinity,
+                           wls=wls, method=method)
+        wl = iops.wl.values
+        a, aw, bbp = iops.a, iops.aw, iops.bbp
+        aw443, aw490 = aw.values[:2]
+        rrs443, rrs560 = iops.rrs.sel(wl=wl[0]), iops.rrs.sel(wl=wl[2])
 
         # Step 6 (modified): decompose using 443 / 490 instead of 412 / 443
         Aphi, Ephi = aphi_bricaud1998(wl[:2])

@@ -1,11 +1,13 @@
-''' Utilities: pure water and phytoplankton inherent optical properties. '''
+''' Utilities: pure water and phytoplankton inherent optical properties, QAA v6. '''
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 
 from importlib_resources import files
 
 from . import __package__
+from .config import SEL_XARRAY_METHOD
 
 data_dir = files(__package__ + '.data')
 water_scat_file = data_dir.joinpath('water_coef.txt')
@@ -103,3 +105,95 @@ def aphi_bricaud1998(wl, method='linear'):
                         names=('wl', 'Ap', 'Ep', 'Aphi', 'Ephi')).set_index('wl').to_xarray()
     table = table.interp(wl=wl, method=method)
     return table.Aphi, table.Ephi
+
+
+def qaa_v6_iops(Rrs,
+                g0=0.089,
+                g1=0.1245,
+                Twater=20,
+                Salinity=0,
+                wls=[443, 490, 560, 665],
+                method=SEL_XARRAY_METHOD):
+    """QAA v6 steps 0-5: total absorption and backscattering at the `wls` bands.
+
+    Lee, Z.P.; Carder, K.L.; Arnone, R.A. Deriving inherent optical
+    properties from water color: a multiband quasi-analytical algorithm for
+    optically deep waters. Appl. Opt. 2002, 41, 5755-5772, with the v6
+    updates (IOCCG, 2014).
+
+    Below-water reflectance ``rrs = Rrs / (0.52 + 1.7 Rrs)``,
+    ``u = (-g0 + sqrt(g0**2 + 4 g1 rrs)) / (2 g1)``, total absorption at the
+    reference wavelength (560 nm if ``Rrs665 < 0.0015``, 665 nm otherwise),
+    ``bbp`` at the reference wavelength extrapolated with
+    ``eta = 2 (1 - 1.2 exp(-0.9 rrs443 / rrs560))`` and
+    ``a = (1 - u) (bbw + bbp) / u`` at every band.
+
+    Parameters
+    ----------
+    Rrs : xarray.DataArray
+        Reflectance (sr-1) with a ``wl`` dimension.
+    g0, g1 : float, optional
+        Coefficients of the ``rrs`` to ``u`` relationship (default 0.089 and
+        0.1245).
+    Twater : float, optional
+        Water temperature (deg C) for the pure water absorption (default 20).
+    Salinity : float, optional
+        Salinity (PSU) for the pure water absorption (default 0).
+    wls : list of float, optional
+        Blue, blue-green, green and red wavelengths (nm), default
+        ``[443, 490, 560, 665]``; the QAA formulas use them in this order.
+    method : str, optional
+        Selection method passed to ``Rrs.sel`` (default
+        ``config.SEL_XARRAY_METHOD``).
+
+    Returns
+    -------
+    xarray.Dataset
+        With a ``wl`` dimension holding the selected band centres: ``Rrs``
+        (non-positive values masked), ``rrs``, ``u``, ``a``, ``bbp`` (m-1),
+        and the pure water ``aw`` and ``bbw`` (m-1).
+    """
+
+    wl = Rrs.wl.sel(wl=wls, method=method).values
+    Rrs = Rrs.sel(wl=wls, method=method).assign_coords(wl=wl)
+    # drop the per-band coordinates (e.g. central_wavelength): they would
+    # conflict between the bands selected below
+    Rrs = Rrs.drop_vars([c for c in Rrs.coords if c != 'wl' and 'wl' in Rrs[c].dims])
+    # mask non-positive bands: rrs enters ratios and logarithms below
+    Rrs = Rrs.where(Rrs > 0)
+    R443, R490, R560, R665 = [Rrs.sel(wl=w) for w in wl]
+
+    aw, bbw = iopw().get_iopw(wl, Twater=Twater, Salinity=Salinity)
+    aw = aw.assign_coords(wl=wl)
+    bbw = bbw.assign_coords(wl=wl)
+    aw560, aw665 = aw.values[2:]
+    bbw560, bbw665 = bbw.values[2:]
+
+    # Step 0: above -> below water
+    rrs = Rrs / (0.52 + 1.7 * Rrs)
+    rrs443, rrs490, rrs560, rrs665 = [rrs.sel(wl=w) for w in wl]
+
+    # Step 1
+    u = (-g0 + np.sqrt(g0 ** 2 + 4 * g1 * rrs)) / (2 * g1)
+    u560, u665 = u.sel(wl=wl[2]), u.sel(wl=wl[3])
+
+    # Step 2: total absorption at the reference wavelength
+    chi = np.log10((rrs443 + rrs490) / (rrs560 + 5 * rrs665 / rrs490 * rrs665))
+    a560 = aw560 + 10 ** (-1.146 - 1.366 * chi - 0.469 * chi ** 2)
+    a665 = aw665 + 0.39 * (R665 / (R443 + R490)) ** 1.14
+    green_ref = R665 < 0.0015
+
+    # Step 3: particulate backscattering at the reference wavelength
+    bbp560 = u560 * a560 / (1 - u560) - bbw560
+    bbp665 = u665 * a665 / (1 - u665) - bbw665
+    bbp0 = xr.where(green_ref, bbp560, bbp665)
+    wl0 = xr.where(green_ref, wl[2], wl[3])
+
+    # Steps 4-5: spectral bbp and total absorption
+    eta = 2.0 * (1 - 1.2 * np.exp(-0.9 * rrs443 / rrs560))
+    bbp = bbp0 * (wl0 / rrs.wl) ** eta
+    a = (1 - u) * (bbw + bbp) / u
+
+    return xr.Dataset({'Rrs': Rrs, 'rrs': rrs, 'u': u, 'a': a, 'bbp': bbp,
+                       'aw': aw.drop_vars([c for c in aw.coords if c != 'wl']),
+                       'bbw': bbw.drop_vars([c for c in bbw.coords if c != 'wl'])})
