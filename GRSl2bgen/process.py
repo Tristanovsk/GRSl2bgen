@@ -171,7 +171,8 @@ class Process():
         # get CDOM parameters
         # ----------------------
         logging.info('get CDOM parameters')
-        cdom_prod = Cdom(raster)
+        # first-guess Chl-a for the QAA decomposition of CDOM absorption
+        cdom_prod = Cdom(raster, chl=chl_prod.output.get('Chla_OWTblend_Ta2025'))
         cdom_prod.process()
 
         # ----------------------
