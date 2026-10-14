@@ -246,9 +246,9 @@ description (dimensions, attributes, quality flags, packing).
        water pixel), copied from the input product
    * - ``flags_l2b``
      - --
-     - GRSl2bgen bit field: ``zsd_a_below_aw`` (bit 0) and the SWIR module flags
-       ``swir_module_low``/``medium``/``high`` (bits 1-3, thresholds 0.002, 0.005 and
-       0.01 sr\ :sup:`-1` by default), see :py:mod:`GRSl2bgen.mask`
+     - GRSl2bgen bit field: the SWIR module flags ``swir_module_low``/``medium``/``high``
+       (bits 1-3, thresholds 0.002, 0.005 and 0.01 sr\ :sup:`-1` by default) and
+       ``zsd_a_below_aw`` (bit 12), see :py:mod:`GRSl2bgen.mask`
 
 Output formats
 ~~~~~~~~~~~~~~

@@ -375,11 +375,6 @@ same ``flag_names`` and ``flag_descriptions`` attributes and the same decoding:
      - Value
      - Name
      - Description
-   * - 0
-     - 1
-     - ``zsd_a_below_aw``
-     - ``Zsd_Lee15``: QAA v6 total absorption below the pure water absorption at the
-       transparent band, set to :math:`a_w`
    * - 1
      - 2
      - ``swir_module_low``
@@ -393,6 +388,11 @@ same ``flag_names`` and ``flag_descriptions`` attributes and the same decoding:
      - 8
      - ``swir_module_high``
      - SWIR module above 0.01 sr\ :sup:`-1`
+   * - 12
+     - 4096
+     - ``zsd_a_below_aw``
+     - ``Zsd_Lee15``: QAA v6 total absorption below the pure water absorption at the
+       transparent band, set to :math:`a_w`
 
 Water is black in the SWIR: a high SWIR module points to residual sun glint, adjacency
 effect, thin cloud or a land/water mixed pixel. The three SWIR flags are cumulative (a

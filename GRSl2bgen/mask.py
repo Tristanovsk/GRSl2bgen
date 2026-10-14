@@ -9,13 +9,13 @@ a separate ``uint32`` bit field, ``flags_l2b``: bit ``i`` is set when the condit
 =====  ======================  ==============================================================
 bit    name                    meaning
 =====  ======================  ==============================================================
-0      ``zsd_a_below_aw``      ``Zsd_Lee15``: QAA total absorption below the pure water
-                               absorption at the transparent band, set to ``aw``
-                               (`GRSl2bgen.transparency.Transparency`)
 1      ``swir_module_low``     SWIR module of the L2A ``Rrs`` above the low threshold
                                (`QC_L2A`, default 0.002 sr-1)
 2      ``swir_module_medium``  SWIR module above the medium threshold (default 0.005 sr-1)
 3      ``swir_module_high``    SWIR module above the high threshold (default 0.01 sr-1)
+12     ``zsd_a_below_aw``      ``Zsd_Lee15``: QAA total absorption below the pure water
+                               absorption at the transparent band, set to ``aw``
+                               (`GRSl2bgen.transparency.Transparency`)
 =====  ======================  ==============================================================
 
 A module adds a flag by registering its bit in `L2B_FLAGS` and returning a boolean
@@ -37,12 +37,12 @@ FLAG_NAME_L2B = 'flags_l2b'
 # (the GRS L2A ``flags`` are copied unchanged).
 # name: (bit, description)
 L2B_FLAGS = {
-    'zsd_a_below_aw': (0, 'Zsd_Lee15: QAA v6 total absorption below the pure water absorption '
-                          'at the transparent band, set to aw'),
     # QC_L2A, descriptions completed with the thresholds used
     'swir_module_low': (1, 'SWIR module of the L2A Rrs above the low threshold'),
     'swir_module_medium': (2, 'SWIR module of the L2A Rrs above the medium threshold'),
     'swir_module_high': (3, 'SWIR module of the L2A Rrs above the high threshold'),
+    'zsd_a_below_aw': (12, 'Zsd_Lee15: QAA v6 total absorption below the pure water absorption '
+                           'at the transparent band, set to aw'),
 }
 
 
@@ -120,7 +120,7 @@ class QC_L2A:
 
     swir_flag_names = ('swir_module_low', 'swir_module_medium', 'swir_module_high')
 
-    def __init__(self, raster, swir_module_thresholds=(0.002, 0.005, 0.01), swir_bands=(1610, 2200)):
+    def __init__(self, raster, swir_module_thresholds=(0.0005, 0.005, 0.01), swir_bands=(1610, 2200)):
         self.raster = raster
         self.swir_module_thresholds = swir_module_thresholds
         self.swir_bands = swir_bands

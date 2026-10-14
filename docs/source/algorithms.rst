@@ -586,7 +586,7 @@ with :math:`m_0 = 0.005`, :math:`m_1 = 4.259`, :math:`m_2 = 0.52`,
 absorption is set to :math:`a_w` where :math:`a < a_w`: in clear water (560 nm
 QAA reference) :math:`a(665)` is extrapolated and often falls just below
 :math:`a_w(665)`. The pixels where this happens at the transparent band are
-flagged ``zsd_a_below_aw`` (bit 0 of ``flags_l2b``). The model
+flagged ``zsd_a_below_aw`` (bit 12 of ``flags_l2b``). The model
 assumes optically deep water: if a bathymetry is passed to
 :py:meth:`~GRSl2bgen.transparency.Transparency.zsd_Lee15`, the pixels where
 :math:`Z_{SD}` exceeds the water depth are flagged ``bottom_limited`` (not done
