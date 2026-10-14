@@ -38,6 +38,8 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        owt_index_Bi2024        (y, x) float32 ...
        owt_dist_Ta2025         (y, x) float32 ...
        owt_index_Ta2025        (y, x) float32 ...
+       owt_dist_Cordeiro2022SPM  (Nclasses, y, x) float32 ...
+       owt_index_Cordeiro2022SPM (Nclasses, y, x) float32 ...
        Chla_OC2nasa            (y, x) float64 ...
        Chla_M09B               (y, x) float64 ...
        Chla_NIRB               (y, x) float64 ...
@@ -45,6 +47,7 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        SPM_obs2co              (y, x) float64 ...
        TURB_dogliotti          (y, x) float64 ...
        SPM_nechad              (y, x) float64 ...
+       SPM_OWTblend_Ta2025     (y, x) float32 ...
        acdom_B15               (y, x) float64 ...
        Kd_par                  (y, x) float64 ...
        flags                   (y, x) int64 ...
@@ -72,7 +75,8 @@ Dimensions and coordinates
    * - ``Nclasses``
      - dimension, ``int64``
      - Rank of the OWT class, ``0`` = best match, ``1`` = second best, ``2`` = third
-       best. Only used by the Spyrakos et al. (2018) variables.
+       best. Only used by the Spyrakos et al. (2018) variables (3 ranks) and the
+       Cordeiro (2022) variables (2 ranks, the third one is NaN).
    * - ``time``
      - scalar, ``datetime64``
      - Acquisition date and time.
@@ -125,6 +129,17 @@ Optical Water Types
      - (y, x)
      - rad
      - Spectral angle to this class.
+   * - ``owt_index_Cordeiro2022SPM``
+     - (Nclasses, y, x)
+     - --
+     - Class number (1--4) of the two best-matching SPM OWT of Cordeiro (2022),
+       ordered by increasing Euclidean distance.
+   * - ``owt_dist_Cordeiro2022SPM``
+     - (Nclasses, y, x)
+     - sr\ :sup:`-1`
+     - Euclidean distance :math:`d` (:eq:`euclidean`) to each of these classes. The
+       ``units`` attribute of the variable reads ``radians``, which is wrong for
+       this distance.
 
 The meaning of each class number is stored in the ``definition`` attribute of the
 ``owt_index_*`` variables:
@@ -150,6 +165,8 @@ The meaning of each class number is stored in the ``definition`` attribute of th
      - 1--10: Bi2024 types 1, 2, 3a, 3b, 4a, 4b, 5a, 5b, 6, 7;
        11: Cyanobacteria; 12: Mesodinium; 13: Dinoflagellates2; 14: red;
        15: Dinoflagellates1; 16: Lepidodinium.
+   * - Cordeiro2022SPM
+     - 1: clear; 2: moderate; 3: turbid; 4: very turbid.
 
 Chlorophyll-a
 ~~~~~~~~~~~~~
@@ -180,7 +197,8 @@ Chlorophyll-a
      - mg m\ :sup:`-3`
      - ]0, 1200[
      - OWT-blended Chl-a (:eq:`chl-blend`): Spyrakos2018 classes, recipe of Tavares
-       et al. (2025), 2 best classes blended (``n_classes_blended`` attribute).
+       et al. (2025), 2 best classes blended (``n_classes_blended`` attribute); only
+       the classes with a valid estimate are averaged.
 
 Suspended particulate matter and turbidity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -205,6 +223,13 @@ Suspended particulate matter and turbidity
      - FNU
      - [0, 2000], negative values set to 0
      - Dogliotti et al. (2015) switching algorithm, 665 nm (:eq:`switch`).
+   * - ``SPM_OWTblend_Ta2025``
+     - mg L\ :sup:`-1`
+     - ]0, 2000[, plus a validity range per class algorithm
+     - OWT-blended SPM: Cordeiro2022SPM classes, 2 best classes blended
+       (``n_classes_blended`` attribute) with Jiang et al. (2021), Zhang et al. (2014)
+       and Binding et al. (2010) (:eq:`jiang-green` to :eq:`binding`); only the
+       classes with a valid estimate are averaged.
 
 CDOM and transparency
 ~~~~~~~~~~~~~~~~~~~~~
@@ -405,4 +430,5 @@ another, compare products after unpacking, not on the raw integers.
    the minimum of a variable (e.g. SPM or turbidity equal to 0) read back as NaN.
 
 ``flags`` and ``mask`` keep their integer type. The internal (unpacked) types are
-``float32`` for the OWT variables and ``float64`` for the other geophysical variables.
+``float32`` for the OWT variables and ``SPM_OWTblend_Ta2025``, and ``float64`` for the
+other geophysical variables.

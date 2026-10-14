@@ -7,9 +7,9 @@ flowchart LR
     MASK["Water mask<br/>(L2A mask == 0)"]
 
     subgraph steps["Water quality retrievals"]
-        S1["OWT classification (SAM)<br/>(Spyrakos2018, Bi2024, Tarasenko2025)"]
+        S1["OWT classification<br/>(SAM: Spyrakos2018, Bi2024, Tarasenko2025;<br/>Euclidean: Cordeiro2022SPM)"]
         S2["Chlorophyll-a<br/>(incl. OWT-blended)"]
-        S3["SPM and turbidity"]
+        S3["SPM and turbidity<br/>(incl. OWT-blended)"]
         S4["CDOM"]
         S5["Transparency (Kd PAR)"]
     end
@@ -26,6 +26,7 @@ flowchart LR
     MASK --> S4
     MASK --> S5
     S1 -. "Spyrakos2018 top classes" .-> S2
+    S1 -. "Cordeiro2022SPM top classes" .-> S3
     S1 --> OUT1
     S2 --> OUT1
     S3 --> OUT1

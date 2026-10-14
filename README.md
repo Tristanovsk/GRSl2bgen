@@ -11,8 +11,6 @@
 
 **Scientific processor deriving water quality parameters from GRS Level-2A remote sensing reflectance (Rrs) images.**
 
-📖 Full documentation: **<https://grsl2bgen.readthedocs.io>**
-
 ## Overview
 
 GRSl2bgen takes one GRS Level-2A product (Rrs, produced by

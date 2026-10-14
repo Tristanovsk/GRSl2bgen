@@ -48,6 +48,17 @@ All retrievals are restricted to valid water pixels, i.e. pixels whose
 L2A ``mask`` variable equals 0 (see :py:meth:`GRSl2bgen.process.Process.execute`).
 Every other pixel is set to NaN before processing.
 
+Band ratios
+-----------
+
+Band ratios are only computed where each band is physically valid, the bands
+being masked one by one rather than the ratio: a band under a logarithm or in
+a denominator must be strictly positive, the numerator of a power law must be
+non-negative. Otherwise the ratio of two negative reflectances would be
+positive and give a meaningless estimate. This applies to every ratio of this
+page (OC2, NIR-blue, Gons, Gilerson, OBS2CO, Jiang et al. (2021) red-band QAA
+and Brezonik et al. (2015)); the corresponding pixels are NaN.
+
 Optical Water Types (OWT)
 -------------------------
 
@@ -124,6 +135,14 @@ dimension.
      - see ``owt_tarasenko2025.nc``
      - 1
      - Standardised :math:`\Rrs` (``m_nRrs``)
+   * - Cordeiro (2022), SPM
+     - 4
+     - 2
+     - :math:`\Rrs` (``m_Rrs``), always with the Euclidean distance
+       :eq:`euclidean` since the classes differ mainly by their magnitude
+
+The Cordeiro (2022) classes (1: clear, 2: moderate, 3: turbid, 4: very turbid)
+are only used for the OWT-blended SPM product.
 
 Chlorophyll-a
 -------------
@@ -181,10 +200,15 @@ inversely proportional to their spectral angle
    :label: chl-blend
 
    \mathrm{Chl}_{\mathrm{blend}} =
-   \frac{\sum_{k=1}^{K} w_k\, \mathrm{Chl}_{\mathcal{A}(c_k)}}
-        {\sum_{k=1}^{K} w_k},
+   \frac{\sum_{k \in V} w_k\, \mathrm{Chl}_{\mathcal{A}(c_k)}}
+        {\sum_{k \in V} w_k},
    \qquad w_k = \frac{1}{\theta_{(k)} + \varepsilon},
    \quad \varepsilon = 10^{-6}
+
+where :math:`V \subseteq \{1, \dots, K\}` is the set of ranks whose estimate
+:math:`\mathrm{Chl}_{\mathcal{A}(c_k)}` is valid (not NaN): an invalid estimate
+is left out of both sums rather than counted as 0. The pixel is NaN when
+:math:`V` is empty.
 
 where :math:`\mathcal{A}(c)` is the algorithm assigned to class :math:`c`:
 
@@ -296,6 +320,89 @@ switching variable :math:`x` (see table):
      - :math:`\rho_w(665)`
      - :math:`[0.05,\ 0.07]`
 
+OWT-blended SPM (``SPM_OWTblend_Ta2025``, mg L\ :sup:`-1`)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Same scheme as the OWT-blended Chl-a (:eq:`chl-blend`), with the Cordeiro
+(2022) SPM classes, the :math:`K = 2` best classes and weights
+:math:`w_k = 1 / (d_{(k)} + \varepsilon)` from the Euclidean distance
+(:py:meth:`~GRSl2bgen.suspended_particulate_matter.Spm.spm_blending`).
+Each class-specific estimate is first restricted to the validity range of its
+algorithm (values outside are NaN, hence left out of the blend), and the
+blended product is kept within :math:`0 < \mathrm{SPM} < 2000` mg L\ :sup:`-1`.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 37 20 25
+
+   * - Cordeiro OWT
+     - Algorithm
+     - Equation
+     - Validity range (mg L\ :sup:`-1`)
+   * - 1 (clear)
+     - Jiang et al. (2021), QAA at 560 nm
+     - :eq:`jiang-green`
+     - [0, 50]
+   * - 2 (moderate)
+     - Jiang et al. (2021), QAA at 665 nm
+     - :eq:`jiang-red`
+     - [10, 500]
+   * - 3 (turbid)
+     - Zhang et al. (2014), power law at 705 nm
+     - :eq:`zhang`
+     - [20, 1000]
+   * - 4 (very turbid)
+     - Binding et al. (2010), 740 nm
+     - :eq:`binding`
+     - [50, 2000]
+
+**Jiang et al. (2021).** Both versions estimate the particulate backscattering
+:math:`b_{bp}` with a quasi-analytical algorithm (QAA) from the
+below-surface reflectance :math:`r_{rs}`:
+
+.. math::
+
+   r_{rs} = \frac{R}{0.52 + 1.7\, R}, \qquad
+   u = \frac{-0.0895 + \sqrt{0.089^2 + 4 \times 0.125\, r_{rs}}}{2 \times 0.125}, \qquad
+   b_{bp} = \frac{u\, a}{1 - u} - b_{bw}
+
+(:math:`u` is NaN where the square-root argument is negative). At 560 nm:
+
+.. math::
+   :label: jiang-green
+
+   X = \log_{10}\frac{r_{rs}(443) + r_{rs}(490)}
+                      {r_{rs}(560) + 5\, r_{rs}(665)^2 / r_{rs}(490)}, \qquad
+   a(560) = a_w(560) + 10^{-1.146 - 1.366 X - 0.469 X^2}, \qquad
+   \mathrm{SPM} = 94.48785\, b_{bp}(560)
+
+and at 665 nm:
+
+.. math::
+   :label: jiang-red
+
+   a(665) = a_w(665) + 0.39 \left(\frac{R_{665}}{R_{443} + R_{490}}\right)^{1.14}, \qquad
+   \mathrm{SPM} = 113.87498\, b_{bp}(665)
+
+with :math:`a_w(560) = 0.06299986`, :math:`a_w(665) = 0.41395333`,
+:math:`b_{bw}(560) = 0.00078491` and :math:`b_{bw}(665) = 0.00037474`
+m\ :sup:`-1`.
+
+**Zhang et al. (2014).**
+
+.. math::
+   :label: zhang
+
+   \mathrm{SPM} = 362507\, R_{705}^{\,2.3222}
+
+**Binding et al. (2010).** With :math:`\rho = \pi R_{740}`:
+
+.. math::
+   :label: binding
+
+   \mathrm{SPM} = \frac{51.162}{0.554 \times 0.019}
+   \left(\frac{2.8\, \rho}{0.54 \times 128.123 / \pi + 0.48\, \rho} - 0.00027\right)
+
 Coloured dissolved organic matter
 ---------------------------------
 
@@ -328,12 +435,17 @@ in m\ :sup:`-1`, kept within :math:`0 < K_d(\mathrm{PAR}) < 3000` m\ :sup:`-1`.
 References
 ----------
 
+- Binding, C. E., Jerome, J. H., Bukata, R. P., Booty, W. G. (2010). Suspended
+  particulate matter in Lake Erie derived from MODIS aquatic colour imagery.
+  *International Journal of Remote Sensing*, 31, 5239--5255.
 - Bi, S., Hieronymi, M. (2024). Holistic optical water type classification
   for ocean, coastal, and inland waters. *Limnology and Oceanography*.
 - Brezonik, P. L., Olmanson, L. G., Finlay, J. C., Bauer, M. E. (2015).
   Factors affecting the measurement of CDOM by remote sensing of optically
   complex inland waters. *Remote Sensing of Environment*, 157, 199--215.
   https://doi.org/10.1016/j.rse.2014.04.033
+- Cordeiro, T. (2022). SPM optical water types (4 classes, :math:`\Rrs` mean
+  spectra in ``GRSl2bgen/data/owt_cordeiro2022_spm.nc``).
 - Dogliotti, A. I., Ruddick, K. G., Nechad, B., Doxaran, D., Knaeps, E. (2015).
   A single algorithm to retrieve turbidity from remotely-sensed data in all
   coastal and estuarine waters. *Remote Sensing of Environment*, 156, 157--168.
@@ -343,6 +455,10 @@ References
 - Gons, H. J., Rijkeboer, M., Ruddick, K. G. (2005). Effect of a waveband shift
   on chlorophyll retrieval from MERIS imagery of inland and coastal waters.
   *Journal of Plankton Research*, 27, 125--127.
+- Jiang, D., Matsushita, B., Pahlevan, N., et al. (2021). Remotely estimating
+  total suspended solids concentration in clear to extremely turbid waters
+  using a novel semi-analytical method. *Remote Sensing of Environment*, 258,
+  112386.
 - Martin, S., Bryère, P., Gernez, P., Renosh, P. R., Doxaran, D. (2025).
   Towards reliable high-resolution satellite products for the monitoring of
   chlorophyll-a and suspended particulate matter in optically shallow coastal
@@ -362,3 +478,7 @@ References
 - Tavares, M. H., Guimarães, D., Roussillon, J., et al. (2025). A framework to
   retrieve water quality parameters in small, optically diverse freshwater
   ecosystems using Sentinel-2 MSI imagery. *Remote Sensing*, 17, 2729.
+- Zhang, Y., Shi, K., Liu, X., Zhou, Y., Qin, B. (2014). Lake topography and
+  wind waves determining seasonal-spatial dynamics of total suspended matter
+  in turbid Lake Taihu, China: assessment using long-term high-resolution
+  MERIS data. *PLoS ONE*, 9, e98055.

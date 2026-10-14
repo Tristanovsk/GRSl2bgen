@@ -28,10 +28,11 @@ Level-2A (Rrs, remote-sensing reflectance) product. Given one L2A product, it:
 1. restricts the processing to valid water pixels (L2A ``mask == 0``);
 2. classifies every pixel into Optical Water Types (OWT) against three databases
    (Spyrakos et al. 2018, Bi et al. 2024, Tarasenko et al. 2025) with the Spectral Angle
-   Mapper (or, optionally, the Euclidean distance);
-3. retrieves chlorophyll-a (stand-alone algorithms and an OWT-blended product), suspended
-   particulate matter (SPM) and turbidity, colored dissolved organic matter (CDOM), and
-   water transparency (Kd(PAR));
+   Mapper (or, optionally, the Euclidean distance), and against the SPM classes of
+   Cordeiro (2022) with the Euclidean distance;
+3. retrieves chlorophyll-a and suspended particulate matter (SPM), each with stand-alone
+   algorithms and an OWT-blended product, turbidity, colored dissolved organic matter
+   (CDOM), and water transparency (Kd(PAR));
 4. merges all of these into a single Level-2B product, written as NetCDF or Zarr
    (optionally as a multiscale Zarr pyramid for cloud visualisation).
 
@@ -168,6 +169,10 @@ description (dimensions, attributes, quality flags, packing).
    * - ``owt_index_Ta2025``, ``owt_dist_Ta2025``
      - --, rad
      - Best Tarasenko et al. (2025) class and its spectral angle
+   * - ``owt_index_Cordeiro2022SPM``, ``owt_dist_Cordeiro2022SPM``
+     - --, sr\ :sup:`-1`
+     - 2 best Cordeiro (2022) SPM classes and their Euclidean distances, along the
+       ``Nclasses`` dimension
    * - ``Chla_OC2nasa``, ``Chla_M09B``, ``Chla_NIRB``
      - mg m\ :sup:`-3`
      - Chlorophyll-a from NASA OC2, Moses et al. (2009) and the NIR-blue ratio
@@ -177,6 +182,9 @@ description (dimensions, attributes, quality flags, packing).
    * - ``SPM_nechad``, ``SPM_obs2co``
      - mg L\ :sup:`-1`
      - Suspended particulate matter
+   * - ``SPM_OWTblend_Ta2025``
+     - mg L\ :sup:`-1`
+     - OWT-blended suspended particulate matter (Cordeiro 2022 classes)
    * - ``TURB_dogliotti``
      - FNU
      - Turbidity (Dogliotti et al. 2015)
@@ -351,7 +359,9 @@ Required Resources
 No SLURM/HPC job scripts or documented resource budgets ship with this repository (unlike
 GRSprocessor). Actual CPU/RAM/runtime needs depend on the input product's spatial resolution
 and tile size. The chain is lazy (dask): data are read and computed chunk by chunk when the
-output is written. The main settings are:
+output is written. A NetCDF input is read with the chunks stored in the file (merged into
+one chunk along ``wl``), so that each compressed block is read only once
+(:py:class:`GRSl2bgen.product.Product`, ``chunks`` argument). The main settings are:
 
 - ``n_workers`` / ``threads_per_worker`` of :py:class:`GRSl2bgen.process.Process`: run on a
   local ``dask.distributed`` cluster instead of the default threaded scheduler;
