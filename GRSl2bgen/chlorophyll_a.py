@@ -163,7 +163,9 @@ class Chl():
         (Spyrakos et al. 2018) are used. Each class is assigned an algorithm
         and its Chl-a estimate is weighted by the inverse SAM distance
         ``1 / (owt_dist + eps)``; the weighted sum is divided by the sum of
-        the weights.
+        the weights of the classes whose estimate is valid (not NaN), so an
+        invalid estimate is left out rather than counted as 0. Pixels with
+        no valid estimate are NaN.
 
         Recipe: OWT 1, 6, 10 -> Gons; OWT 2, 4, 5, 11, 12 -> NDCI;
         OWT 7, 8 -> Gilerson2; OWT 3, 9, 13 -> NASA OC2.
@@ -202,44 +204,31 @@ class Chl():
         xowt_prod = xowt_prod.isel(Nclasses=range(Nclasses))
 
         # ---------------------------------------------------
-        # Compute norm from owt SAM distance for each pixel
-        # ---------------------------------------------------
-        norm = 1 / (xowt_prod[owt_dist_var] + eps)
-        # the summation assumes nan identical to 0
-        norm = norm.sum('Nclasses')
-        # replace empty value from 0 to nan
-        norm = norm.where(norm > 0)
-
-        # ---------------------------------------------------
         # Recipe and algorithm application
         # ---------------------------------------------------
+        acoef_oc2 = [0.2236, -1.8296, 1.9094, -2.9481, -0.1718]
+        recipe = [
+            ([1, 6, 10], self.chl_gons),                        # Gons
+            ([2, 4, 5, 11, 12], self.chl_ndci),                 # NDCI
+            ([7, 8], self.chl_gilerson2),                       # Gilerson2
+            ([3, 9, 13], lambda Rrs: self.OC2(Rrs, acoef_oc2)),  # clear waters
+        ]
 
-        owt_index_to_keep = [1, 6, 10]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
-        chla = (self.chl_gons(self.Rrs.where(mask)) * weights).fillna(0)
-
-        # OWT 2, 4, 5, 11, 12 : NDCI
-        owt_index_to_keep = [2, 4, 5, 11, 12]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
-        chla += (self.chl_ndci(self.Rrs.where(mask)) * weights).fillna(0)
-
-        # OWT 7, 8 : Gilerson2
-        owt_index_to_keep = [7, 8]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
-        chla += (self.chl_gilerson2(self.Rrs.where(mask)) * weights).fillna(0)
-
-        # clear waters
-        owt_index_to_keep = [3, 9, 13]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var] .where(mask) + eps)
-        acoef = [0.2236, -1.8296, 1.9094, -2.9481, -0.1718]
-        chla += (self.OC2(self.Rrs.where(mask), acoef) * weights).fillna(0)
+        # the weights of a class only enter the norm where its algorithm
+        # returns a value, so an invalid estimate is left out of the blend
+        # instead of counting as 0
+        chla = 0
+        norm = 0
+        for owt_index_to_keep, algo in recipe:
+            mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+            estimate = algo(self.Rrs.where(mask))
+            weights = (1 / (xowt_prod[owt_dist_var].where(mask) + eps)).where(estimate.notnull())
+            chla += (estimate * weights).fillna(0)
+            norm += weights.fillna(0)
 
         # get final product after normalization
-        chla = chla.sum('Nclasses') / norm
+        norm = norm.sum('Nclasses')
+        chla = chla.sum('Nclasses') / norm.where(norm > 0)
 
         # add metadata
         chla.attrs = {
