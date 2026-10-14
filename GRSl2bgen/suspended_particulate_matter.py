@@ -268,7 +268,9 @@ class Spm():
         This follows :meth:`GRSl2bgen.chlorophyll_a.Chl.owt_blending`: the
         best ``Nclasses`` ranked OWT matches are selected, each estimate is
         weighted by ``1 / (distance + eps)``, and the weighted sum is divided
-        by the sum of those weights.  The Cordeiro2022 OWT-to-algorithm recipe is
+        by the sum of the weights of the valid (not NaN, in range) estimates,
+        so an invalid estimate is left out rather than counted as 0. Pixels
+        with no valid estimate are NaN.  The Cordeiro2022 OWT-to-algorithm recipe is
         OWT 1: Jiang et al. (2021, green), OWT 2: Jiang et al. (2021, red),
         OWT 3: Zhang et al. (2014), and OWT 4: Binding et al. (2010).
 
@@ -301,11 +303,6 @@ class Spm():
         Nclasses = min(xowt_prod.sizes['Nclasses'], Nclasses)
         xowt_prod = xowt_prod.isel(Nclasses=range(Nclasses))
 
-        # inverse-distance weighting as in Chl.owt_blending.
-        norm = 1 / (xowt_prod[owt_dist_var] + eps)
-        norm = norm.sum('Nclasses')
-        norm = norm.where(norm > 0)
-
         R443 = self.Rrs.sel(wl=443)
         R490 = self.Rrs.sel(wl=490)
         R560 = self.Rrs.sel(wl=560)
@@ -313,43 +310,35 @@ class Spm():
         R705 = self.Rrs.sel(wl=705)
         R740 = self.Rrs.sel(wl=740)
 
-        # OWT 1: Jiang et al. (2021), green-band QAA.
-        owt_index_to_keep = [1]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
-        owt1_spm = self._spm_jiang_green(R443, R490, R560, R665)
-        if limits:
-            owt1_spm = owt1_spm.where((owt1_spm >= 0) & (owt1_spm <= 50))
-        spm = (owt1_spm * weights).fillna(0)
+        # OWT class, algorithm and validity range (used if `limits`)
+        recipe = [
+            # OWT 1: Jiang et al. (2021), green-band QAA.
+            ([1], lambda: self._spm_jiang_green(R443, R490, R560, R665), (0, 50)),
+            # OWT 2: Jiang et al. (2021), red-band QAA.
+            ([2], lambda: self._spm_jiang_red(R443, R490, R560, R665), (10, 500)),
+            # OWT 3: Zhang et al. (2014), 705-nm power law.
+            ([3], lambda: self._spm_zhang2014(R705), (20, 1000)),
+            # OWT 4: Binding et al. (2010), 740-nm semi-analytical model.
+            ([4], lambda: self._spm_binding2010(R740), (50, 2000)),
+        ]
 
-        # OWT 2: Jiang et al. (2021), red-band QAA.
-        owt_index_to_keep = [2]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
-        owt2_spm = self._spm_jiang_red(R443, R490, R560, R665)
-        if limits:
-            owt2_spm = owt2_spm.where((owt2_spm >= 10) & (owt2_spm <= 500))
-        spm += (owt2_spm * weights).fillna(0)
+        # inverse-distance weighting as in Chl.owt_blending: the weights of a
+        # class only enter the norm where its estimate is valid, so an
+        # invalid or out-of-range estimate is left out of the blend instead
+        # of counting as 0
+        spm = 0
+        norm = 0
+        for owt_index_to_keep, algo, (minval, maxval) in recipe:
+            mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
+            estimate = algo()
+            if limits:
+                estimate = estimate.where((estimate >= minval) & (estimate <= maxval))
+            weights = (1 / (xowt_prod[owt_dist_var].where(mask) + eps)).where(estimate.notnull())
+            spm += (estimate * weights).fillna(0)
+            norm += weights.fillna(0)
 
-        # OWT 3: Zhang et al. (2014), 705-nm power law.
-        owt_index_to_keep = [3]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
-        owt3_spm = self._spm_zhang2014(R705)
-        if limits:
-            owt3_spm = owt3_spm.where((owt3_spm >= 20) & (owt3_spm <= 1000))
-        spm += (owt3_spm * weights).fillna(0)
-
-        # OWT 4: Binding et al. (2010), 740-nm semi-analytical model.
-        owt_index_to_keep = [4]
-        mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-        weights = 1 / (xowt_prod[owt_dist_var].where(mask) + eps)
-        owt4_spm = self._spm_binding2010(R740)
-        if limits:
-            owt4_spm = owt4_spm.where((owt4_spm >= 50) & (owt4_spm <= 2000))
-        spm += (owt4_spm * weights).fillna(0)
-
-        spm = spm.sum('Nclasses') / norm
+        norm = norm.sum('Nclasses')
+        spm = spm.sum('Nclasses') / norm.where(norm > 0)
         spm = spm.astype(np.float32)
         spm.name = 'SPM_OWTblend_Ta2025'
         spm.attrs = {
