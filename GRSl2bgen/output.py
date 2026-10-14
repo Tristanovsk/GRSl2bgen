@@ -309,9 +309,17 @@ class L2bProduct():
             if chunks is not None:
                 enc['chunksizes'] = tuple(c[0] for c in chunks)
 
+        # NetCDF has no boolean attribute type (e.g. ``gas_absorption_correction``
+        # inherited from the L2A Rrs): write them as 0/1 integers
+        ds = self.l2b_prod.copy(deep=False)
+        for attrs in [ds.attrs] + [v.attrs for v in ds.variables.values()]:
+            for key, value in attrs.items():
+                if isinstance(value, (bool, np.bool_)):
+                    attrs[key] = np.int8(value)
+
         # write file
         self._prepare_output(ofile)
-        self.l2b_prod.to_netcdf(ofile, encoding=encoding)
+        ds.to_netcdf(ofile, encoding=encoding)
         self.l2b_prod.close()
 
         return
