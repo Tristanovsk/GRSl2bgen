@@ -349,8 +349,9 @@ class Spm():
         spm.name = 'SPM_OWTblend_Ta2025'
         spm.attrs = {
             'description': (
-                'OWT-blended SPM from Tavares (2025) OWT and class-specific '
-                'SPM algorithms, weighted by inverse Euclidean distance'
+                'OWT-blended SPM from Cordeiro (2022) SPM OWT and '
+                'class-specific SPM algorithms, weighted by inverse Euclidean '
+                'distance'
             ),
             'references': (
                 'Cordeiro, T. (2022); Jiang et al. (2021); '

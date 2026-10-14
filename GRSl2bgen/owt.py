@@ -72,7 +72,8 @@ class OWT():
         Attributes
         ----------
         xowt : xarray.Dataset
-            Result of `multi_process`: ``owt_dist_<name>`` (radians) and
+            Result of `multi_process`: ``owt_dist_<name>`` (radians for the
+            SAM, sr-1 for the Euclidean distance) and
             ``owt_index_<name>`` (1-based class position).
         """
 
@@ -102,10 +103,14 @@ class OWT():
         self.height = self.Rrs.sizes['y']
         self.width = self.Rrs.sizes['x']
 
+        # units of owt_dist: an angle for SAM, the unit of Rrs for the
+        # Euclidean distance (class spectra are in the unit of the pixels)
         if spectral_distance == "sam":
             self.spectral_distance = sam_dataarray
+            self.dist_units = 'radians'
         elif spectral_distance == "euclidean":
             self.spectral_distance = euclidean_dataarray
+            self.dist_units = 'sr-1'
         else:
             raise ValueError(f'unknown sepctral distance {spectral_distance!r}')
 
@@ -263,7 +268,8 @@ class OWT():
         Returns
         -------
         xarray.Dataset
-            ``owt_dist_<name>`` (radians) and ``owt_index_<name>`` (1-based
+            ``owt_dist_<name>`` (radians for the SAM, sr-1 for the Euclidean
+            distance) and ``owt_index_<name>`` (1-based
             class position) with dimensions ``[Nclasses, y, x]``; the
             ``Nclasses`` dimension is dropped when only one class is kept.
         """
@@ -288,7 +294,7 @@ class OWT():
         if self.Nclasses_to_be_saved == 1:
             self.xowt = self.xowt.isel({self.Nclasses_dim: 0}, drop=True)
 
-        self.xowt[self.owt_dist_name].attrs['units'] = 'radians'
+        self.xowt[self.owt_dist_name].attrs['units'] = self.dist_units
         self.xowt[self.owt_index_name].attrs['definition'] = self.attrs_owt
 
         return self.xowt
