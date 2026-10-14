@@ -5,21 +5,23 @@ flowchart LR
 
     PROC["GRSl2bgen Processing Chain<br/>GRSl2bgen CLI / GRSl2bgen.process.Process"]
     MASK["Water mask<br/>(L2A mask == 0)"]
+    QC["L2A quality control<br/>(SWIR module flags)"]
 
     subgraph steps["Water quality retrievals"]
         S1["OWT classification<br/>(SAM: Spyrakos2018, Bi2024, Tarasenko2025;<br/>Euclidean: Cordeiro2022SPM)"]
         S2["Chlorophyll-a<br/>(incl. OWT-blended)"]
         S3["SPM and turbidity<br/>(incl. OWT-blended)"]
-        S4["CDOM<br/>(Brezonik, QAA v6)"]
+        S4["CDOM<br/>(Brezonik, QAA v6,<br/>QAA v6 - aph(Chl-a))"]
         S5["Transparency<br/>(Kd PAR, Secchi depth)"]
     end
 
     subgraph out["Output Data"]
-        OUT1["Level-2B water quality product<br/>NetCDF or Zarr (optional pyramid)<br/>Disk/POSIX"]
+        OUT1["Level-2B water quality product<br/>+ L2A flags/mask, flags_l2b<br/>NetCDF or Zarr (optional pyramid)<br/>Disk/POSIX"]
     end
 
     IN1 --> PROC
     PROC --> MASK
+    MASK --> QC
     MASK --> S1
     MASK --> S2
     MASK --> S3
@@ -33,6 +35,7 @@ flowchart LR
     S3 --> OUT1
     S4 --> OUT1
     S5 --> OUT1
+    QC -- "flags_l2b" --> OUT1
 
     classDef mainStyle fill:#3d85c6,stroke:#1c4587,stroke-width:2px,color:#ffffff
     classDef procStyle fill:#e69138,stroke:#a35a00,stroke-width:3px,color:#ffffff,font-weight:bold
@@ -41,7 +44,7 @@ flowchart LR
     classDef groupStyle fill:#f3f3f3,stroke:#999999,stroke-dasharray: 4 3,color:#333333
 
     class IN1 mainStyle
-    class PROC,MASK procStyle
+    class PROC,MASK,QC procStyle
     class S1,S2,S3,S4,S5 stepStyle
     class OUT1 outStyle
     class main,steps,out groupStyle

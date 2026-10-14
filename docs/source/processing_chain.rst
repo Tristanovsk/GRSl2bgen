@@ -26,16 +26,22 @@ GRSl2bgen is a scientific processor that derives water-quality parameters from a
 Level-2A (Rrs, remote-sensing reflectance) product. Given one L2A product, it:
 
 1. restricts the processing to valid water pixels (L2A ``mask == 0``);
-2. classifies every pixel into Optical Water Types (OWT) against three databases
+2. checks the quality of the L2A reflectance: the SWIR module
+   :math:`\sqrt{\Rrs(1610)^2 + \Rrs(2200)^2}`, which should be close to zero over water,
+   is compared with three thresholds to flag residual glint, adjacency effect, thin
+   cloud or mixed land/water pixels (:py:class:`GRSl2bgen.mask.QC_L2A`);
+3. classifies every pixel into Optical Water Types (OWT) against three databases
    (Spyrakos et al. 2018, Bi et al. 2024, Tarasenko et al. 2025) with the Spectral Angle
    Mapper (or, optionally, the Euclidean distance), and against the SPM classes of
    Cordeiro (2022) with the Euclidean distance;
-3. retrieves chlorophyll-a and suspended particulate matter (SPM), each with stand-alone
+4. retrieves chlorophyll-a and suspended particulate matter (SPM), each with stand-alone
    algorithms and an OWT-blended product, turbidity, colored dissolved organic matter
-   (CDOM, including a QAA product that uses the OWT-blended chlorophyll-a), and water
-   transparency (Kd(PAR) and Secchi disk depth);
-4. merges all of these into a single Level-2B product, written as NetCDF or Zarr
-   (optionally as a multiscale Zarr pyramid for cloud visualisation).
+   (CDOM, including two QAA v6 products that use the OWT-blended chlorophyll-a), and
+   water transparency (Kd(PAR) and Secchi disk depth);
+5. merges all of these into a single Level-2B product, written as NetCDF or Zarr
+   (optionally as a multiscale Zarr pyramid for cloud visualisation). The L2A ``flags``
+   and ``mask`` are copied unchanged; the flags set by GRSl2bgen (L2A quality control,
+   retrieval warnings) are written to a separate bit field, ``flags_l2b``.
 
 The equations of every retrieval are given in :doc:`algorithms`.
 
@@ -118,8 +124,10 @@ extension; ``--pyramid`` is ignored for NetCDF):
    )
    proc.run()                # execute() + write_output() in the same dask context
 
-See the :doc:`tutorials/basics` and :doc:`tutorials/advanced` notebooks for
-step-by-step examples of the OWT classification and blending.
+See the :doc:`tutorials/basics` notebooks for a quick look from a coarse pyramid level
+and a full-resolution run (:doc:`tutorials/grsl2bgen_l2a_processing`), and the
+:doc:`tutorials/advanced` notebooks for step-by-step examples of the OWT classification
+and blending.
 
 Dataflow
 --------
@@ -173,8 +181,9 @@ Outputs
    * - Level-2B water quality product (NetCDF or Zarr)
      - 1..1
      - Merged product (see :py:class:`GRSl2bgen.output.L2bProduct`), see the variable
-       list below, plus the ``flags``/``mask`` variables carried over from the input
-       product (see `Data Types`_ below for naming).
+       list below: the retrieved parameters, the ``flags``/``mask`` variables carried
+       over from the input product and the GRSl2bgen flags ``flags_l2b`` (see
+       `Data Types`_ below for naming).
 
 The main variables are listed below; see :doc:`output_product` for the full
 description (dimensions, attributes, quality flags, packing).
@@ -231,6 +240,15 @@ description (dimensions, attributes, quality flags, packing).
    * - ``Zsd_Lee15``
      - m
      - Secchi disk depth (Lee et al. 2015)
+   * - ``flags``, ``mask``
+     - --
+     - L2A bit field (cloud, water, cirrus, ...) and binary mask (``0`` = processed
+       water pixel), copied from the input product
+   * - ``flags_l2b``
+     - --
+     - GRSl2bgen bit field: ``zsd_a_below_aw`` (bit 0) and the SWIR module flags
+       ``swir_module_low``/``medium``/``high`` (bits 1-3, thresholds 0.002, 0.005 and
+       0.01 sr\ :sup:`-1` by default), see :py:mod:`GRSl2bgen.mask`
 
 Output formats
 ~~~~~~~~~~~~~~
@@ -239,7 +257,8 @@ The format follows the extension of the output path (see
 :py:meth:`GRSl2bgen.output.L2bProduct.export`). In all formats the content and the
 encoding are the same: continuous variables are packed into ``int16`` with a
 per-variable ``scale_factor``/``add_offset`` and ``_FillValue = -32768`` (unpacked
-automatically by ``xarray``), while ``flags`` and ``mask`` keep their own type.
+automatically by ``xarray``), while ``flags``, ``flags_l2b`` and ``mask`` keep their own
+integer type.
 
 .. list-table::
    :header-rows: 1
@@ -272,15 +291,15 @@ full-resolution chunks only where it zooms in.
 
 **Layout.** One Zarr group per resolution level, ``0`` being the full resolution and
 each next level being 2 times coarser. Every level is a complete L2B dataset (same
-variables, packing, CRS and ``spatial_ref``). File names below are those of the Zarr
-format 2 written with zarr-python 2.x:
+variables, packing, CRS and ``spatial_ref``). The store is written in the Zarr format of
+the installed zarr-python: format 3 with zarr-python 3 (below), format 2 with
+zarr-python 2.x (``.zgroup``, ``.zattrs`` and ``.zmetadata`` instead of ``zarr.json``):
 
 .. code-block:: text
 
    S2B_MSIL2B_<...>.zarr/
-   ├── .zgroup
-   ├── .zattrs          # product attributes + "multiscales" description
-   ├── .zmetadata       # consolidated metadata of the whole hierarchy
+   ├── zarr.json        # product attributes, "multiscales" description and
+   │                    # consolidated metadata of the whole hierarchy
    ├── 0/               # full resolution (e.g. 10980 x 10980 px at 10 m)
    ├── 1/               # 1/2  (5490 px, 20 m)
    ├── 2/               # 1/4  (2745 px, 40 m)
@@ -301,8 +320,8 @@ one pixel:
      v^{(l+1)}_{i,j} = \operatorname{mean}_{\text{valid}}
      \left\{ v^{(l)}_{2i,2j},\ v^{(l)}_{2i+1,2j},\ v^{(l)}_{2i,2j+1},\ v^{(l)}_{2i+1,2j+1} \right\}
 
-- categorical variables (``flags``, ``mask``): nearest neighbour (top-left pixel of
-  the block), which preserves the flag values.
+- categorical variables (``flags``, ``flags_l2b``, ``mask``): nearest neighbour
+  (top-left pixel of the block), which preserves the flag values.
 
 Edge pixels that do not fill a complete block are trimmed, so the origin of the grid is
 unchanged and the pixel size doubles at every level; the ``GeoTransform`` of
@@ -331,14 +350,15 @@ convention):
           "transform": {"scale": [2.0, 2.0]}, "resampling_method": "average"}
        ],
        "resampling_method": "average",
-       "categorical_variables": ["flags", "mask"],
+       "categorical_variables": ["flags", "flags_l2b", "mask"],
        "categorical_resampling_method": "nearest",
        "dims": ["y", "x"]
      }
    }
 
-The metadata of all groups are consolidated into a single ``.zmetadata`` file, so a
-client discovers the whole hierarchy with one request.
+The metadata of all groups are consolidated into the root metadata file (``zarr.json``,
+or ``.zmetadata`` in format 2), so a client discovers the whole hierarchy with one
+request.
 
 **Performance.** The processing chain is evaluated only once, when level ``0`` is
 written; each coarser level is computed from the level just written (read back from
@@ -438,7 +458,8 @@ Data Types
      - one tile, one date
      - e.g. ``S2B_MSIL2Agrs_<datetime>_N<baseline>_R<orbit>_T<tile>_<datetime>.nc``
    * - Level-2B output product
-     - NetCDF or Zarr water-quality product (OWT, chlorophyll-a, SPM, CDOM, transparency)
+     - NetCDF or Zarr water-quality product (OWT, chlorophyll-a, SPM, CDOM, transparency,
+       quality flags)
      - one tile, one date
      - input basename with ``L2Agrs`` replaced by ``L2B``, e.g.
        ``S2B_MSIL2B_<datetime>_N<baseline>_R<orbit>_T<tile>_<datetime>.nc`` (see
