@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 
 from .utils import iopw, aphi_bricaud1998
+from .config import SEL_XARRAY_METHOD
 
 
 class Cdom():
@@ -101,7 +102,8 @@ class Cdom():
         return param.where((param>minval)&(param<maxval) )
 
     def brezonik15(self, acoef = [1.872, -0.83]):
-        R490, R740 = self.Rrs.sel(wl=490), self.Rrs.sel(wl=740)
+        R490 = self.Rrs.sel(wl=490, method=SEL_XARRAY_METHOD)
+        R740 = self.Rrs.sel(wl=740, method=SEL_XARRAY_METHOD)
         # mask non-positive bands, not the ratio: two negative bands give a
         # positive but meaningless ratio
         ratio = R490.where(R490 > 0) / R740.where(R740 > 0)
@@ -115,7 +117,7 @@ class Cdom():
                        Twater=20,
                        Salinity=0,
                        wls=[443, 490, 560, 665],
-                       method='nearest',
+                       method=SEL_XARRAY_METHOD,
                        eps=1e-3):
         """QAA v6 adapted to MSI: ``adg`` and ``aph`` at 443 nm.
 
@@ -161,7 +163,8 @@ class Cdom():
             Blue, blue-green, green and red wavelengths (nm), default
             ``[443, 490, 560, 665]``.
         method : str, optional
-            Selection method passed to ``Rrs.sel`` (default ``'nearest'``).
+            Selection method passed to ``Rrs.sel`` (default
+            ``config.SEL_XARRAY_METHOD``).
         eps : float, optional
             Pixels with ``|1 - zeta / xi| < eps`` (ill-conditioned
             decomposition) are set to NaN.

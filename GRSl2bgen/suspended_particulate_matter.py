@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 from importlib_resources import files
 from . import __package__
+from .config import SEL_XARRAY_METHOD
 
 
 class Spm():
@@ -79,7 +80,8 @@ class Spm():
         matter (in mg/l) from remote sensing reflectances (Rrs, in sr-1).
         This algorithm was calibrated on GET radiometric database (Morin 2019)
         """
-        red, nir = self.Rrs.sel(wl=665), self.Rrs.sel(wl=865)
+        red = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
+        nir = self.Rrs.sel(wl=865, method=SEL_XARRAY_METHOD)
         # mask negative bands, not the ratio: two negative bands give a
         # positive but meaningless ratio
         ratio = nir.where(nir >= 0) / red.where(red > 0)
@@ -103,7 +105,7 @@ class Spm():
         The switch thresholds apply to the water-leaving reflectance
         rho_w = pi * Rrs, as in the original paper.
         '''
-        red = self.Rrs.sel(wl=665)
+        red = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
         rho_red = np.pi * red
         t_low = self.nechad_relationship(red, coef_l)
         t_high = self.nechad_relationship(red, coef_h)
@@ -120,7 +122,7 @@ class Spm():
         from remote sensing reflectances (Rrs, in sr-1).
         This algorithm was published in Nechad et al., 2010
         '''
-        red = self.Rrs.sel(wl=665)
+        red = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
         spm = self.nechad_relationship(red, coefs)
         return spm.where((spm >= valid_limit[0]), 0).where(spm <= valid_limit[1])
 
@@ -223,12 +225,12 @@ class Spm():
 
     # def _owt_spm_from_class(self, class_px, limits=True):
     #     """Dispatch 1-based OWT class map (H, W) to the appropriate SPM algorithm."""
-    #     R443 = self.Rrs.sel(wl=443).values.squeeze()
-    #     R490 = self.Rrs.sel(wl=490).values.squeeze()
-    #     R560 = self.Rrs.sel(wl=560).values.squeeze()
-    #     R665 = self.Rrs.sel(wl=665).values.squeeze()
-    #     R705 = self.Rrs.sel(wl=705).values.squeeze()
-    #     R740 = self.Rrs.sel(wl=740).values.squeeze()
+    #     R443 = self.Rrs.sel(wl=443, method=SEL_XARRAY_METHOD).values.squeeze()
+    #     R490 = self.Rrs.sel(wl=490, method=SEL_XARRAY_METHOD).values.squeeze()
+    #     R560 = self.Rrs.sel(wl=560, method=SEL_XARRAY_METHOD).values.squeeze()
+    #     R665 = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD).values.squeeze()
+    #     R705 = self.Rrs.sel(wl=705, method=SEL_XARRAY_METHOD).values.squeeze()
+    #     R740 = self.Rrs.sel(wl=740, method=SEL_XARRAY_METHOD).values.squeeze()
     #     H, W = R665.shape
     #     spm  = np.full((H, W), np.nan, dtype=np.float32)
 
@@ -309,12 +311,12 @@ class Spm():
         Nclasses = min(xowt_prod.sizes['Nclasses'], Nclasses)
         xowt_prod = xowt_prod.isel(Nclasses=range(Nclasses))
 
-        R443 = self.Rrs.sel(wl=443)
-        R490 = self.Rrs.sel(wl=490)
-        R560 = self.Rrs.sel(wl=560)
-        R665 = self.Rrs.sel(wl=665)
-        R705 = self.Rrs.sel(wl=705)
-        R740 = self.Rrs.sel(wl=740)
+        R443 = self.Rrs.sel(wl=443, method=SEL_XARRAY_METHOD)
+        R490 = self.Rrs.sel(wl=490, method=SEL_XARRAY_METHOD)
+        R560 = self.Rrs.sel(wl=560, method=SEL_XARRAY_METHOD)
+        R665 = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
+        R705 = self.Rrs.sel(wl=705, method=SEL_XARRAY_METHOD)
+        R740 = self.Rrs.sel(wl=740, method=SEL_XARRAY_METHOD)
 
         # OWT class, algorithm and validity range (used if `limits`)
         recipe = [
@@ -405,7 +407,7 @@ class Spm():
     #         np.nan,
     #     ).astype(np.float32)
 
-    #     ref_da = self.Rrs.sel(wl=665).drop_vars('wl', errors='ignore')
+    #     ref_da = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD).drop_vars('wl', errors='ignore')
     #     scalar_coords = [c for c in ref_da.coords if c not in ref_da.dims and ref_da[c].ndim == 0]
     #     ref_da = ref_da.drop_vars(scalar_coords, errors='ignore')
 

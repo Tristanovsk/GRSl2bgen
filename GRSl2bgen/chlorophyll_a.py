@@ -5,6 +5,8 @@ import logging
 import numpy as np
 import xarray as xr
 
+from .config import SEL_XARRAY_METHOD
+
 
 class Chl():
     """Chlorophyll-a (Chl-a) retrieval from remote-sensing reflectance.
@@ -38,8 +40,6 @@ class Chl():
     output : xarray.Dataset or None
         Merged Chl-a products, set by `process`.
     """
-
-
 
     def __init__(self,
                  raster,
@@ -130,7 +130,7 @@ class Chl():
             chl_blend = self.set_range(chl_blend)
             merge_list.append(chl_blend)
         # TODO clean xr.Dataset unused coords to avoid using compat="override"
-        self.output = xr.merge(merge_list,compat="override").drop_vars('wl').compute()
+        self.output = xr.merge(merge_list, compat="override").drop_vars('wl').compute()
 
     def set_range(self, param, minval=0, maxval=1200):
         """Mask values outside an open interval.
@@ -156,7 +156,7 @@ class Chl():
 
     def owt_blending(self,
                      xowt_prod,
-                     Nclasses = 3,
+                     Nclasses=3,
                      owt_dist_var='owt_dist',
                      owt_index_var='owt_index',
                      eps=1e-6):
@@ -212,9 +212,9 @@ class Chl():
         # ---------------------------------------------------
         acoef_oc2 = [0.2236, -1.8296, 1.9094, -2.9481, -0.1718]
         recipe = [
-            ([1, 6, 10], self.chl_gons),                        # Gons
-            ([2, 4, 5, 11, 12], self.chl_ndci),                 # NDCI
-            ([7, 8], self.chl_gilerson2),                       # Gilerson2
+            ([1, 6, 10], self.chl_gons),  # Gons
+            ([2, 4, 5, 11, 12], self.chl_ndci),  # NDCI
+            ([7, 8], self.chl_gilerson2),  # Gilerson2
             ([3, 9, 13], lambda Rrs: self.OC2(Rrs, acoef_oc2)),  # clear waters
         ]
 
@@ -249,98 +249,9 @@ class Chl():
 
         return chla
 
-
-    # def _owt_chl_from_class(self, class_px, limits=True):
-    #     """Dispatch per-pixel OWT class IDs to the appropriate Chl-a algorithm.
-
-    #     Parameters
-    #     ----------
-    #     class_px : ndarray (H, W) float32 : 1-based OWT class IDs (NaN = invalid).
-    #     limits   : bool : apply per-algorithm valid range clipping.
-
-    #     Returns
-    #     -------
-    #     chla : ndarray (H, W) float32
-    #     """
-    #     R665 = self.Rrs.sel(wl=665).values.squeeze()
-    #     R705 = self.Rrs.sel(wl=705).values.squeeze()
-    #     R783 = self.Rrs.sel(wl=783).values.squeeze()
-    #     H, W = R665.shape
-    #     chla = np.full((H, W), np.nan, dtype=np.float32)
-
-    #     # Pre-compute OC2 ratio
-    #     oc2_ratio = np.log10(
-    #         self.Rrs.sel(wl=490).values.squeeze() /
-    #         self.Rrs.sel(wl=560).values.squeeze()
-    #     )
-
-    #     def _ocx(ratio, acoef):
-    #         logchl = sum(acoef[i] * ratio ** i for i in range(len(acoef)))
-    #         return (10.0 ** logchl).astype(np.float32)
-
-    #     # OWT 1, 6, 10 : Gons
-    #     mask = np.isin(class_px, [1, 6, 10])
-    #     if mask.any():
-    #         val = self._chl_gons(R665, R705, R783).astype(np.float32)
-    #         if limits:
-    #             val = np.where((val > 1) & (val < 250), val, np.nan)
-    #         chla = np.where(mask, val, chla)
-
-    #     # OWT 2, 4, 5, 11, 12 : NDCI
-    #     mask_ndci = np.isin(class_px, [2, 4, 5, 11, 12])
-    #     if mask_ndci.any():
-    #         val = self._chl_ndci(R665, R705).astype(np.float32)
-    #         if limits:
-    #             val = np.where((val > 5) & (val < 250), val, np.nan)
-    #         chla = np.where(mask_ndci, val, chla)
-
-    #     # OWT 2, 12 when NDCI > 20 : Gilerson2 override
-    #     ndci_val = self._chl_ndci(R665, R705)
-    #     mask_g2_override = np.isin(class_px, [2, 12]) & (ndci_val > 20)
-    #     if mask_g2_override.any():
-    #         val = self._chl_gilerson2(R665, R705).astype(np.float32)
-    #         if limits:
-    #             val = np.where((val > 5) & (val < 500), val, np.nan)
-    #         chla = np.where(mask_g2_override, val, chla)
-
-    #     # OWT 7, 8 : Gilerson2
-    #     mask = np.isin(class_px, [7, 8])
-    #     if mask.any():
-    #         val = self._chl_gilerson2(R665, R705).astype(np.float32)
-    #         if limits:
-    #             val = np.where((val > 5) & (val < 500), val, np.nan)
-    #         chla = np.where(mask, val, chla)
-
-    #     # OWT 3 : OC2 (blue water)
-    #     mask = class_px == 3
-    #     if mask.any():
-    #         val = _ocx(oc2_ratio, [0.1098, -0.755, -14.12, -117.0, -17.76])
-    #         if limits:
-    #             val = np.where((val > 0.01) & (val < 50), val, np.nan)
-    #         chla = np.where(mask, val, chla)
-
-    #     # OWT 9 : OC2 (turbid blue)
-    #     mask = class_px == 9
-    #     if mask.any():
-    #         val = _ocx(oc2_ratio, [0.0536, 7.308, 116.2, 412.4, 463.5])
-    #         if limits:
-    #             val = np.where((val > 0.01) & (val < 50), val, np.nan)
-    #         chla = np.where(mask, val, chla)
-
-    #     # OWT 13 : OC2 (very clear)
-    #     mask = class_px == 13
-    #     if mask.any():
-    #         val = _ocx(oc2_ratio, [-5020.0, 2.9e4, -6.1e4, 5.749e4, -2.026e4])
-    #         if limits:
-    #             val = np.where((val > 0.01) & (val < 50), val, np.nan)
-    #         chla = np.where(mask, val, chla)
-
-    #     return chla.astype(np.float32)
-
-    
-# ------------------------------------------------------------------
-# Individual Chl-a algorithms
-# ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Individual Chl-a algorithms
+    # ------------------------------------------------------------------
 
     def OCX_chl(self, ratio, acoef):
         """Evaluate an OCx polynomial: ``10 ** sum(acoef[i] * ratio**i)``.
@@ -371,7 +282,8 @@ class Chl():
         Rrs : xarray.DataArray
             Reflectance with a ``wl`` dimension containing 490 and 560 nm.
         """
-        R490, R560 = Rrs.sel(wl=490), Rrs.sel(wl=560)
+        R490 = Rrs.sel(wl=490, method=SEL_XARRAY_METHOD)
+        R560 = Rrs.sel(wl=560, method=SEL_XARRAY_METHOD)
         # mask non-positive bands, not the ratio: two negative bands give a
         # positive but meaningless ratio (and, near zero, a log10 so large
         # that the OCx polynomial overflows)
@@ -385,8 +297,8 @@ class Chl():
         Rrs : xarray.DataArray
             Reflectance with a ``wl`` dimension containing 443, 490, 560 nm.
         """
-        blue = Rrs.sel(wl=[443, 490]).max(dim='wl')
-        R560 = Rrs.sel(wl=560)
+        blue = Rrs.sel(wl=[443, 490], method=SEL_XARRAY_METHOD).max(dim='wl')
+        R560 = Rrs.sel(wl=560, method=SEL_XARRAY_METHOD)
         return np.log10(blue.where(blue > 0) / R560.where(R560 > 0))
 
     def OC2(self, Rrs, acoef):
@@ -427,19 +339,23 @@ class Chl():
         ``np.max`` is taken over the whole array, giving a single blue value
         for the scene; `OC3_ratio` computes the maximum per pixel.
         """
-        blue = np.max(Rrs.sel(wl=[443, 490]))
-        R560 = Rrs.sel(wl=560)
+        blue = np.max(Rrs.sel(wl=[443, 490], method=SEL_XARRAY_METHOD))
+        R560 = Rrs.sel(wl=560, method=SEL_XARRAY_METHOD)
         ratio = np.log10(blue.where(blue > 0) / R560.where(R560 > 0))
         return self.OCX_chl(ratio, acoef)
 
     def RED2(self, Rrs):
         """Two-band red-edge ratio ``Rrs705 / Rrs665``."""
-        R665, R705 = Rrs.sel(wl=665), Rrs.sel(wl=705)
+        R665 = Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
+        R705 = Rrs.sel(wl=705, method=SEL_XARRAY_METHOD)
         return R705.where(R705 >= 0) / R665.where(R665 > 0)
 
     def RED3(self, Rrs):
         """Three-band red-edge index ``(1/Rrs665 - 1/Rrs705) * Rrs740``."""
-        return (1 / Rrs.sel(wl=665) - 1 / Rrs.sel(wl=705)) * Rrs.sel(wl=740)
+        R665 = Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
+        R705 = Rrs.sel(wl=705, method=SEL_XARRAY_METHOD)
+        R740 = Rrs.sel(wl=740, method=SEL_XARRAY_METHOD)
+        return (1 / R665 - 1 / R705) * R740
 
     # following Ogashawara et al. 2021
     def M09B(self, Rrs, acoef=np.array([232.329, 23.174])):
@@ -475,7 +391,8 @@ class Chl():
         xarray.DataArray
             Chl-a (mg m-3).
         """
-        R443, R705 = Rrs.sel(wl=443), Rrs.sel(wl=705)
+        R443 = Rrs.sel(wl=443, method=SEL_XARRAY_METHOD)
+        R705 = Rrs.sel(wl=705, method=SEL_XARRAY_METHOD)
         # mask negative bands, not the ratio: two negative bands give a
         # positive but meaningless ratio
         index = R705.where(R705 >= 0) / R443.where(R443 > 0)
@@ -556,7 +473,7 @@ class Chl():
                  Rrs,
                  acoef=[0.425, 0.704, 1.063, 0.016],
                  wls=[665, 705, 783],
-                 method='nearest'):
+                 method=SEL_XARRAY_METHOD):
         """Gons et al. (2005) semi-analytical Chl-a.
 
         Gons, H.J.; Rijkeboer, M.; Ruddick, K.G. Effect of a waveband shift
@@ -577,7 +494,8 @@ class Chl():
             Red, red-edge and NIR wavelengths (nm), default
             ``[665, 705, 783]``.
         method : str, optional
-            Selection method passed to ``Rrs.sel`` (default ``'nearest'``).
+            Selection method passed to ``Rrs.sel`` (default
+            ``config.SEL_XARRAY_METHOD``).
 
         Returns
         -------
@@ -598,7 +516,7 @@ class Chl():
                  Rrs,
                  acoef=[14.039, 86.115, 194.325],
                  wls=[665, 705],
-                 method='nearest'):
+                 method=SEL_XARRAY_METHOD):
         """Normalized Difference Chlorophyll Index (NDCI) Chl-a.
 
         Mishra, S.; Mishra, D.R. Normalized difference chlorophyll index: A
@@ -617,7 +535,8 @@ class Chl():
         wls : list of float, optional
             Red and red-edge wavelengths (nm), default ``[665, 705]``.
         method : str, optional
-            Selection method passed to ``Rrs.sel`` (default ``'nearest'``).
+            Selection method passed to ``Rrs.sel`` (default
+            ``config.SEL_XARRAY_METHOD``).
 
         Returns
         -------
@@ -637,7 +556,7 @@ class Chl():
                       Rrs,
                       acoef=[0.022, 1.124],
                       wls=[665, 705],
-                      method='nearest'
+                      method=SEL_XARRAY_METHOD
                       ):
         """Gilerson et al. (2010) two-band Chl-a.
 
@@ -657,7 +576,8 @@ class Chl():
         wls : list of float, optional
             Red and red-edge wavelengths (nm), default ``[665, 705]``.
         method : str, optional
-            Selection method passed to ``Rrs.sel`` (default ``'nearest'``).
+            Selection method passed to ``Rrs.sel`` (default
+            ``config.SEL_XARRAY_METHOD``).
 
         Returns
         -------

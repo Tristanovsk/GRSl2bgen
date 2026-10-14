@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import xarray as xr
+from .config import SEL_XARRAY_METHOD
 
 
 class Transparency():
@@ -41,7 +42,7 @@ class Transparency():
 
     def zsd(self, acoef = [0]):
         # TODO implement secchi disk depth
-        return acoef[0]*self.Rrs.sel(wl=490)
+        return acoef[0]*self.Rrs.sel(wl=490, method=SEL_XARRAY_METHOD)
 
 
     def Kd_par_RD22(self,acoef=[3.09,-90.17]):
@@ -49,6 +50,8 @@ class Transparency():
         Kd_par from Roy and Das, 2022, Journal of Hydrology, table 3, eq. 13
         :return:
         '''
-        return acoef[0] * np.exp(acoef[1] * (self.Rrs.sel(wl=490) - self.Rrs.sel(wl=665)))
+        R490 = self.Rrs.sel(wl=490, method=SEL_XARRAY_METHOD)
+        R665 = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD)
+        return acoef[0] * np.exp(acoef[1] * (R490 - R665))
 
 
