@@ -10,7 +10,7 @@ flowchart LR
         S1["OWT classification<br/>(SAM: Spyrakos2018, Bi2024, Tarasenko2025;<br/>Euclidean: Cordeiro2022SPM)"]
         S2["Chlorophyll-a<br/>(incl. OWT-blended)"]
         S3["SPM and turbidity<br/>(incl. OWT-blended)"]
-        S4["CDOM"]
+        S4["CDOM<br/>(Brezonik, QAA v6)"]
         S5["Transparency (Kd PAR)"]
     end
 
@@ -27,6 +27,7 @@ flowchart LR
     MASK --> S5
     S1 -. "Spyrakos2018 top classes" .-> S2
     S1 -. "Cordeiro2022SPM top classes" .-> S3
+    S2 -. "OWT-blended Chl-a" .-> S4
     S1 --> OUT1
     S2 --> OUT1
     S3 --> OUT1

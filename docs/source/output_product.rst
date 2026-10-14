@@ -49,6 +49,7 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        SPM_nechad              (y, x) float64 ...
        SPM_OWTblend_Ta2025     (y, x) float32 ...
        acdom_B15               (y, x) float64 ...
+       adg443_QAAv6            (y, x) float64 ...
        Kd_par                  (y, x) float64 ...
        flags                   (y, x) int64 ...
        mask                    (y, x) uint8 ...
@@ -245,6 +246,12 @@ CDOM and transparency
      - ]0, 30[
      - CDOM absorption coefficient at 440 nm, Brezonik et al. (2015), 490/740 nm ratio
        (:eq:`cdom`).
+   * - ``adg443_QAAv6``
+     - m\ :sup:`-1`
+     - ]0, 30[
+     - Detritus and CDOM absorption at 443 nm, QAA v6 adapted to MSI (443/490 nm
+       decomposition, :eq:`qaa-adg`), with ``Chla_OWTblend_Ta2025`` as first guess for
+       the phytoplankton absorption ratio.
    * - ``Kd_par``
      - m\ :sup:`-1`
      - ]0, 3000[
@@ -253,7 +260,8 @@ CDOM and transparency
 .. note::
 
    The ``range`` attribute stored with some variables (e.g. ``[0, 2000]`` for Chl-a,
-   ``[0, 60]`` for ``acdom_B15``, ``[0, 200]`` for ``Kd_par``) is informative metadata
+   ``[0, 60]`` for ``acdom_B15``, ``[0, 30]`` for ``adg443_QAAv6``, ``[0, 200]`` for
+   ``Kd_par``) is informative metadata
    and differs from the filter actually applied, given in the tables above.
 
 Quality flags and mask

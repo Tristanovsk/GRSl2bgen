@@ -32,7 +32,8 @@ Level-2A (Rrs, remote-sensing reflectance) product. Given one L2A product, it:
    Cordeiro (2022) with the Euclidean distance;
 3. retrieves chlorophyll-a and suspended particulate matter (SPM), each with stand-alone
    algorithms and an OWT-blended product, turbidity, colored dissolved organic matter
-   (CDOM), and water transparency (Kd(PAR));
+   (CDOM, including a QAA product that uses the OWT-blended chlorophyll-a), and water
+   transparency (Kd(PAR));
 4. merges all of these into a single Level-2B product, written as NetCDF or Zarr
    (optionally as a multiscale Zarr pyramid for cloud visualisation).
 
@@ -191,6 +192,9 @@ description (dimensions, attributes, quality flags, packing).
    * - ``acdom_B15``
      - m\ :sup:`-1`
      - CDOM absorption at 440 nm (Brezonik et al. 2015)
+   * - ``adg443_QAAv6``
+     - m\ :sup:`-1`
+     - Detritus and CDOM absorption at 443 nm (QAA v6 adapted to MSI)
    * - ``Kd_par``
      - m\ :sup:`-1`
      - Diffuse attenuation coefficient of PAR (Roy and Das 2022)

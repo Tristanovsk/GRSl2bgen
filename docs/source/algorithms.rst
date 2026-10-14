@@ -56,8 +56,9 @@ being masked one by one rather than the ratio: a band under a logarithm or in
 a denominator must be strictly positive, the numerator of a power law must be
 non-negative. Otherwise the ratio of two negative reflectances would be
 positive and give a meaningless estimate. This applies to every ratio of this
-page (OC2, NIR-blue, Gons, Gilerson, OBS2CO, Jiang et al. (2021) red-band QAA
-and Brezonik et al. (2015)); the corresponding pixels are NaN.
+page (OC2, NIR-blue, Gons, Gilerson, OBS2CO, Jiang et al. (2021) red-band QAA,
+Brezonik et al. (2015) and the QAA v6 of the CDOM section); the corresponding
+pixels are NaN.
 
 Optical Water Types (OWT)
 -------------------------
@@ -417,6 +418,83 @@ at 440 nm from the band-ratio model of Brezonik et al. (2015):
 
 in m\ :sup:`-1`, kept within :math:`0 < a_{\mathrm{CDOM}}(440) < 30` m\ :sup:`-1`.
 
+QAA v6 adapted to MSI (``adg443_QAAv6``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Absorption by detritus and CDOM at 443 nm, :math:`a_{dg}(443)`, from the
+quasi-analytical algorithm of Lee et al. (2002) in its version 6 (IOCCG, 2014),
+with the decomposition step adapted to the MSI bands
+(:py:meth:`~GRSl2bgen.cdom.Cdom.a_dg443_QAA_v6`). Pure water absorption
+:math:`a_w` and backscattering :math:`b_{bw}` come from
+:py:class:`GRSl2bgen.utils.iopw`, with the temperature and salinity correction
+of Röttgers et al. (2014) (:math:`T = 20` °C, :math:`S = 0` by default).
+
+**Steps 0--5 (QAA v6).** Below-water reflectance and the ratio
+:math:`u = b_b / (a + b_b)`:
+
+.. math::
+
+   r_{rs} = \frac{R}{0.52 + 1.7\, R}, \qquad
+   u = \frac{-g_0 + \sqrt{g_0^2 + 4 g_1 r_{rs}}}{2 g_1},
+   \qquad g_0 = 0.089,\; g_1 = 0.1245
+
+Total absorption at the reference wavelength :math:`\lambda_0`, chosen per
+pixel: if :math:`R_{665} < 0.0015` sr\ :sup:`-1`, :math:`\lambda_0 = 560` nm
+and
+
+.. math::
+
+   \chi = \log_{10}\frac{r_{rs}(443) + r_{rs}(490)}
+                       {r_{rs}(560) + 5\, r_{rs}(665)^2 / r_{rs}(490)}, \qquad
+   a(560) = a_w(560) + 10^{-1.146 - 1.366 \chi - 0.469 \chi^2}
+
+otherwise :math:`\lambda_0 = 665` nm and
+:math:`a(665) = a_w(665) + 0.39 \left(R_{665} / (R_{443} + R_{490})\right)^{1.14}`.
+Then
+
+.. math::
+
+   b_{bp}(\lambda_0) = \frac{u(\lambda_0)\, a(\lambda_0)}{1 - u(\lambda_0)} - b_{bw}(\lambda_0),
+   \qquad
+   b_{bp}(\lambda) = b_{bp}(\lambda_0) \left(\frac{\lambda_0}{\lambda}\right)^{\eta},
+   \qquad
+   \eta = 2 \left[1 - 1.2 \exp\left(-0.9\, \frac{r_{rs}(443)}{r_{rs}(560)}\right)\right]
+
+.. math::
+
+   a(\lambda) = \frac{\left[1 - u(\lambda)\right] \left[b_{bw}(\lambda) + b_{bp}(\lambda)\right]}{u(\lambda)}
+
+**Step 6 (modified for MSI).** The standard QAA splits :math:`a - a_w` at 412
+and 443 nm; MSI has no 412 nm band, so the 443 and 490 nm bands are used:
+
+.. math::
+   :label: qaa-adg
+
+   a_{dg}(443) = \frac{\left[a(443) - a_w(443)\right] - \zeta' \left[a(490) - a_w(490)\right]}
+                      {1 - \zeta' / \xi'}, \qquad
+   a_{\phi}(443) = a(443) - a_w(443) - a_{dg}(443)
+
+with :math:`\xi' = a_{dg}(443) / a_{dg}(490) = \exp\left[S\,(490 - 443)\right]`,
+:math:`S = 0.015 + 0.002 / \left(0.6 + r_{rs}(443) / r_{rs}(560)\right)`
+nm\ :sup:`-1`, and :math:`\zeta' = a_{\phi}(443) / a_{\phi}(490)` from the
+model :math:`a_{\phi}(\lambda) = A_{\phi}(\lambda)\, \mathrm{Chl}^{E_{\phi}(\lambda)}`
+of Bricaud et al. (1998) (:py:func:`GRSl2bgen.utils.aphi_bricaud1998`):
+
+.. math::
+
+   \zeta' = \frac{A_{\phi}(443)}{A_{\phi}(490)}\,
+            \mathrm{Chl}^{\,E_{\phi}(443) - E_{\phi}(490)}
+
+The first-guess Chl-a is the OWT-blended product ``Chla_OWTblend_Ta2025``
+(:eq:`chl-blend`); :math:`\zeta'` varies little with it (1.41 to 1.54 for
+Chl-a from 0.01 to 1000 mg m\ :sup:`-3`).
+
+**Step 7 (quality control).** :math:`a_{dg}(443)` is NaN where
+:math:`a_{dg}(443) \le 0`, :math:`a_{\phi}(443) < 0`,
+:math:`|1 - \zeta'/\xi'| < 10^{-3}`, where the first-guess Chl-a is not valid,
+or where one of the 443, 490, 560 and 665 nm bands is not positive. The product
+is then kept within :math:`0 < a_{dg}(443) < 30` m\ :sup:`-1`.
+
 Transparency
 ------------
 
@@ -446,6 +524,10 @@ References
   https://doi.org/10.1016/j.rse.2014.04.033
 - Cordeiro, T. (2022). SPM optical water types (4 classes, :math:`\Rrs` mean
   spectra in ``GRSl2bgen/data/owt_cordeiro2022_spm.nc``).
+- Bricaud, A., Morel, A., Babin, M., Allali, K., Claustre, H. (1998).
+  Variations of light absorption by suspended particles with chlorophyll a
+  concentration in oceanic (case 1) waters: analysis and implications for
+  bio-optical models. *Journal of Geophysical Research*, 103, 31033--31044.
 - Dogliotti, A. I., Ruddick, K. G., Nechad, B., Doxaran, D., Knaeps, E. (2015).
   A single algorithm to retrieve turbidity from remotely-sensed data in all
   coastal and estuarine waters. *Remote Sensing of Environment*, 156, 157--168.
@@ -459,6 +541,11 @@ References
   total suspended solids concentration in clear to extremely turbid waters
   using a novel semi-analytical method. *Remote Sensing of Environment*, 258,
   112386.
+- IOCCG (2014). Update of the Quasi-Analytical Algorithm (QAA_v6).
+  International Ocean Colour Coordinating Group.
+- Lee, Z. P., Carder, K. L., Arnone, R. A. (2002). Deriving inherent optical
+  properties from water color: a multiband quasi-analytical algorithm for
+  optically deep waters. *Applied Optics*, 41, 5755--5772.
 - Martin, S., Bryère, P., Gernez, P., Renosh, P. R., Doxaran, D. (2025).
   Towards reliable high-resolution satellite products for the monitoring of
   chlorophyll-a and suspended particulate matter in optically shallow coastal
@@ -472,6 +559,9 @@ References
 - Nechad, B., Ruddick, K. G., Park, Y. (2010). Calibration and validation of a
   generic multisensor algorithm for mapping of total suspended matter in
   turbid waters. *Remote Sensing of Environment*, 114, 854--866.
+- Röttgers, R., McKee, D., Utschig, C. (2014). Temperature and salinity
+  correction coefficients for light absorption by water in the visible to
+  infrared spectral region. *Optics Express*, 22, 25093--25108.
 - Roy, A., Das, B. S. (2022). *Journal of Hydrology*.
 - Spyrakos, E., O'Donnell, R., Hunter, P. D., et al. (2018). Optical types of
   inland and coastal waters. *Limnology and Oceanography*, 63, 846--870.
