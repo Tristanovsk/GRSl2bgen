@@ -1,7 +1,7 @@
 ''' Executable to process Sentinel-2 L2A images into water quality paratmeters
 
 Usage:
-  GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--no_clobber]
+  GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--level <level>] [--no_clobber]
   GRSl2bgen -h | --help
   GRSl2bgen -v | --version
 
@@ -18,6 +18,9 @@ Options:
   --pyramid  bool, optional, for Zarr output, write a multiscale (pyramid) store with
             `export_to_zarr_pyramid` instead of a single-resolution store
             (`export_to_zarr`). Ignored, with a warning, for NetCDF. [default: False]
+  --level level    Level read when <input_file> is a multiscale Zarr pyramid: 0 is
+                   full resolution, level k is 2**k coarser. Ignored for the other
+                   inputs. [default: 0]
   --no_clobber     Do not process <input_file> if <output_file> already exists.
 
 
@@ -39,6 +42,7 @@ def main():
 
     file = args['<input_file>']
     pyramid = args['--pyramid']
+    level = int(args['--level'])
     noclobber = args['--no_clobber']
 
     ##################################
@@ -70,7 +74,7 @@ def main():
 
     logging.info('call GRSl2bgen for the following paramater. File:' +
                  file + ', output file:' + outfile)
-    process_ = Process(file, outfile, pyramid=pyramid)
+    process_ = Process(file, outfile, pyramid=pyramid, level=level)
     process_.run()
 
     return

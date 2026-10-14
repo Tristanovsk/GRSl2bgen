@@ -74,6 +74,10 @@ class Process():
         memory, so that SPM, Chl-a, CDOM and transparency do not each re-read
         and re-mask it. Needs enough RAM for the masked raster (default
         False).
+    level : int, optional
+        Level read when the L2A product is a multiscale Zarr pyramid (default
+        0, full resolution; level ``k`` is ``2**k`` coarser), see `Product`.
+        Ignored for the other inputs.
 
 
     Attributes
@@ -100,7 +104,8 @@ class Process():
                  n_workers=None,
                  threads_per_worker=1,
                  persist_input=False,
-                 pyramid=False
+                 pyramid=False,
+                 level=0
                  ):
         self.l2a_obj = l2a_obj
         self.l2b_path = l2b_path
@@ -108,6 +113,7 @@ class Process():
         self.threads_per_worker = threads_per_worker
         self.persist_input = persist_input
         self.pyramid = pyramid
+        self.level = level
         self.l2b = None
         self.l2a = None
         self.successful = False
@@ -137,7 +143,7 @@ class Process():
         logging.info('import l2a product')
         l2a_obj = self.l2a_obj
 
-        prod = Product(l2a_obj)
+        prod = Product(l2a_obj, level=self.level)
         self.l2a = prod
 
         # Apply water mask: restrict all processing to valid water pixels (mask == 0)
