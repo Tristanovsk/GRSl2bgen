@@ -6,6 +6,7 @@ import logging
 import contextlib
 
 from . import Product, L2bProduct
+from .mask import QC_L2A
 from . import Chl, Spm, Cdom, Transparency, OWT_process
 
 opj = os.path.join
@@ -125,10 +126,12 @@ class Process():
 
         1. Load the L2A product (`Product`).
         2. Keep only valid water pixels (``mask == 0``).
-        3. Derive OWT classification (`OWT_process`), SPM (`Spm`), Chl-a
+        3. QC of the L2A reflectance (`GRSl2bgen.mask.QC_L2A`, SWIR module
+           flags of ``flags_l2b``).
+        4. Derive OWT classification (`OWT_process`), SPM (`Spm`), Chl-a
            (`Chl`, using the Spyrakos et al. 2018 OWT SAM result), CDOM
            (`Cdom`) and transparency (`Transparency`).
-        4. Merge the outputs into an `L2bProduct` stored in ``self.l2b``.
+        5. Merge the outputs into an `L2bProduct` stored in ``self.l2b``.
 
         Sets ``self.successful`` to True at the end. Exceptions are not
         caught.
@@ -148,9 +151,17 @@ class Process():
 
         # Apply water mask: restrict all processing to valid water pixels (mask == 0)
         raster = prod.raster.where(prod.raster['mask'] == 0)
+
         if self.persist_input:
             # evaluate the masked input once and share it between all modules
             raster = raster.persist()
+
+        # ----------------------
+        # QC of the L2A reflectance (flags_l2b)
+        # ----------------------
+        logging.info('QC of L2A')
+        qc_l2a = QC_L2A(raster)
+        qc_l2a.process()
 
         #  ----------------------
         # get OWT parameters
@@ -195,7 +206,9 @@ class Process():
             spm_prod.output,
             cdom_prod.output,
             trans_prod.output]
-        self.l2b = L2bProduct(prod, l2_raster_list, flags=trans_prod.flags)
+        self.l2b = L2bProduct(prod, l2_raster_list,
+                              flags={**qc_l2a.flags, **trans_prod.flags},
+                              flag_descriptions=qc_l2a.flag_descriptions)
         self.successful = True
 
     def write_output(self):

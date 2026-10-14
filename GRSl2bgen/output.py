@@ -48,6 +48,9 @@ class L2bProduct():
     flags : dict, optional
         L2B processing flags {name: boolean DataArray}, written as the bits
         of ``flags_l2b`` (see `GRSl2bgen.mask.L2B_FLAGS`).
+    flag_descriptions : dict, optional
+        {name: description} replacing the default description of these
+        flags (e.g. with the thresholds used).
 
     Attributes
     ----------
@@ -65,11 +68,12 @@ class L2bProduct():
         zlib compression level used on export (default 5).
     """
 
-    def __init__(self, prod, l2_raster_list, flags=None):
+    def __init__(self, prod, l2_raster_list, flags=None, flag_descriptions=None):
         self.processor = __package__ + '_' + __version__
         self.prod = prod
         self.l2b_raster_list = l2_raster_list
         self.l2b_flags = flags or {}
+        self.l2b_flag_descriptions = flag_descriptions or {}
         self.variables = None
         self.l2b_prod = None
         self.complevel = 5
@@ -103,7 +107,8 @@ class L2bProduct():
             l2b_prod['flags'] = self.prod.raster['flags']
         else:
             l2b_prod['flags'] = xr.zeros_like(self.prod.raster.Rrs.isel(wl=0, drop=True).squeeze().astype(np.uint8))
-        l2b_prod['flags_l2b'] = l2b_flags(self.prod.raster.Rrs.isel(wl=0, drop=True).squeeze(), self.l2b_flags)
+        l2b_prod['flags_l2b'] = l2b_flags(self.prod.raster.Rrs.isel(wl=0, drop=True).squeeze(), self.l2b_flags,
+                                          self.l2b_flag_descriptions)
         if 'mask' in self.prod.raster.keys():
             l2b_prod['mask'] = self.prod.raster['mask']
         else:

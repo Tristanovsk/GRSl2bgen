@@ -373,6 +373,25 @@ same ``flag_names`` and ``flag_descriptions`` attributes and the same decoding:
      - ``zsd_a_below_aw``
      - ``Zsd_Lee15``: QAA v6 total absorption below the pure water absorption at the
        transparent band, set to :math:`a_w`
+   * - 1
+     - 2
+     - ``swir_module_low``
+     - SWIR module of the L2A reflectance,
+       :math:`\sqrt{\Rrs(1610)^2 + \Rrs(2200)^2}` (nearest bands), above 0.002 sr\ :sup:`-1`
+   * - 2
+     - 4
+     - ``swir_module_medium``
+     - SWIR module above 0.005 sr\ :sup:`-1`
+   * - 3
+     - 8
+     - ``swir_module_high``
+     - SWIR module above 0.01 sr\ :sup:`-1`
+
+Water is black in the SWIR: a high SWIR module points to residual sun glint, adjacency
+effect, thin cloud or a land/water mixed pixel. The three SWIR flags are cumulative (a
+pixel above 0.01 sr\ :sup:`-1` has bits 1, 2 and 3 set); they are computed on the
+processed water pixels (``mask == 0``) by :py:class:`~GRSl2bgen.mask.QC_L2A`, whose
+thresholds can be changed (the values used are given in ``flag_descriptions``).
 
 Variable attributes
 -------------------

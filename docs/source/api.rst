@@ -9,6 +9,7 @@
 
    GRSl2bgen.product
    GRSl2bgen.output
+   GRSl2bgen.mask
 
    GRSl2bgen.chlorophyll_a
    GRSl2bgen.suspended_particulate_matter
