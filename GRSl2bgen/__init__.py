@@ -12,11 +12,22 @@ v1.0.2:
     - remove the 'All-NaN slice' and xr.merge FutureWarning warnings
     - version read from GRSl2bgen.__version__ in pyproject.toml
     - Docker image built from pyproject.toml (setup.py removed)
+v1.1.0dev:
+    - OWT-blended SPM from the Cordeiro (2022) SPM OWT (merge of feature/SPM)
+    - QAA v6 adg443 for MSI (adg443_QAAv6), with the OWT-blended Chl-a as first guess
+    - Secchi disk depth of Lee et al. (2015) from QAA v6 IOPs (Zsd_Lee15)
+    - utils: pure water IOPs with T/S correction (iopw), Bricaud (1998) aphi, QAA v6 IOPs
+    - read GRS L2A Zarr pyramids, with a level option (Product, Process, CLI --level)
+    - OWT blends (Chl-a, SPM) normalised by the weights of the valid estimates only
+    - band ratios masked band by band (no value from two negative reflectances)
+    - NetCDF inputs read with their stored chunks
+    - config.SEL_XARRAY_METHOD for the selection of the wavelengths
+    - fix default L2B output name and units of the Euclidean OWT distances
 '''
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '1.0.2'
+__version__ = '1.1.0dev'
 
 from .product import Product
 from .output import L2bProduct
