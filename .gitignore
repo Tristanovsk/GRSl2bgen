@@ -192,3 +192,9 @@ fabric.properties
 
 # personal test notebook; the Read the Docs version is docs/source/tutorials/grsl2bgen_l2a_processing.ipynb
 notebook/basics/grs_l2bgen_L2A_processing.ipynb
+
+# Sphinx autosummary output (generated from docs/source/api.rst)
+docs/source/GRSl2bgen API/
+
+# satellite products at repo root
+/*.nc
