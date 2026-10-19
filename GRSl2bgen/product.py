@@ -14,6 +14,10 @@ from . import __package__, __version__
 
 opj = os.path.join
 
+# default spatial chunk size (pixels) of the processing: larger than the 256 x 256
+# chunks of the GRS products, which make the dask graph too fine (task overhead)
+SPATIAL_CHUNK = 1024
+
 
 class Product():
     """L2A image product loaded from disk or from an in-memory dataset.
@@ -43,17 +47,24 @@ class Product():
     """
 
 
-    def __init__(self, l2a_obj, chunks=None, level=0):
+    def __init__(self, l2a_obj, chunks=None, level=0, spatial_chunk=SPATIAL_CHUNK):
         """Load the L2A product.
 
         Parameters
         ----------
         chunks : dict, optional
-            Dask chunks for NetCDF inputs. Default: the chunks stored in the
-            file (each stored chunk is read once, without the xarray warning
-            raised when requested chunks split stored ones), then merged into
+            Dask chunks for NetCDF inputs, used as is. Default: the chunks
+            stored in the file (each stored chunk is read once, without the
+            xarray warning raised when requested chunks split stored ones),
+            then rechunked as described for `spatial_chunk`. Not applied to
+            Zarr inputs.
+        spatial_chunk : int or None, optional
+            When `chunks` is None, the product (NetCDF or Zarr) is rechunked
+            to ``spatial_chunk x spatial_chunk`` pixels along ``y``/``x`` and
             one chunk along ``wl`` (band maths and ``sel`` need all bands).
-            Not applied to Zarr inputs, which keep their stored chunks.
+            Default `SPATIAL_CHUNK` (1024): with the 256 x 256 chunks of the
+            GRS products, the dask graph has too many small tasks. None keeps
+            the stored spatial chunks.
         level : int, optional
             Pyramid level read from a multiscale Zarr store (default 0, full
             resolution; level ``k`` is ``2**k`` coarser). Ignored for the
@@ -94,11 +105,13 @@ class Product():
         # in by the caller is not ours to close
         self._opened = []
         # chunks requested at opening must not split the stored chunks, so the
-        # default opens with the stored ones and only merges `wl` afterwards
+        # default opens with the stored ones and rechunks afterwards
         rechunk = None
         if chunks is None:
             chunks = {}
             rechunk = {'wl': -1}
+            if spatial_chunk is not None:
+                rechunk.update(y=spatial_chunk, x=spatial_chunk)
 
         ##################################
         # Get image data
@@ -116,9 +129,11 @@ class Product():
                 self._opened = [raster]
             elif 'zarr' in extension:
                 self._open_zarr(l2a_obj, level)
+                self.raster = self._rechunk(self.raster, rechunk)
 
             elif os.path.isdir(opj(l2a_obj, basename + '.zarr')):
                 self._open_zarr(opj(l2a_obj, basename + '.zarr'), level)
+                self.raster = self._rechunk(self.raster, rechunk)
 
             elif os.path.isdir(l2a_obj):
 

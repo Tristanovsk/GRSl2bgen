@@ -5,6 +5,8 @@ import os
 import logging
 import contextlib
 
+import dask
+
 from . import Product, L2bProduct
 from .mask import QC_L2A
 from . import Chl, Spm, Cdom, Transparency, OWT_process
@@ -13,12 +15,12 @@ opj = os.path.join
 
 
 @contextlib.contextmanager
-def _dask_client(n_workers=None, threads_per_worker=1, memory_limit='auto'):
+def _dask_client(n_workers=None, threads_per_worker=1, memory_limit='auto', n_threads=None):
     """Optionally start a local dask.distributed cluster for the ``with`` block.
 
     ``dask.distributed`` is imported lazily, so importing this module stays
-    cheap. With ``n_workers=None`` nothing is started and dask's default
-    threaded scheduler is used.
+    cheap. With ``n_workers=None`` nothing is started and dask's threaded
+    scheduler is used, with `n_threads` threads.
 
     Parameters
     ----------
@@ -29,13 +31,17 @@ def _dask_client(n_workers=None, threads_per_worker=1, memory_limit='auto'):
         within a process, so several single-threaded workers read in parallel).
     memory_limit : str or int, optional
         Memory limit per worker (default ``'auto'``).
+    n_threads : int, optional
+        Threads of the threaded scheduler when `n_workers` is None (default
+        None: dask's default, one per CPU).
 
     Yields
     ------
     dask.distributed.Client or None
     """
     if n_workers is None:
-        yield None
+        with dask.config.set(scheduler='threads', num_workers=n_threads):
+            yield None
         return
     from dask.distributed import Client, LocalCluster
     with LocalCluster(n_workers=n_workers,
@@ -63,9 +69,15 @@ class Process():
     n_workers : int, optional
         If given, `run` executes the chain on a local dask.distributed
         cluster with this many worker processes. Default None: dask's
-        default threaded scheduler.
+        threaded scheduler with `n_threads` threads.
     threads_per_worker : int, optional
         Threads per worker when `n_workers` is set (default 1).
+    n_threads : int or None, optional
+        Threads of the threaded scheduler used by `run` when `n_workers` is
+        None (default 8). On a full Sentinel-2 tile, more threads do not run
+        faster (most of the time is spent holding the Python GIL or writing
+        the NetCDF file) but use more memory: 121 s and 5.7 GB peak with 8
+        threads, 118 s and 9.6 GB with 40. None: one thread per CPU.
     pyramid : bool, optional
         For ``.zarr`` output, write a cloud-ready multiscale store (resolution
         levels as groups ``0``, ``1``, ... plus consolidated metadata). See
@@ -104,6 +116,7 @@ class Process():
                  l2b_path='./l2b_product.nc',
                  n_workers=None,
                  threads_per_worker=1,
+                 n_threads=8,
                  persist_input=False,
                  pyramid=False,
                  level=0
@@ -112,6 +125,7 @@ class Process():
         self.l2b_path = l2b_path
         self.n_workers = n_workers
         self.threads_per_worker = threads_per_worker
+        self.n_threads = n_threads
         self.persist_input = persist_input
         self.pyramid = pyramid
         self.level = level
@@ -236,7 +250,7 @@ class Process():
         several products can be processed in a row from the same Python
         session without accumulating open files.
         """
-        with _dask_client(self.n_workers, self.threads_per_worker):
+        with _dask_client(self.n_workers, self.threads_per_worker, n_threads=self.n_threads):
             try:
                 self.execute()
                 self.write_output()
