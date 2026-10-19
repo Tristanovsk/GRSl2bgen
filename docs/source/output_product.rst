@@ -499,6 +499,6 @@ with ``_FillValue = 0`` (class numbers start at 1) and read back as exact intege
    geophysical variables, so their class numbers read back as e.g. 8.99998 instead of 9:
    round them before comparing with a class number.
 
-``flags``, ``flags_l2b`` and ``mask`` keep their integer type. The internal (unpacked) types are
-``float32`` for the OWT variables and ``SPM_OWTblend_Ta2025``, and ``float64`` for the
-other geophysical variables.
+``flags``, ``flags_l2b`` and ``mask`` keep their integer type. In memory, before export,
+all the geophysical variables are ``float32``; read back from the file, the packed
+variables are unpacked by ``xarray`` as ``float64``.

@@ -98,7 +98,10 @@ class L2bProduct():
            create them as ``uint8`` arrays of zeros on the image grid. Add
            ``flags_l2b``, the bit field of the L2B processing flags
            (`GRSl2bgen.mask.l2b_flags`).
-        3. Copy the attributes of the input raster and add
+        3. Convert the ``float64`` geophysical variables to ``float32``: they
+           are packed into ``int16`` on export, far coarser than ``float32``,
+           and the conversion halves the memory of the product.
+        4. Copy the attributes of the input raster and add
            ``processing_time`` (local time, ISO 8601) and ``processor``.
 
         Notes
@@ -110,6 +113,9 @@ class L2bProduct():
         logging.info('construct l2b')
 
         l2b_prod = xr.merge(self.l2b_raster_list, compat='override')
+        for v in l2b_prod.data_vars:
+            if l2b_prod[v].dtype == np.float64:
+                l2b_prod[v] = l2b_prod[v].astype(np.float32)
 
         if 'flags' in self.prod.raster.keys():
             l2b_prod['flags'] = self.prod.raster['flags']
