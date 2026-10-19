@@ -71,9 +71,10 @@ def _euclid_core(Rrs, owt, Nsaved):
 # Same source compiled twice. Parallel version: for one large in-memory array.
 # Serial version: for use inside dask tasks (dask already provides the
 # parallelism; concurrent parallel numba calls from several threads are not
-# safe with numba's default threading layer).
+# safe with numba's default threading layer). nogil: the dask threads run the
+# serial kernel concurrently instead of one at a time.
 _euclid_parallel = njit(parallel=True)(_euclid_core)
-_euclid_serial = njit()(_euclid_core)
+_euclid_serial = njit(nogil=True)(_euclid_core)
 
 
 def _check_classes(Rrs_owt):

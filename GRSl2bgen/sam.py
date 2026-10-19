@@ -74,9 +74,10 @@ def _sam_core(Rrs, owt_unit, Nsaved):
 # Same source compiled twice. Parallel version: for one large in-memory array.
 # Serial version: for use inside dask tasks (dask already provides the
 # parallelism; concurrent parallel numba calls from several threads are not
-# safe with numba's default threading layer).
+# safe with numba's default threading layer). nogil: the dask threads run the
+# serial kernel concurrently instead of one at a time.
 _sam_parallel = njit(parallel=True)(_sam_core)
-_sam_serial = njit()(_sam_core)
+_sam_serial = njit(nogil=True)(_sam_core)
 
 
 def _unit_classes(Rrs_owt):
