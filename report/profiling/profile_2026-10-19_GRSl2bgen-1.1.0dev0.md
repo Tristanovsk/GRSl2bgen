@@ -10,7 +10,7 @@
 | Machine | Intel Xeon Silver 4210 @ 2.20 GHz, 40 logical CPUs, 62 GB RAM |
 | Environment | Python 3.12.4, dask 2026.3.0, xarray 2026.9.0, numpy 2.3.5, numba 0.64.0, zarr 3.4.1, netCDF4 1.7.2 |
 | Scripts | [`profile_l2bgen.py`](profile_l2bgen.py), [`bench_complevel.py`](bench_complevel.py), [`bench_chunks.py`](bench_chunks.py), [`final_breakdown.py`](final_breakdown.py), [`compare_l2b.py`](compare_l2b.py) |
-| Results after optimization | section 7, GRSl2bgen git `3370f88` |
+| Results after optimization | section 7 (git `3370f88`) and section 8 (git `55532a6`) |
 
 ## Summary
 
@@ -27,6 +27,8 @@
 - After the phase 1 optimizations (section 7): **93 s per tile (3.3 x faster), peak
   memory 5.9 GB** (was 6.4 GB), outputs identical to the reference within one packing
   step.
+- After the further optimizations of section 8: **68 s per tile (4.5 x faster), peak
+  memory 5.9 GB**.
 
 ## 1. Baseline: `Process.execute()` + `write_output()`
 
@@ -202,3 +204,64 @@ Writing the NetCDF file is now more than half of the run time. The next steps ar
 of phase 2, which change the product format and need a decision: fixed packing ranges
 per variable (item 2a, would also remove the need to hold the L2B in memory), a lower
 zlib level or Zarr output (item 4).
+
+## 8. Further optimizations (dask, numba, NetCDF)
+
+Starting point: `3370f88`, 93 s and 5.8 GB per tile. Each candidate was first measured by
+patching from outside the code (`exp_opt.py`, `bench_write.py`, `exp_distributed.py`),
+and only those keeping the memory low were implemented.
+
+### Candidates
+
+| Candidate | Tile time | Peak memory | Outputs | Decision |
+|---|---|---|---|---|
+| serial numba OWT kernels compiled with `nogil=True` | 93 → 86.5 s | 5.7 GB | identical | **implemented** (`38da77a`) |
+| NetCDF zlib level 1 instead of 5 | 86.5 → 68.4 s | 5.9 GB | identical, files ~10 % larger (130 → 144 MB) | **implemented**, `complevel` option (`55532a6`) |
+| L2B gathered into numpy before the NetCDF write | 93 → 71 s | 9.9 GB | identical (NetCDF chunk sizes then need to be set) | rejected: +4 GB of memory |
+| Zarr output instead of NetCDF | write 31.7 → 8.1 s (L2B in memory) | — | 145 MB | already available (`.zarr` output path); NetCDF stays the default |
+| HDF5 shuffle filter | no change | — | — | already on by default |
+| `Rrs` and `sza` decoded as `float32` | 93 → 91 s | 5.3 GB | some pixels change validity | rejected: no gain, results change |
+| dask.distributed, 8 workers x 1 thread | 125.8 s | — | identical | not used: slower than the threaded scheduler |
+| dask.distributed, 4 workers x 2 threads | fails | — | — | existing bug (also with `0915e4f`): NetCDF write from workers with more than one thread raises `NetCDF: HDF error` on a full tile; works with `threads_per_worker=1` (default) |
+
+NetCDF write times on the full tile, L2B in memory (`bench_write.py`):
+
+| Codec | Write time | File size |
+|---|---|---|
+| NetCDF zlib 5 | 31.7 s | 130.5 MB |
+| NetCDF zlib 5 + shuffle | 31.6 s | 130.5 MB |
+| NetCDF zlib 1 | 20.7 s | 143.9 MB |
+| Zarr (zstd, default) | 8.1 s | 145.1 MB |
+
+### Cost of the algorithms
+
+Each part of the chain computed from the L2A with the default settings (`compute_split.py`,
+`38da77a`): every row includes the reading of the L2A.
+
+| Part | Time | Mean CPU |
+|---|---|---|
+| read + decode + water mask (`Rrs`, `sza`) | 9.3 s | 262 % |
+| QC flags | 6.6 s | 315 % |
+| OWT, 4 databases | 10.7 s | 349 % |
+| SPM, 4 outputs (with the Cordeiro OWT) | 11.9 s | 512 % |
+| Chl-a, 4 outputs (with the Spyrakos OWT) | 11.2 s | 506 % |
+| CDOM, 3 outputs (with Chl-a) | 14.2 s | 577 % |
+| Transparency, 2 outputs | 13.2 s | 458 % |
+
+Beyond the reading, each module adds only 1.5 to 5 s. Rewriting the algorithms as numba
+kernels would save an estimated 5-10 s of the 68 s, for a large refactor with a risk of
+changing the results: not done.
+
+### Result
+
+| Commit | Change | Wall time | Peak memory |
+|---|---|---|---|
+| `0915e4f` | original code | 310 s | 6.4 GB |
+| `3370f88` | phase 1 (section 7) | 92.4 s | 5.9 GB |
+| `38da77a` | numba kernels `nogil=True` | 86.5 s | 5.7 GB |
+| `55532a6` | NetCDF zlib level 1 | 68.4 s | 5.9 GB |
+
+**Overall: 310 s → 68 s per tile (4.5 x faster) with a slightly lower peak memory.** What
+is left is mostly the reading of the L2A (~9 s), the NetCDF write (~20 s) and dask
+overhead; the next gains would come from the format decisions of phase 2 (fixed
+packing ranges, Zarr output).

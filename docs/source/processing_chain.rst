@@ -419,7 +419,7 @@ Required Resources
 
 No SLURM/HPC job scripts ship with this repository (unlike GRSprocessor). The needs depend
 on the spatial resolution and size of the input product. For a full Sentinel-2 tile at
-20 m (5490 x 5490 pixels), with the default settings, one run takes about **1.5 min and
+20 m (5490 x 5490 pixels), with the default settings, one run takes about **70 s and
 6 GB of RAM** on a 40-core Intel Xeon Silver 4210 (see the profiling report in
 ``report/profiling/`` of the repository).
 
@@ -438,7 +438,9 @@ main settings are:
   memory before it is written, instead of evaluating the chain twice (once for the int16
   packing ranges, once to write the file), at the cost of a few GB of RAM;
 - ``n_workers`` / ``threads_per_worker``: run on a local ``dask.distributed`` cluster
-  instead of the threaded scheduler;
+  instead of the threaded scheduler. On a full tile this is slower (126 s with 8
+  workers), and a NetCDF output fails (``NetCDF: HDF error``) with more than one thread
+  per worker: keep ``threads_per_worker=1``;
 - ``persist_input``: keep the water-masked input raster in memory (needs RAM for the
   masked raster);
 - ``chunk`` of :py:class:`GRSl2bgen.owt.OWT_process`: spatial chunk size of the OWT
