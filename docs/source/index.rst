@@ -18,6 +18,7 @@ Tristanovsk/GRSl2bgen documentation
    :caption: Tutorials
 
    tutorials/basics
+   tutorials/batch
    tutorials/advanced
    tutorials/case_studies
    tutorials/research
