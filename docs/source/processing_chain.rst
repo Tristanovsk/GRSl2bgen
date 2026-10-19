@@ -208,7 +208,7 @@ description (dimensions, attributes, quality flags, packing).
    * - ``owt_index_Cordeiro2022SPM``, ``owt_dist_Cordeiro2022SPM``
      - --, sr\ :sup:`-1`
      - 2 best Cordeiro (2022) SPM classes and their Euclidean distances, along the
-       ``Nclasses`` dimension
+       ``Nclasses`` dimension (shared with Spyrakos2018, the third entry is NaN)
    * - ``Chla_OC2nasa``, ``Chla_M09B``, ``Chla_NIRB``
      - mg m\ :sup:`-3`
      - Chlorophyll-a from NASA OC2, Moses et al. (2009) and the NIR-blue ratio
@@ -257,8 +257,9 @@ The format follows the extension of the output path (see
 :py:meth:`GRSl2bgen.output.L2bProduct.export`). In all formats the content and the
 encoding are the same: continuous variables are packed into ``int16`` with a
 per-variable ``scale_factor``/``add_offset`` and ``_FillValue = -32768`` (unpacked
-automatically by ``xarray``), while ``flags``, ``flags_l2b`` and ``mask`` keep their own
-integer type.
+automatically by ``xarray``), the OWT class numbers ``owt_index_*`` are stored as
+``uint8`` with ``_FillValue = 0`` (class numbers start at 1), so that they read back as
+exact integers, and ``flags``, ``flags_l2b`` and ``mask`` keep their own integer type.
 
 .. list-table::
    :header-rows: 1
@@ -320,8 +321,9 @@ one pixel:
      v^{(l+1)}_{i,j} = \operatorname{mean}_{\text{valid}}
      \left\{ v^{(l)}_{2i,2j},\ v^{(l)}_{2i+1,2j},\ v^{(l)}_{2i,2j+1},\ v^{(l)}_{2i+1,2j+1} \right\}
 
-- categorical variables (``flags``, ``flags_l2b``, ``mask``): nearest neighbour
-  (top-left pixel of the block), which preserves the flag values.
+- categorical variables (``flags``, ``flags_l2b``, ``mask`` and the OWT class numbers
+  ``owt_index_*``): nearest neighbour (top-left pixel of the block), which preserves the
+  flag values and class numbers.
 
 Edge pixels that do not fill a complete block are trimmed, so the origin of the grid is
 unchanged and the pixel size doubles at every level; the ``GeoTransform`` of
@@ -329,9 +331,9 @@ unchanged and the pixel size doubles at every level; the ``GeoTransform`` of
 
 .. note::
 
-   The ``owt_index_*`` variables are class numbers but are block-averaged like the
-   continuous variables, so on coarse levels they can take non-integer values at class
-   boundaries. Use level ``0`` for quantitative OWT analysis.
+   On coarse levels, ``owt_index_*`` is the class of one pixel of the block while
+   ``owt_dist_*`` is the block average of the distances, so the two may refer to
+   different pixels at class boundaries. Use level ``0`` for quantitative OWT analysis.
 
 **Chunks.** 512 x 512 pixels at every level (or the whole level when it is smaller), a
 good size for web access.
@@ -350,7 +352,9 @@ convention):
           "transform": {"scale": [2.0, 2.0]}, "resampling_method": "average"}
        ],
        "resampling_method": "average",
-       "categorical_variables": ["flags", "flags_l2b", "mask"],
+       "categorical_variables": ["owt_index_Spyrakos2018", "owt_index_Bi2024",
+                                 "owt_index_Ta2025", "owt_index_Cordeiro2022SPM",
+                                 "flags", "flags_l2b", "mask"],
        "categorical_resampling_method": "nearest",
        "dims": ["y", "x"]
      }

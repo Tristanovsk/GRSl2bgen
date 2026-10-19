@@ -137,7 +137,8 @@ Optical Water Types
      - (Nclasses, y, x)
      - --
      - Class number (1--4) of the two best-matching SPM OWT of Cordeiro (2022),
-       ordered by increasing Euclidean distance.
+       ordered by increasing Euclidean distance. The ``Nclasses`` dimension is shared
+       with Spyrakos2018, so the third entry is NaN.
    * - ``owt_dist_Cordeiro2022SPM``
      - (Nclasses, y, x)
      - sr\ :sup:`-1`
@@ -488,6 +489,16 @@ another, compare products after unpacking, not on the raw integers.
    which packs :math:`v_{\min}` onto the fill value: in those products, pixels equal to
    the minimum of a variable (e.g. SPM or turbidity equal to 0) read back as NaN.
 
-``flags`` and ``mask`` keep their integer type. The internal (unpacked) types are
+The OWT class numbers ``owt_index_*`` are not packed: they are stored as ``uint8``
+with ``_FillValue = 0`` (class numbers start at 1) and read back as exact integers
+(``float32``, NaN where no class is assigned).
+
+.. note::
+
+   Products written by earlier GRSl2bgen versions packed ``owt_index_*`` like the
+   geophysical variables, so their class numbers read back as e.g. 8.99998 instead of 9:
+   round them before comparing with a class number.
+
+``flags``, ``flags_l2b`` and ``mask`` keep their integer type. The internal (unpacked) types are
 ``float32`` for the OWT variables and ``SPM_OWTblend_Ta2025``, and ``float64`` for the
 other geophysical variables.
