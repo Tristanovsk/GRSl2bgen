@@ -225,7 +225,9 @@ class Chl():
         norm = 0
         for owt_index_to_keep, algo in recipe:
             mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-            estimate = algo(self.Rrs.where(mask))
+            # the algorithms are per pixel: mask the (y, x) estimate rather than
+            # the (wl, y, x) Rrs, which would be broadcast to (wl, Nclasses, y, x)
+            estimate = algo(self.Rrs).where(mask)
             weights = (1 / (xowt_prod[owt_dist_var].where(mask) + eps)).where(estimate.notnull())
             chla += (estimate * weights).fillna(0)
             norm += weights.fillna(0)
