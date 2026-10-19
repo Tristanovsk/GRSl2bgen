@@ -82,6 +82,12 @@ class Process():
         For ``.zarr`` output, write a cloud-ready multiscale store (resolution
         levels as groups ``0``, ``1``, ... plus consolidated metadata). See
         ``L2bProduct.export_to_zarr_pyramid``. Default False.
+    persist_output : bool, optional
+        If True (default), `write_output` computes the whole L2B product once
+        and keeps it in memory before writing it, instead of evaluating the
+        processing chain twice (once for the packing ranges, once to write
+        the file). Needs memory for the L2B product: about 5 GB for a full
+        Sentinel-2 tile at 20 m.
     persist_input : bool, optional
         If True, the water-masked input raster is computed once and kept in
         memory, so that SPM, Chl-a, CDOM and transparency do not each re-read
@@ -117,6 +123,7 @@ class Process():
                  n_workers=None,
                  threads_per_worker=1,
                  n_threads=8,
+                 persist_output=True,
                  persist_input=False,
                  pyramid=False,
                  level=0
@@ -126,6 +133,7 @@ class Process():
         self.n_workers = n_workers
         self.threads_per_worker = threads_per_worker
         self.n_threads = n_threads
+        self.persist_output = persist_output
         self.persist_input = persist_input
         self.pyramid = pyramid
         self.level = level
@@ -236,7 +244,7 @@ class Process():
             If `execute` has not been run (``self.l2b`` does not exist yet).
         """
         logging.info('export final l2b product')
-        self.l2b.export(self.l2b_path, pyramid=self.pyramid)
+        self.l2b.export(self.l2b_path, persist=self.persist_output, pyramid=self.pyramid)
 
     def run(self):
         """Run `execute` and `write_output` inside one dask scheduler context.

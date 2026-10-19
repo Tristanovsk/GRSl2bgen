@@ -130,7 +130,7 @@ class Chl():
             chl_blend = self.set_range(chl_blend)
             merge_list.append(chl_blend)
         # TODO clean xr.Dataset unused coords to avoid using compat="override"
-        self.output = xr.merge(merge_list, compat="override").drop_vars('wl').compute()
+        self.output = xr.merge(merge_list, compat="override").drop_vars('wl')
 
     def set_range(self, param, minval=0, maxval=1200):
         """Mask values outside an open interval.

@@ -55,8 +55,8 @@ class Transparency():
 
         Computes ``Kd_par`` (Roy and Das 2022) and, if the solar zenith angle
         is available (``self.sza``), ``Zsd_Lee15`` (Secchi disk depth, Lee et
-        al. 2015), masks values outside their valid range with `set_range`,
-        attaches metadata and computes the result eagerly. The boolean
+        al. 2015), masks values outside their valid range with `set_range`
+        and attaches metadata (lazy for dask input). The boolean
         ``zsd_a_below_aw`` (``a`` set to ``aw`` at the transparent band) is
         stored in ``self.flags`` for the ``flags_l2b`` bit field.
         """
@@ -100,8 +100,6 @@ class Transparency():
             merge_list.append(zsd['a_below_aw'].rename('zsd_a_below_aw'))
 
         self.output = xr.merge(merge_list, compat='no_conflicts', join='outer')
-        # proceed with dask computing
-        self.output = self.output.compute()
         # boolean flags go to the ``flags_l2b`` bit field (see mask.L2B_FLAGS)
         self.flags = {name: self.output[name] for name in ['zsd_a_below_aw'] if name in self.output}
         self.output = self.output.drop_vars(list(self.flags))
