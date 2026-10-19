@@ -59,6 +59,10 @@ class L2bProduct():
     flag_descriptions : dict, optional
         {name: description} replacing the default description of these
         flags (e.g. with the thresholds used).
+    complevel : int, optional
+        zlib compression level of the NetCDF export (default 1). On a full
+        Sentinel-2 tile, level 5 writes about 1.5 times slower for files about
+        10 % smaller. Not used for Zarr output.
 
     Attributes
     ----------
@@ -73,10 +77,10 @@ class L2bProduct():
     l2b_prod : xarray.Dataset
         The assembled L2B dataset.
     complevel : int
-        zlib compression level used on export (default 5).
+        zlib compression level of the NetCDF export.
     """
 
-    def __init__(self, prod, l2_raster_list, flags=None, flag_descriptions=None):
+    def __init__(self, prod, l2_raster_list, flags=None, flag_descriptions=None, complevel=1):
         self.processor = __package__ + '_' + __version__
         self.prod = prod
         self.l2b_raster_list = l2_raster_list
@@ -84,7 +88,7 @@ class L2bProduct():
         self.l2b_flag_descriptions = flag_descriptions or {}
         self.variables = None
         self.l2b_prod = None
-        self.complevel = 5
+        self.complevel = complevel
         self.construct_l2b()
 
     def construct_l2b(self):

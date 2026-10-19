@@ -270,7 +270,7 @@ exact integers, and ``flags``, ``flags_l2b`` and ``mask`` keep their own integer
      - Description
    * - NetCDF
      - any other extension (e.g. ``.nc``)
-     - Single file, zlib compression (level 5), NetCDF chunks aligned with the
+     - Single file, zlib compression (level 1 by default, ``complevel`` of :py:class:`~GRSl2bgen.process.Process`), NetCDF chunks aligned with the
        processing chunks (:py:meth:`~GRSl2bgen.output.L2bProduct.export_to_netcdf`).
    * - Zarr
      - ``.zarr``
@@ -456,7 +456,7 @@ main settings are:
      - depends on sensor/resolution
    * - Disk — output
      - one Level-2B product, continuous variables packed as ``int16`` (NetCDF: zlib
-       compression, complevel 5; Zarr: optionally with pyramid levels)
+       compression, level 1 by default; Zarr: optionally with pyramid levels)
      - written to ``-o``/``--odir`` (see :py:meth:`GRSl2bgen.output.L2bProduct.export`)
 
 Data Types

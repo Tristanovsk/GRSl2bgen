@@ -78,6 +78,10 @@ class Process():
         faster (most of the time is spent holding the Python GIL or writing
         the NetCDF file) but use more memory: 121 s and 5.7 GB peak with 8
         threads, 118 s and 9.6 GB with 40. None: one thread per CPU.
+    complevel : int, optional
+        zlib compression level of a NetCDF output (default 1, see
+        `L2bProduct`). Zarr output is compressed in parallel and is written
+        about 4 times faster than NetCDF.
     pyramid : bool, optional
         For ``.zarr`` output, write a cloud-ready multiscale store (resolution
         levels as groups ``0``, ``1``, ... plus consolidated metadata). See
@@ -124,6 +128,7 @@ class Process():
                  threads_per_worker=1,
                  n_threads=8,
                  persist_output=True,
+                 complevel=1,
                  persist_input=False,
                  pyramid=False,
                  level=0
@@ -134,6 +139,7 @@ class Process():
         self.threads_per_worker = threads_per_worker
         self.n_threads = n_threads
         self.persist_output = persist_output
+        self.complevel = complevel
         self.persist_input = persist_input
         self.pyramid = pyramid
         self.level = level
@@ -230,7 +236,8 @@ class Process():
             trans_prod.output]
         self.l2b = L2bProduct(prod, l2_raster_list,
                               flags={**qc_l2a.flags, **trans_prod.flags},
-                              flag_descriptions=qc_l2a.flag_descriptions)
+                              flag_descriptions=qc_l2a.flag_descriptions,
+                              complevel=self.complevel)
         self.successful = True
 
     def write_output(self):
