@@ -417,17 +417,30 @@ default.
 Required Resources
 -------------------
 
-No SLURM/HPC job scripts or documented resource budgets ship with this repository (unlike
-GRSprocessor). Actual CPU/RAM/runtime needs depend on the input product's spatial resolution
-and tile size. The chain is lazy (dask): data are read and computed chunk by chunk when the
-output is written. A NetCDF input is read with the chunks stored in the file (merged into
-one chunk along ``wl``), so that each compressed block is read only once
-(:py:class:`GRSl2bgen.product.Product`, ``chunks`` argument). The main settings are:
+No SLURM/HPC job scripts ship with this repository (unlike GRSprocessor). The needs depend
+on the spatial resolution and size of the input product. For a full Sentinel-2 tile at
+20 m (5490 x 5490 pixels), with the default settings, one run takes about **1.5 min and
+6 GB of RAM** on a 40-core Intel Xeon Silver 4210 (see the profiling report in
+``report/profiling/`` of the repository).
 
-- ``n_workers`` / ``threads_per_worker`` of :py:class:`GRSl2bgen.process.Process`: run on a
-  local ``dask.distributed`` cluster instead of the default threaded scheduler;
-- ``persist_input``: keep the water-masked input raster in memory so that it is read only
-  once (faster, needs enough RAM for the masked raster);
+The chain is lazy (dask): :py:meth:`~GRSl2bgen.process.Process.execute` only builds the
+computation graph, and the data are read and computed when the output is written. The
+main settings are:
+
+- ``spatial_chunk`` of :py:class:`GRSl2bgen.product.Product` (default 1024): the input is
+  read with its stored chunks, then rechunked to 1024 x 1024 pixels along ``y``/``x`` and
+  one chunk along ``wl``. The 256 x 256 chunks of the GRS products would make the dask
+  graph about 7 times larger and the processing 2.6 times slower;
+- ``n_threads`` of :py:class:`GRSl2bgen.process.Process` (default 8): threads of the dask
+  threaded scheduler. More threads hardly run faster (most of the time is spent holding
+  the Python GIL or writing the NetCDF file) but use more memory;
+- ``persist_output`` (default True): the L2B product is computed once and kept in
+  memory before it is written, instead of evaluating the chain twice (once for the int16
+  packing ranges, once to write the file), at the cost of a few GB of RAM;
+- ``n_workers`` / ``threads_per_worker``: run on a local ``dask.distributed`` cluster
+  instead of the threaded scheduler;
+- ``persist_input``: keep the water-masked input raster in memory (needs RAM for the
+  masked raster);
 - ``chunk`` of :py:class:`GRSl2bgen.owt.OWT_process`: spatial chunk size of the OWT
   classification, computed by numba-compiled kernels (``Nproc`` is deprecated and unused).
 

@@ -86,8 +86,8 @@ class Process():
         If True (default), `write_output` computes the whole L2B product once
         and keeps it in memory before writing it, instead of evaluating the
         processing chain twice (once for the packing ranges, once to write
-        the file). Needs memory for the L2B product: about 5 GB for a full
-        Sentinel-2 tile at 20 m.
+        the file). Costs a few GB of RAM: a full Sentinel-2 tile at 20 m runs in
+        about 6 GB peak with the default settings.
     persist_input : bool, optional
         If True, the water-masked input raster is computed once and kept in
         memory, so that SPM, Chl-a, CDOM and transparency do not each re-read
