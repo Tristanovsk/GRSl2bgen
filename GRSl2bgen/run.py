@@ -79,7 +79,8 @@ def main():
 
     outfile = os.path.join(odir, basename)
 
-    if os.path.isfile(outfile) & noclobber:
+    # exists, not isfile: a Zarr output is a directory
+    if noclobber and os.path.exists(outfile):
         print('File ' + outfile + ' already processed; skip!')
         sys.exit()
 
