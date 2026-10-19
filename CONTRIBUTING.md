@@ -45,9 +45,27 @@ pytest tests/
 ```
 
 This is the same test suite executed by CI (job `python-tests` in
-[`.github/workflows/main.yml`](.github/workflows/main.yml)). There is no `tests/` directory in
-the repository yet — if you add a feature or fix a bug, please add tests there as part of your
-change.
+[`.github/workflows/main.yml`](.github/workflows/main.yml)). Run it from the environment of the
+development setup above; the whole suite takes about 20 s. If you add a feature or fix a bug,
+please add tests in `tests/` as part of your change.
+
+The end-to-end tests (`tests/test_process.py`) run the full processing chain on a small real
+L2A product stored in `tests/data/`: a 128 x 128 pixel crop (2.56 km) of a Sentinel-2 GRS scene
+over the Camargue lagoons (tile 31TFJ, 2021-02-11), kept as a two-level Zarr pyramid with the
+variables, attributes and packing of the full product. It was made with
+`tests/data/make_test_l2a.py`, which can rebuild it from the source product or crop another
+L2A for a new test case:
+
+```bash
+python tests/data/make_test_l2a.py <L2A product dir or .zarr> [y0 x0 size]
+```
+
+`tests/conftest.py` provides session-scoped fixtures, so the chain runs only once per test
+session whatever the number of tests using them:
+
+- `l2a_path`: path of the test L2A product;
+- `l2b_nc`: L2B NetCDF produced from it by `Process(...).run()`;
+- `l2b_pyramid`: L2B multiscale Zarr store (levels 0 to 2) produced from it.
 
 ## Submitting changes
 
