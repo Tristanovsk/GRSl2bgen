@@ -8,5 +8,5 @@ netcdf4
 numba 
 xarray 
 rioxarray 
-zarr
+zarr>=3
 dask[distributed]

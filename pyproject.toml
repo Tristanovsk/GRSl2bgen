@@ -34,6 +34,7 @@ requires-python = ">=3.9"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["GRSl2bgen*"]
 
 [tool.setuptools.package-data]
 "GRSl2bgen" = ["data/*.json", "data/*.csv", "data/*.nc", "data/*.txt"]

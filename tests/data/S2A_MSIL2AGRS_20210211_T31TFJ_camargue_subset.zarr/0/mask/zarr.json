@@ -1,0 +1,119 @@
+{
+  "shape": [
+    128,
+    128
+  ],
+  "data_type": "uint8",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        128,
+        128
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": 0,
+  "codecs": [
+    {
+      "name": "bytes"
+    },
+    {
+      "name": "blosc",
+      "configuration": {
+        "typesize": 1,
+        "cname": "zstd",
+        "clevel": 5,
+        "shuffle": "shuffle",
+        "blocksize": 0
+      }
+    }
+  ],
+  "attributes": {
+    "long_name": "binary mask from flags",
+    "flag_descriptions": [
+      "nodata in input image",
+      "low confidence cloud mask from s2cloudless with settings proba. threshold=0.60, dilation_size=12",
+      "high confidence cloud mask from s2cloudless with settings proba. threshold=0.80, dilation_size=5",
+      "water mask from normalized index from swir and visible band, bands centered on 490.0 and 1610.0 nm, threshold=0.20",
+      "water mask from normalized index from nir and visible band, warning could fail for turbid waters, bands centered on 490.0 and 842.0 nm, threshold=0.00",
+      "thin cirrus mask from cirrus band, threshold 0.0030",
+      "opac cirrus mask from cirrus band, threshold 0.0090",
+      "high swir (bright cloud, too bright reflection...), threshold 0.2000",
+      "land mask from surfwater input file",
+      "water mask from surfwater input file",
+      "cloud and shadow mask from surfwater input file",
+      "Thick Cloud from OmniCloudMask version 1.7.0",
+      "Thin Cloud from OmniCloudMask version 1.7.0",
+      "Cloud Shadow from OmniCloudMask version 1.7.0",
+      "None",
+      "None",
+      "None",
+      "None",
+      "negative Rrs for blue or green bands",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None"
+    ],
+    "flag_names": [
+      "nodata",
+      "cloud_p06",
+      "cloud_p08",
+      "water_swir_visible_index",
+      "water_red_visible_index",
+      "thin_cirrus",
+      "opac_cirrus",
+      "high_swir",
+      "surfwater_land",
+      "surfwater_water",
+      "surfwater_cloud_and_shadow",
+      "OCM_Thick_Cloud",
+      "OCM_Thin_Cloud",
+      "OCM_Cloud_Shadow",
+      "None",
+      "None",
+      "None",
+      "None",
+      "neg_rrs",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None",
+      "None"
+    ],
+    "gas_absorption_correction": true,
+    "description": "good pixels for mask == 0, bad pixels when mask == 1",
+    "coordinates": "band spatial_ref time"
+  },
+  "dimension_names": [
+    "y",
+    "x"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

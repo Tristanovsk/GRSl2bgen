@@ -30,8 +30,6 @@ MANIFEST
 #llm checkpoint directory
 feature_migration/
 
-#testing phase directory
-tests/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
