@@ -15,6 +15,14 @@ from .mask import l2b_flags
 
 # integer variables: not packed, nearest-neighbour resampling in the pyramid
 CATEGORICAL = ('flags', 'flags_l2b', 'mask')
+# OWT class IDs (owt_index_<database>, 1-based, NaN where not classified):
+# written as uint8 with _FillValue 0, nearest-neighbour resampling in the pyramid
+CLASS_ID_PREFIX = 'owt_index'
+
+
+def _is_categorical(variable):
+    """True for the variables that must keep exact values (flags, mask, class IDs)."""
+    return variable in CATEGORICAL or variable.startswith(CLASS_ID_PREFIX)
 
 
 def _json_safe(value):
@@ -215,7 +223,10 @@ class L2bProduct():
     def _packing_encoding(self, persist=False):
         """Build the packing part of the output encoding (format independent).
 
-        ``flags``, ``flags_l2b`` and ``mask`` keep their dtype. All other variables are
+        ``flags``, ``flags_l2b`` and ``mask`` keep their dtype. The OWT class IDs
+        (``owt_index_*``) are written as ``uint8`` with ``_FillValue = 0``
+        (class IDs start at 1), so that they read back as exact integers. All
+        other variables are
         packed into ``int16`` with per-variable ``scale_factor`` and
         ``add_offset`` (see `compute_scale_and_offset`) and
         ``_FillValue = -32768``. For lazy (dask) variables the minimum and
@@ -236,7 +247,7 @@ class L2bProduct():
         if persist:
             self.l2b_prod = self.l2b_prod.persist()
 
-        packed = [v for v in self.variables if v not in CATEGORICAL]
+        packed = [v for v in self.variables if not _is_categorical(v)]
         stats = {}
         if packed:
             # NaN replaced by +/-inf: same result as min/max(skipna=True) without
@@ -251,6 +262,10 @@ class L2bProduct():
         for variable in self.variables:
             if variable in CATEGORICAL:
                 encoding[variable] = {"grid_mapping": "spatial_ref"}
+            elif variable.startswith(CLASS_ID_PREFIX):
+                encoding[variable] = {'dtype': 'uint8',
+                                      '_FillValue': 0,
+                                      "grid_mapping": "spatial_ref"}
             else:
                 scale_factor, add_offset = self.scale_and_offset_from_range(*stats[variable], nbit=16)
                 encoding[variable] = {
@@ -443,11 +458,11 @@ class L2bProduct():
         return
 
     @staticmethod
-    def _downsample(ds, dims=('y', 'x'), factor=2, categorical=CATEGORICAL):
+    def _downsample(ds, dims=('y', 'x'), factor=2, categorical=None):
         """Reduce the spatial resolution of `ds` by an integer `factor`.
 
         Continuous variables are block-averaged ignoring NaN. Categorical
-        variables (``flags``, ``flags_l2b``, ``mask``) are taken from the top-left pixel of
+        variables (``flags``, ``flags_l2b``, ``mask``, ``owt_index_*``) are taken from the top-left pixel of
         each block (nearest neighbour), which preserves their values and
         dtype. Edge pixels that do not fill a complete block are trimmed, so
         the origin is unchanged and the pixel size is multiplied by `factor`.
@@ -461,12 +476,15 @@ class L2bProduct():
         factor : int, optional
             Block size (default 2).
         categorical : tuple of str, optional
-            Variables resampled by nearest neighbour.
+            Variables resampled by nearest neighbour. Default: the flags, mask
+            and OWT class IDs of `ds`.
 
         Returns
         -------
         xarray.Dataset
         """
+        if categorical is None:
+            categorical = [v for v in ds.data_vars if _is_categorical(v)]
         window = {d: factor for d in dims}
         continuous = [v for v in ds.data_vars if v not in categorical]
         coarse = ds[continuous].coarsen(window, boundary='trim').mean()
@@ -517,7 +535,7 @@ class L2bProduct():
         discover everything and then fetches only the chunks it needs.
 
         Resampling: block average (NaN-aware) for continuous variables,
-        nearest neighbor for ``flags``, ``flags_l2b`` and ``mask``. The geotransform is
+        nearest neighbor for ``flags``, ``flags_l2b``, ``mask`` and ``owt_index_*``. The geotransform is
         updated at every level. All levels use the packing parameters
         (``scale_factor``/``add_offset``) of level 0.
 
@@ -598,7 +616,7 @@ class L2bProduct():
         root.attrs['multiscales'] = {
             'layout': layout,
             'resampling_method': 'average',
-            'categorical_variables': list(CATEGORICAL),
+            'categorical_variables': [v for v in self.variables if _is_categorical(v)],
             'categorical_resampling_method': 'nearest',
             'dims': list(dims),
         }
