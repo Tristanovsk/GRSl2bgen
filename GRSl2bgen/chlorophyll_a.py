@@ -85,7 +85,7 @@ class Chl():
             'coef': str(acoef),
             'reference': 'NASA OCx site',
             'units': 'mg m-3',
-            'range': [0, 2000]}
+            'range': [0, 1200]}
 
         # Gitelson-like Red-edge
         acoef = [232.329, 23.174]
@@ -100,7 +100,7 @@ class Chl():
                          'Estimation of chlorophyll-a concentration in case II waters using' + \
                          'MODIS and MERIS data:Successes and challenges. Environ. Res. Lett. 2009, 4, 1–8.',
             'units': 'mg m-3',
-            'range': [0, 2000]
+            'range': [0, 1200]
         }
 
         # NIRB
@@ -117,7 +117,7 @@ class Chl():
                          'of Chlorophyll-a and Suspended Particulate Matter in Optically Shallow ' + \
                          'Coastal Lagoons. Remote Sens. 2025, 17, 3430. https://doi.org/10.3390/rs17203430',
             'units': 'mg m-3',
-            'range': [0, 2000]
+            'range': [0, 1200]
         }
 
         merge_list = [self.chl_nasa_oc2, self.chl_M09B, self.chl_NIRB]
@@ -128,6 +128,7 @@ class Chl():
                                           Nclasses=self.Nclasses,
                                           )
             chl_blend = self.set_range(chl_blend)
+            chl_blend.attrs['range'] = [0, 1200]
             merge_list.append(chl_blend)
         # TODO clean xr.Dataset unused coords to avoid using compat="override"
         self.output = xr.merge(merge_list, compat="override").drop_vars('wl')

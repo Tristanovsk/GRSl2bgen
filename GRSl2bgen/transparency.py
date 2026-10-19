@@ -71,7 +71,7 @@ class Transparency():
             'coef': str(acoef),
             'reference': 'Roy and Das, 2022, Journal of Hydrology, table 3, eq. 13',
             'units': 'm-1',
-            'range': [0, 200]
+            'range': [0, 3000]
         }
         merge_list = [self.Kd_par]
 

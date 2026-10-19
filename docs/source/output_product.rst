@@ -275,10 +275,12 @@ CDOM and transparency
 
 .. note::
 
-   The ``range`` attribute stored with some variables (e.g. ``[0, 2000]`` for Chl-a,
-   ``[0, 60]`` for ``acdom_B15``, ``[0, 30]`` for ``adg443_QAAv6`` and ``adg443_QAAv6Chl``, ``[0, 200]`` for
-   ``Kd_par``, ``[0, 100]`` for ``Zsd_Lee15``) is informative metadata
-   and differs from the filter actually applied, given in the tables above.
+   The ``range`` attribute of the geophysical variables gives the bounds of the
+   validity filter applied, listed in the tables above (e.g. ``[0, 1200]`` for Chl-a,
+   ``[0, 2000]`` for SPM and turbidity, ``[0, 30]`` for the CDOM products, ``[0, 3000]``
+   for ``Kd_par``, ``[0, 100]`` for ``Zsd_Lee15``). Products written by GRSl2bgen
+   versions earlier than 1.1.0 may carry different, informative values (e.g.
+   ``[0, 2000]`` for Chl-a, ``[0, 200]`` for ``Kd_par``).
 
 Quality flags and mask
 ~~~~~~~~~~~~~~~~~~~~~~

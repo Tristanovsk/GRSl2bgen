@@ -62,7 +62,9 @@ class Spm():
                 owt_dist_var='owt_dist_Cordeiro2022SPM',
                 owt_index_var='owt_index_Cordeiro2022SPM',
             )
-            merge_list.append(self.set_range(spm_blend))
+            spm_blend = self.set_range(spm_blend)
+            spm_blend.attrs['range'] = [0, 2000]
+            merge_list.append(spm_blend)
 
         # join: current xarray default, set explicitly as it will change
         self.output = xr.merge(merge_list, compat='override', join='outer').drop_vars('wl')

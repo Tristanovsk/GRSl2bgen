@@ -72,7 +72,7 @@ class Cdom():
             'coef':str(acoef),
             'reference': 'Brezonik et al., 2015, http://dx.doi.org/10.1016/j.rse.2014.04.033',
             'units': 'm-1',
-            'range':[0,60]}
+            'range': [0, 30]}
 
         merge_list = [acdom_B15]
         if self.chl is None:

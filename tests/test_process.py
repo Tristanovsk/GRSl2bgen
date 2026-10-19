@@ -66,6 +66,35 @@ def test_l2b_flags(l2b):
     assert len(flags.attrs['flag_descriptions']) == 32
 
 
+# validity filters applied by the retrieval modules (docs/source/output_product.rst)
+VALID_RANGES = {
+    'Chla_OC2nasa': [0, 1200], 'Chla_M09B': [0, 1200], 'Chla_NIRB': [0, 1200],
+    'Chla_OWTblend_Ta2025': [0, 1200],
+    'SPM_obs2co': [0, 2000], 'TURB_dogliotti': [0, 2000], 'SPM_nechad': [0, 2000],
+    'SPM_OWTblend_Ta2025': [0, 2000],
+    'acdom_B15': [0, 30], 'adg443_QAAv6': [0, 30], 'adg443_QAAv6Chl': [0, 30],
+    'Kd_par': [0, 3000], 'Zsd_Lee15': [0, 100],
+}
+
+
+def test_l2b_range_attributes(l2b):
+    """The ``range`` attribute gives the bounds of the validity filter applied."""
+    for var, expected in VALID_RANGES.items():
+        assert list(l2b[var].attrs['range']) == expected, var
+
+
+def test_l2b_values_within_range_attribute(l2b):
+    """Every valid value lies within the ``range`` attribute of its variable."""
+    with_range = [v for v in l2b.data_vars if 'range' in l2b[v].attrs]
+    for var in with_range:
+        lo, hi = l2b[var].attrs['range']
+        values = l2b[var].values
+        valid = values[np.isfinite(values)]
+        # one int16 packing step of tolerance
+        tol = float(l2b[var].encoding.get('scale_factor', 0))
+        assert valid.min() >= lo - tol and valid.max() <= hi + tol, var
+
+
 def _assert_class_ids(ds):
     """OWT class IDs must read back as exact integers (1-based), NaN outside water."""
     for var in [v for v in ds.data_vars if v.startswith('owt_index')]:
