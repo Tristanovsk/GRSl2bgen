@@ -21,3 +21,4 @@
    GRSl2bgen.utils
 
    GRSl2bgen.process
+   GRSl2bgen.logger

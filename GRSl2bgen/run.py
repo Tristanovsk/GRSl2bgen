@@ -23,6 +23,9 @@ Options:
                    inputs. [default: 0]
   --no_clobber     Do not process <input_file> if <output_file> already exists.
 
+  The log of the run is written next to the output, named after it with the .log
+  extension (e.g. <name>.log for <name>.nc).
+
 
   Example:
       img_dir=/your_path_for_image_folder
@@ -34,6 +37,7 @@ from docopt import docopt
 import logging
 from . import __package__, __version__
 from . import Process
+from .logger import RunLogger
 
 
 def default_output_name(file):
@@ -84,10 +88,14 @@ def main():
         print('File ' + outfile + ' already processed; skip!')
         sys.exit()
 
-    logging.info('call GRSl2bgen for the following paramater. File:' +
-                 file + ', output file:' + outfile)
-    process_ = Process(file, outfile, pyramid=pyramid, level=level)
-    process_.run()
+    # log file next to the output, named after it (as the GRS processor log_file.log)
+    log_file = re.sub(r'\.(nc|zarr)$', '', outfile.rstrip('/')) + '.log'
+    with RunLogger(log_file, log_level='INFO', log_console=True):
+        logging.info(f'{__package__} {__version__}')
+        logging.info('call GRSl2bgen for the following paramater. File:' +
+                     file + ', output file:' + outfile)
+        process_ = Process(file, outfile, pyramid=pyramid, level=level)
+        process_.run()
 
     return
 

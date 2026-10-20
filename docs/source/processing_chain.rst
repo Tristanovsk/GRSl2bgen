@@ -396,23 +396,48 @@ size or the chunks):
 Return Codes
 ------------
 
-GRSl2bgen is a Python CLI (``docopt``-based). Unlike GRSprocessor, it does not configure a
-dedicated file logger: log records go through the standard Python ``logging`` module at
-``INFO`` level (see ``GRSl2bgen/__init__.py``), with no ``log_file.log``/``error.log`` written
-to disk by default.
+GRSl2bgen is a Python CLI (``docopt``-based). Like GRSprocessor, it writes a log file in
+the output folder (see `Log Format`_).
 
 - ``0``: normal process exit, including the case where ``--no_clobber`` is set and the
   output file already exists (the granule is skipped after printing a message).
-- Non-zero interpreter exit codes may occur for unhandled exceptions raised during
-  processing (no top-level exception handler currently wraps :py:meth:`GRSl2bgen.process.Process.execute`),
-  or for invalid CLI arguments rejected by ``docopt``.
+- ``1``: unhandled exception raised during processing; the traceback is written to the
+  log file (``ERROR | ... | processing failed``) and no output file is left under the
+  final name. Invalid CLI arguments rejected by ``docopt`` also give a non-zero code.
 
 Log Format
 ----------
 
-No structured/file-based log format is currently defined; messages are emitted through the
-root ``logging`` logger (``INFO`` level and above) and go to the console (stderr) by
-default.
+Each CLI run writes its log next to the output, named after it with the ``.log``
+extension (``<name>.log`` for ``<name>.nc`` or ``<name>.zarr``): one file per product,
+since several products can share a date folder. The file is overwritten by a new run and
+is not written when the product is skipped with ``--no_clobber``. The records, at ``INFO``
+level and above, also go to the console (stderr) and use the format of the GRS processor
+(``grs.class_logger``)::
+
+    YYYY-MM-DDThh:mm:ss.mmm     LEVEL | logger::function | message
+
+    2026-10-20T18:58:41.538     INFO | root::export_to_netcdf | export into encoded netcdf
+
+Python warnings are logged as ``WARNING`` records. The log ends with the resource
+statistics of the run and the number of records per level::
+
+    ...     INFO | service_logger::log_stats | max_rss: 5869724 kB
+    ...     INFO | service_logger::log_stats | sys_cpu: 25.31 s
+    ...     INFO | service_logger::log_stats | user_cpu: 412.08 s
+    ...     INFO | service_logger::log_stats | total_run_time: 68.08 s
+    ...     INFO | service_logger::log_stats | error: 0
+    ...     INFO | service_logger::log_stats | warning: 0
+    ...     INFO | service_logger::log_stats | info: 23
+    ...     INFO | service_logger::log_stats | debug: 0
+
+When the chain is run from Python (:py:class:`GRSl2bgen.process.Process`), no log file is
+written unless the run is wrapped in :py:class:`GRSl2bgen.logger.RunLogger`::
+
+   from GRSl2bgen.logger import RunLogger
+
+   with RunLogger('out/l2b.log'):
+       GRSl2bgen.Process(l2a, 'out/l2b.nc').run()
 
 Required Resources
 -------------------

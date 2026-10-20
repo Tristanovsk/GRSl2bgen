@@ -24,6 +24,8 @@ v1.1.0dev0:
     - NetCDF inputs read with their stored chunks
     - config.SEL_XARRAY_METHOD for the selection of the wavelengths
     - fix default L2B output name and units of the Euclidean OWT distances
+    - CLI log file next to the output (<name>.log), in the GRS processor format
+    - atomic export: the product is renamed to its final name once complete
 '''
 
 
