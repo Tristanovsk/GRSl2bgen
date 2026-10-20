@@ -2,6 +2,7 @@
 
 Usage:
   GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--level <level>] [--no_clobber]
+            [--product_dir] [--stac]
   GRSl2bgen -h | --help
   GRSl2bgen -v | --version
 
@@ -21,7 +22,13 @@ Options:
   --level level    Level read when <input_file> is a multiscale Zarr pyramid: 0 is
                    full resolution, level k is 2**k coarser. Ignored for the other
                    inputs. [default: 0]
-  --no_clobber     Do not process <input_file> if <output_file> already exists.
+  --no_clobber     Do not process <input_file> if <output_file> already exists (with
+                   --stac: if its STAC Item exists, i.e. the product is complete).
+  --product_dir    Write the product in its own folder, <odir>/<name>/<name>.nc (or
+                   <dirname of ofile>/<name>/<name>.nc with -o), together with its log
+                   and STAC Item, ready to be uploaded as a whole (e.g. to an S3 bucket).
+  --stac           Write the STAC Item of the product, <name>.json, next to it, once
+                   the product and its log are complete.
 
   The log of the run is written next to the output, named after it with the .log
   extension (e.g. <name>.log for <name>.nc).
@@ -38,6 +45,7 @@ import logging
 from . import __package__, __version__
 from . import Process
 from .logger import RunLogger
+from .stac import item_path, write_stac_item
 
 
 def default_output_name(file):
@@ -62,6 +70,8 @@ def main():
     pyramid = args['--pyramid']
     level = int(args['--level'])
     noclobber = args['--no_clobber']
+    product_dir = args['--product_dir']
+    stac = args['--stac']
 
     ##################################
     # File naming convention
@@ -78,13 +88,18 @@ def main():
         basename = os.path.basename(outfile)
         odir = os.path.dirname(outfile)
 
+    if product_dir:
+        odir = os.path.join(odir, re.sub(r'\.(nc|zarr)$', '', basename.rstrip('/')))
+
     if not os.path.exists(odir):
         os.makedirs(odir)
 
     outfile = os.path.join(odir, basename)
 
-    # exists, not isfile: a Zarr output is a directory
-    if noclobber and os.path.exists(outfile):
+    # exists, not isfile: a Zarr output is a directory; with --stac, the Item is
+    # written last and marks a complete product
+    done = item_path(outfile) if stac else outfile
+    if noclobber and os.path.exists(done):
         print('File ' + outfile + ' already processed; skip!')
         sys.exit()
 
@@ -96,6 +111,10 @@ def main():
                      file + ', output file:' + outfile)
         process_ = Process(file, outfile, pyramid=pyramid, level=level)
         process_.run()
+
+    # after the log is closed, so that its checksum in the Item is final
+    if stac:
+        print('STAC Item: ' + write_stac_item(outfile, l2a=file, log_file=log_file))
 
     return
 

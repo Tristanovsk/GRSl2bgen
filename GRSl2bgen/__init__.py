@@ -26,6 +26,7 @@ v1.1.0dev0:
     - fix default L2B output name and units of the Euclidean OWT distances
     - CLI log file next to the output (<name>.log), in the GRS processor format
     - atomic export: the product is renamed to its final name once complete
+    - CLI --product_dir (one folder per product) and --stac (STAC Item, written last)
 '''
 
 

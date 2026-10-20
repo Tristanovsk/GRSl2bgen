@@ -75,6 +75,7 @@ pip install -e .
 
 ```
 GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--level <level>] [--no_clobber]
+          [--product_dir] [--stac]
 ```
 
 `<input_file>` is a GRS L2A `.nc` file, a `.zarr` store (possibly a multiscale pyramid),
@@ -94,7 +95,13 @@ GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T1248
   `GRSl2bgen <name>/ -o <name>_L2B_level3.nc --level 3`.
 - The output format follows the extension: `.zarr` gives a Zarr store, anything else
   NetCDF. Add `--pyramid` to a `.zarr` output to write a cloud-ready multiscale store.
-- `--no_clobber` skips products that are already processed.
+- `--no_clobber` skips products that are already processed. With `--stac`, a product counts as
+  processed when its STAC Item exists (the Item is written last).
+- Each run writes its log next to the output, `<name>.log`.
+- `--product_dir` writes the product in its own folder, `<odir>/<name>/`, with its log
+  and STAC Item: one prefix per product, ready to upload to an S3 bucket.
+- `--stac` writes the STAC Item of the product, `<name>.json`, next to it, with relative
+  links to the product and its log.
 
 ### Python
 
