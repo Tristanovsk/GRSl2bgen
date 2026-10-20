@@ -31,3 +31,16 @@ def test_run_logger_logs_uncaught_exception(tmp_path):
     text = log_file.read_text()
     assert 'ERROR' in text and 'processing failed' in text and 'RuntimeError: boom' in text
     assert 'error: 1' in text
+
+
+def test_run_logger_restores_previous_handlers(tmp_path):
+    root = logging.getLogger()
+    previous = logging.StreamHandler()
+    root.addHandler(previous)
+    level = root.level
+    try:
+        with RunLogger(tmp_path / 'l2b.log', log_level='DEBUG', log_console=False):
+            assert previous not in root.handlers
+        assert previous in root.handlers and root.level == level
+    finally:
+        root.removeHandler(previous)
