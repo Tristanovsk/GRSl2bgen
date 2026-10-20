@@ -221,14 +221,35 @@ class L2bProduct():
             For Zarr output, write a multiscale (pyramid) store with
             `export_to_zarr_pyramid` instead of a single-resolution store
             (`export_to_zarr`). Ignored, with a warning, for NetCDF.
+
+        Notes
+        -----
+        The product is written under a temporary hidden name
+        (``.<name>.part<pid><ext>``) in the output directory and renamed to
+        `ofile` once complete, replacing any existing `ofile`. An exception
+        removes the temporary output; a killed process may leave it behind,
+        but never an incomplete `ofile`.
         """
-        if str(ofile).rstrip('/\\').endswith('.zarr'):
-            if pyramid:
-                return self.export_to_zarr_pyramid(ofile, persist=persist)
-            return self.export_to_zarr(ofile, persist=persist)
-        if pyramid:
+        ofile = str(ofile).rstrip('/\\')
+        if pyramid and not ofile.endswith('.zarr'):
             logging.warning('pyramids are only written for Zarr output; ignored for NetCDF')
-        return self.export_to_netcdf(ofile, persist=persist)
+
+        # written under a temporary name in the same directory, renamed at the
+        # end: an interrupted run never leaves an incomplete file under `ofile`
+        root, ext = os.path.splitext(os.path.basename(ofile))
+        tmp = os.path.join(os.path.dirname(ofile), f'.{root}.part{os.getpid()}{ext}')
+        try:
+            if not ofile.endswith('.zarr'):
+                self.export_to_netcdf(tmp, persist=persist)
+            elif pyramid:
+                self.export_to_zarr_pyramid(tmp, persist=persist)
+            else:
+                self.export_to_zarr(tmp, persist=persist)
+        except BaseException:
+            self._remove(tmp)
+            raise
+        self._remove(ofile)
+        os.replace(tmp, ofile)
 
     def _packing_encoding(self, persist=False):
         """Build the packing part of the output encoding (format independent).
@@ -288,12 +309,17 @@ class L2bProduct():
         return encoding
 
     @staticmethod
+    def _remove(path):
+        """Delete a file or directory if it exists."""
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        elif os.path.exists(path):
+            os.remove(path)
+
+    @staticmethod
     def _prepare_output(ofile):
         """Delete an existing output file or directory and create the parent directory."""
-        if os.path.isdir(ofile):
-            shutil.rmtree(ofile)
-        elif os.path.exists(ofile):
-            os.remove(ofile)
+        L2bProduct._remove(ofile)
 
         odir = os.path.dirname(str(ofile).rstrip('/\\'))
         if odir == '':
