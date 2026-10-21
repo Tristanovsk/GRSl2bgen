@@ -30,8 +30,6 @@ MANIFEST
 #llm checkpoint directory
 feature_migration/
 
-#testing phase directory
-tests/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -97,6 +95,7 @@ celerybeat-schedule
 # Environments
 .env
 .venv
+.venv_SPM
 env/
 venv/
 ENV/
@@ -188,3 +187,12 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# personal test notebook; the Read the Docs version is docs/source/tutorials/grsl2bgen_l2a_processing.ipynb
+notebook/basics/grs_l2bgen_L2A_processing.ipynb
+
+# Sphinx autosummary output (generated from docs/source/api.rst)
+docs/source/GRSl2bgen API/
+
+# satellite products at repo root
+/*.nc

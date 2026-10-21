@@ -1,25 +1,18 @@
-import os
+"""Optical Water Type (OWT) classification with the Spectral Angle Mapper (lazy, dask-friendly)."""
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-
-from numba import njit
 import logging
 
-from multiprocessing import Pool  # Process pool
-from multiprocessing import sharedctypes
-import itertools
-
-import dask
-
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from importlib_resources import files
 
 from . import __package__
+from .sam import sam as _sam, sam_dataarray
+from .euclidean import euclidean as _euclidean, euclidean_dataarray
 
 OWT_Spyrakos2018_file = 'Spyrakos_et_al_2018_OWT_inland_mean_standardised.csv'
 OWT_Bi2024_file = 'Bi_etal_2024_OWT_mean_spec_v01.csv'
@@ -31,30 +24,74 @@ OWT_Bi2024_file = files(__package__ +
 
 OWT_tarasenko2025_file = files(__package__ +
                                '.data').joinpath('owt_tarasenko2025.nc')
+OWT_cordeiro2022_spm_file = files(__package__ +
+                                  '.data').joinpath('owt_cordeiro2022_spm.nc')
 
 
 class OWT():
+    """Optical Water Type (OWT) retrieval from L2A images.
+
+        Classifies every pixel with the Spectral Angle Mapper (SAM) against the
+        mean spectra of an OWT database and keeps the `Nclasses_to_be_saved`
+        best-matching classes. The computation is lazy for dask-backed input:
+        nothing is evaluated until the result is written or computed.
+
+        Parameters
+        ----------
+        raster : xarray.Dataset
+            L2A raster with the variable ``Rrs`` (dimensions y, x, wl in any
+            order; ``wl`` in nm).
+        xowt : xarray.DataArray, optional
+            Externally supplied OWT spectra with dimensions (owt, wl). If given,
+            `owt_database` is ignored.
+        owt_database : {'Spyrakos2018', 'Bi2024', 'Tarasenko2025',
+                        'Cordeiro2022SPM'}, optional
+            Built-in OWT database. ``Cordeiro2022SPM`` uses its raw ``m_Rrs``
+            spectra and always uses Euclidean distance.
+        owt_database_name : str, optional
+            Suffix for the output variable names, e.g. ``'Spyrakos2018'`` gives
+            ``owt_index_Spyrakos2018`` and ``owt_dist_Spyrakos2018``.
+        param : str, optional
+            Spectra to use. ``'m_nRrs'`` (normalised reflectance, nm-1) for
+            Spyrakos2018; ``'m_nRrs'`` or ``'m_Rrs'`` (sr-1) for Bi2024.
+        spectral_distance : str, optional
+            Spectral distance to use (Default: ``'sam'``):
+                - 'sam' for Spectral Angle Mapper
+                - 'euclidean' for Euclidean Distance
+        Nclasses_to_be_saved : int, optional
+            Number of best-matching classes kept per pixel (default 1). Higher
+            values slow down the blended retrievals that use them.
+        wl_range : slice, optional
+            Spectral range used for the SAM (default ``slice(350, 800)``).
+        chunk : int, optional
+            Spatial chunk size (pixels) for dask-backed input.
+        Nproc : int, optional
+            Deprecated and unused (kept for backward compatibility): parallelism
+            now comes from dask and numba.
+
+        Attributes
+        ----------
+        xowt : xarray.Dataset
+            Result of `multi_process`: ``owt_dist_<name>`` (radians for the
+            SAM, sr-1 for the Euclidean distance) and
+            ``owt_index_<name>`` (1-based class position).
+        """
+
     def __init__(self,
                  raster,
                  xowt=None,
                  owt_database="Spyrakos2018",
+                 owt_database_name='',
                  param='m_nRrs',
-                 suffix='',
+                 spectral_distance='sam',
+                 Nclasses_to_be_saved=1,
                  wl_range=slice(350, 800),
                  chunk=1024,
                  Nproc=8):
-        '''
-        Routine for Optical Water Types (OWT) retrieval from L2A images based on several OWT database and robust spectral metric.
 
-        :param raster: satellite image raster
-        :param owt_database: name of the OWT database to use within ["Spyrakos2018","Bi2024"]
-        :param param: choose the parameter to use:
-                      - for "Spyrakos2018", should be "m_nRrs" (normalized reflectance in nm-1)
-                      - for "Bi2024", 2 choices: "m_nRrs" (normalized reflectance in nm-1) or "m_Rrs" (reflectance in sr-1)
-        :param wl_range: spectral range to apply the Spectral angle mapper
-        :param chunk: chunk size for multiprocessing
-        :param Nproc: number of CPU for multiprocessing
-        '''
+        # Cordeiro's raw-Rrs OWT definition uses Euclidean distance.
+        if xowt is None and owt_database == 'Cordeiro2022SPM':
+            spectral_distance = 'euclidean'
 
         self.param = param
         self.chunk = chunk
@@ -62,20 +99,36 @@ class OWT():
         self.raster = raster
 
         self.Rrs = raster.Rrs.sel(wl=wl_range)
-        self.Nwl, self.height, self.width = self.Rrs.shape
+        self.Nwl = self.Rrs.sizes['wl']
+        self.height = self.Rrs.sizes['y']
+        self.width = self.Rrs.sizes['x']
+
+        # units of owt_dist: an angle for SAM, the unit of Rrs for the
+        # Euclidean distance (class spectra are in the unit of the pixels)
+        if spectral_distance == "sam":
+            self.spectral_distance = sam_dataarray
+            self.dist_units = 'radians'
+        elif spectral_distance == "euclidean":
+            self.spectral_distance = euclidean_dataarray
+            self.dist_units = 'sr-1'
+        else:
+            raise ValueError(f'unknown sepctral distance {spectral_distance!r}')
 
         self.owt_database = owt_database
-        self.suffix = suffix
-        if len(self.suffix) > 0:
-            self.suffix = '_' + self.suffix
+        self.owt_database_name = owt_database_name
+        if len(self.owt_database_name) > 0:
+            self.owt_database_name = '_' + self.owt_database_name
 
-        self.owt_index_name = "owt_index" + self.suffix
-        self.owt_dist_name = "owt_dist" + self.suffix
+        self.owt_index_name = "owt_index" + self.owt_database_name
+        self.owt_dist_name = "owt_dist" + self.owt_database_name
+        self.Nclasses_dim = "Nclasses"
+        self.Nclasses_to_be_saved = Nclasses_to_be_saved
+        self.owt_info = {}
 
         if xowt is not None:
             self.owt = xowt
             self.attrs_owt = xowt.owt.values
-            self.cmap_owt = plt.cm.Spectral_r
+            self.cmap_owt = mpl.colormaps['Spectral_r']
         else:
             if self.owt_database == 'Spyrakos2018':
                 owt = pd.read_csv(OWT_Spyrakos2018_file, index_col=0).stack().to_xarray().astype(np.float32)
@@ -130,66 +183,74 @@ class OWT():
                     # 12: dict(color='firebrick', label='OWT12: Turbid waters with cyanobacteria'),
                     # 13: dict(color='mediumblue', label='OWT13: Very clear blue waters'),
                 }
+            elif self.owt_database == 'Tarasenko2025':
+                with xr.open_dataarray(OWT_tarasenko2025_file) as data:
+                    self.owt = data.load()
+                self.param = self.owt.name
+                self.attrs_owt = self.owt.owt.values
+                self.cmap_owt = mpl.colormaps['Spectral_r']
+            elif self.owt_database == 'Cordeiro2022SPM':
+                with xr.open_dataarray(OWT_cordeiro2022_spm_file) as data:
+                    self.owt = data.load()
+                self.param = self.owt.name
+                self.owt_info = {
+                    1: dict(color='#4dac26', label='OWT1: Clear'),
+                    2: dict(color='#b8e186', label='OWT2: Moderate'),
+                    3: dict(color='#f1b6da', label='OWT3: Turbid'),
+                    4: dict(color='#d01c8b', label='OWT4: Very turbid'),
+                }
+            else:
+                raise ValueError(f'unknown OWT database {self.owt_database!r}')
 
-            self.owt = owt[self.param]
-            colors = []
-            attrs = ''
-            for key, info in self.owt_info.items():
-                colors.append(info['color'])
-                attrs += str(key) + ":" + info['label'] + '\n'
+            if self.owt_database in ('Spyrakos2018', 'Bi2024'):
+                self.owt = owt[self.param]
 
-            self.attrs_owt = attrs
-            self.cmap_owt = mpl.colors.ListedColormap(colors)
+            if self.owt_database in ('Spyrakos2018', 'Bi2024', 'Cordeiro2022SPM'):
+                colors = []
+                attrs = ''
+                for key, info in self.owt_info.items():
+                    colors.append(info['color'])
+                    attrs += str(key) + ":" + info['label'] + '\n'
+
+                self.attrs_owt = attrs
+                self.cmap_owt = mpl.colors.ListedColormap(colors)
 
         self.Nowt = len(self.owt.owt)
-        self.Rrs_owt = self.owt.interp(wl=self.Rrs.wl).astype(np.float32).squeeze()
+        # class spectra interpolated on the image wavelengths, shape (owt, wl)
+        self.Rrs_owt = (self.owt.interp(wl=self.Rrs.wl)
+                        .astype(np.float32)
+                        .squeeze()
+                        .transpose('owt', 'wl'))
         self.output = None
 
     @staticmethod
     def xSAM(R1, R2):
+        """Spectral angle (radians) between two xarray spectra along ``wl``."""
         denum = (R1 * R2).sum('wl')
         denom = (R1 ** 2).sum('wl') ** 0.5 * (R2 ** 2).sum('wl') ** 0.5
         return np.arccos(denum / denom)
 
     @staticmethod
-    @njit()
-    def SAM(Rrs, Rrs_owt,
-            Nwl, Ny, Nx, Nowt):
-        '''
-        def SAM(R1,R2):
-        denum=(R1*R2).sum('wl')
-        denom = (R1**2).sum('wl')**0.5 * (R2**2).sum('wl')**0.5
-        return np.arccos(denum/denom)
-        '''
+    def SAM(Rrs, Rrs_owt, Nclasses_to_be_saved):
+        """Numba SAM with the legacy signature (kept for backward compatibility).
 
-        arr_sam = np.full((Nowt, Ny, Nx), np.nan, dtype=np.float32)
-        arr_index = np.full((Ny, Nx), np.nan, dtype=np.float32)
-        Rrs_owt_mod = np.full((Nowt), 0., dtype=np.float32)
+        Parameters
+        ----------
+        Rrs : ndarray, shape (Nwl, Ny, Nx)
+        Rrs_owt : ndarray, shape (Nowt, Nwl)
+        Nclasses_to_be_saved : int
+            Number of best classes kept per pixel.
 
-        for iowt in range(Nowt):
-            for iwl in range(Nwl):
-                Rrs_owt_mod[iowt] += Rrs_owt[iowt, iwl] ** 2
-            Rrs_owt_mod[iowt] = Rrs_owt_mod[iowt] ** 0.5
-
-        for _iy in range(Ny):
-            for _ix in range(Nx):
-                if np.isnan(Rrs[0, _iy, _ix]):
-                    continue
-                for iowt in range(Nowt):
-                    denum = 0.
-                    Rrs_mod = 0.
-
-                    for iwl in range(Nwl):
-                        denum += Rrs[iwl, _iy, _ix] * Rrs_owt[iowt, iwl]
-                        Rrs_mod += Rrs[iwl, _iy, _ix] ** 2
-                    Rrs_mod = Rrs_mod ** 0.5
-                    arr_sam[iowt, _iy, _ix] = np.arccos(denum / (Rrs_mod * Rrs_owt_mod[iowt]))
-                arr_index[_iy, _ix] = np.argmin(arr_sam[:, _iy, _ix]) + 1
-
-        return arr_sam, arr_index
+        Returns
+        -------
+        dist, index : ndarray, shape (Nclasses_to_be_saved, Ny, Nx), float32
+            Angles in radians (ascending) and 1-based class positions.
+        """
+        return _sam(np.moveaxis(np.asarray(Rrs), 0, -1), Rrs_owt, Nclasses_to_be_saved)
 
     @staticmethod
     def SCS(R1, R2):
+        """Spectral correlation similarity between two xarray spectra along ``wl``."""
         R1_avg = R1.mean('wl')
         R2_avg = R2.mean('wl')
         R1_std = R1.std('wl')
@@ -197,118 +258,57 @@ class OWT():
         Nwl = len(R1.wl)
         return 1 / (Nwl) * ((R1 - R1_avg) * (R2 - R2_avg)).sum('wl') / (R1_std * R2_std)
 
-    def process_raster(self):
-
-        chunk = self.chunk
-        height, width, Nowt = self.height, self.width, self.Nowt
-
-        owt_index = np.full((height, width), 0, dtype=np.float32)
-        owt_dist = np.full((height, width), 0, dtype=np.float32)
-        owt_sam_np = np.full((Nowt, height, width), np.nan, dtype=np.float32)
-        # np.seterr(divide='ignore', invalid='ignore')
-        # import warnings
-        # with warnings.catch_warnings():
-        #    warnings.filterwarnings('ignore', 'invalid value encountered in divide', RuntimeWarning)
-        for iy in range(0, height, chunk):
-            yc = min(height, iy + chunk)
-
-            for ix in range(0, width, chunk):
-                xc = min(width, ix + chunk)
-
-                _Rrs = self.Rrs[:, iy:yc, ix:xc]
-                Nwl, Ny, Nx = _Rrs.shape
-                owt_sam, owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
-                                                            self.Rrs_owt.values,
-                                                            Nwl, Ny, Nx, Nowt)
-                owt_sam_np[:, iy:yc, ix:xc] = owt_sam
-                tmp = -1 * owt_sam / np.pi
-
-                # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
-                # issue with reshape arrays
-                # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
-                # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
-
-                tmp_max = np.max(tmp, axis=0)
-                owt_dist[iy:yc, ix:xc] = tmp_max
-
-        self.owt_sam_np = owt_sam_np
-        self.xowt = xr.Dataset(dict(owt_dist=(["y", "x"], owt_dist),
-                                    owt_index=(["y", "x"], owt_index), ),
-                               coords=dict(x=self.Rrs.x,
-                                           y=self.Rrs.y),
-                               )
-
     def multi_process(self):
+        """Classify the image and build the OWT dataset (lazy for dask input).
 
-        chunk = self.chunk
-        height, width, Nowt = self.height, self.width, self.Nowt
+        Uses `sam_dataarray` or `euclidean_dataarray`: for dask-backed ``Rrs`` the SAM (or Euclidean distance)
+        is computed chunk by chunk by the dask scheduler; for in-memory data a parallel
+        numba kernel is used. There is no shared memory and no worker pool.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``owt_dist_<name>`` (radians for the SAM, sr-1 for the Euclidean
+            distance) and ``owt_index_<name>`` (1-based
+            class position) with dimensions ``[Nclasses, y, x]``; the
+            ``Nclasses`` dimension is dropped when only one class is kept.
+        """
+
         logging.info('OWT classification')
-        global chunk_process
-        owt_index = np.ctypeslib.as_ctypes(np.full((height, width), np.nan, dtype=np.float32))
-        owt_dist = np.ctypeslib.as_ctypes(np.full((height, width), np.nan, dtype=np.float32))
-        owt_sam_flat = np.ctypeslib.as_ctypes(np.full(Nowt * height * width, np.nan, dtype=np.float32))
-        shared_owt_index = sharedctypes.RawArray(owt_index._type_, owt_index)
-        shared_owt_dist = sharedctypes.RawArray(owt_dist._type_, owt_dist)
-        shared_owt_sam = sharedctypes.RawArray(owt_sam_flat._type_, owt_sam_flat)
 
-        def chunk_process(args):
-            iy, ix = args
-            yc = min(height, iy + chunk)
-            xc = min(width, ix + chunk)
-            tmp_owt_index = np.ctypeslib.as_array(shared_owt_index)
-            tmp_owt_dist = np.ctypeslib.as_array(shared_owt_dist)
-            tmp_owt_sam = np.ctypeslib.as_array(shared_owt_sam).reshape(Nowt, height, width)
+        Rrs = self.Rrs
+        if Rrs.chunks is not None and self.chunk:
+            Rrs = Rrs.chunk({'y': self.chunk, 'x': self.chunk, 'wl': -1})
 
-            _Rrs = self.Rrs[:, iy:yc, ix:xc]
-            Nwl, Ny, Nx = _Rrs.shape
-            owt_sam, tmp_owt_index[iy:yc, ix:xc] = self.SAM(_Rrs.values,
-                                                            self.Rrs_owt.values,
-                                                            Nwl, Ny, Nx, Nowt)
-            tmp_owt_sam[:, iy:yc, ix:xc] = owt_sam
+        dist, index = self.spectral_distance(Rrs,
+                                             self.Rrs_owt.values,
+                                             Nclasses_to_be_saved=self.Nclasses_to_be_saved,
+                                             wl_dim='wl',
+                                             name_dim=self.Nclasses_dim)
 
-            tmp = -1 * owt_sam / np.pi
-
-            # TODO implement spectral correlation similarity (SCS) + MSAS (see Bonnier et al, 2024)
-            # issue with reshape arrays
-            # owt_scs = self.SCS(_Rrs,self.Rrs_owt)
-            # tmp = owt_scs + (1-2*owt_sam/np.pi)/2
-
-            tmp_owt_dist[iy:yc, ix:xc] = np.max(tmp, axis=0)
-
-        window_idxs = [(i, j) for i, j in
-                       itertools.product(range(0, height, chunk),
-                                         range(0, width, chunk))]
-
-        # global pool
-        # pool = Pool(self.Nproc)
-        # res = pool.map(chunk_process, window_idxs)
-
-        # pool.terminate()
-        # pool.join()
-        jobs = [dask.delayed(chunk_process)(arg) for arg in window_idxs]
-        dask.compute(jobs)
-
-        logging.info('success')
-
-        ######################################
-        # construct l2a object
-        ######################################
         logging.info('construct xarray owt product')
-        self.owt_sam_np = np.ctypeslib.as_array(shared_owt_sam).reshape(Nowt, height, width).copy()
-        self.xowt = xr.Dataset(data_vars={self.owt_dist_name: (["y", "x"], np.ctypeslib.as_array(shared_owt_dist)),
-                                          self.owt_index_name: (["y", "x"], np.ctypeslib.as_array(shared_owt_index)), },
-                               coords=dict(x=self.Rrs.x,
-                                           y=self.Rrs.y),
-                               )
+        self.xowt = xr.Dataset({self.owt_dist_name: dist.rename(self.owt_dist_name),
+                                self.owt_index_name: index.rename(self.owt_index_name)})
+        self.xowt = self.xowt.assign_coords(
+            {self.Nclasses_dim: np.arange(self.Nclasses_to_be_saved)})
+        if self.Nclasses_to_be_saved == 1:
+            self.xowt = self.xowt.isel({self.Nclasses_dim: 0}, drop=True)
+
+        self.xowt[self.owt_dist_name].attrs['units'] = self.dist_units
         self.xowt[self.owt_index_name].attrs['definition'] = self.attrs_owt
 
         return self.xowt
 
     def set_range(self, param, minval=0, maxval=30):
+        """Mask values outside the open interval ``(minval, maxval)``."""
         return param.where((param > minval) & (param < maxval))
 
     def plot(self):
+        """Plot the OWT spectra with their colours (built-in databases only)."""
+        import matplotlib.pyplot as plt
 
+        if not self.owt_info:
+            raise NotImplementedError('plot needs owt_info, which is not available for externally supplied OWT')
         patch = []
         for key, info in self.owt_info.items():
             patch.append(mpatches.Patch(color=info['color'], label=info['label']))
@@ -330,54 +330,103 @@ class OWT():
 
 
 class OWT_process():
+    """Run the OWT classifications used by the L2B processing chain.
+
+    Classifies the raster against the Spyrakos et al. (2018) OWT (top 3
+    classes), the Bi et al. (2024) OWT, the Tarasenko et al. (2025) OWT, and
+    the Cordeiro (2022) SPM OWT (best two classes).  The Cordeiro OWT always
+    uses Euclidean distance on unnormalised Rrs, independently of
+    ``spectral_distance``.
+
+    Parameters
+    ----------
+    raster : xarray.Dataset
+        L2A raster with ``Rrs`` (see `OWT`).
+    spectral_distance : str, optional
+            Spectral distance to use (Default: ``'sam'``):
+                - 'sam' for Spectral Angle Mapper
+                - 'euclidean' for Euclidean Distance
+    chunk : int, optional
+        Spatial chunk size for dask-backed input (default 1024).
+    Nproc : int, optional
+        Deprecated and unused.
+
+    Attributes
+    ----------
+    xowt_spyrakos2018, xowt_bi2024, xowt_Ta2025, xowt_Cordeiro2022SPM : xarray.Dataset
+        Per-database results.
+    owt_sam_spyrakos2018 : xarray.Dataset
+        Spyrakos2018 result in the form expected by ``Chl``: variables
+        ``owt_dist`` and ``owt_index`` with dimensions ``[Nowt, y, x]``.
+    output : xarray.Dataset
+        Merge of the four results (variables with database suffix).
+    """
+
     def __init__(self,
                  raster,
+                 spectral_distance='sam',
                  chunk=1024,
                  Nproc=8):
-        '''
-
-        :param raster:
-        :param chunk:
-        :param Nproc:
-        '''
-
         self.raster = raster
+        self.spectral_distance = spectral_distance
         self.chunk = chunk
         self.Nproc = Nproc
+        self.cmaps = {}
 
     def execute(self):
         owt_database = 'Spyrakos2018'
         OWT_kernel = OWT(self.raster,
                          owt_database=owt_database,
                          param='m_nRrs',
-                         suffix=owt_database,
+                         owt_database_name=owt_database,
+                         spectral_distance=self.spectral_distance,
                          chunk=self.chunk,
-                         Nproc=self.Nproc
+                         Nproc=self.Nproc,
+                         Nclasses_to_be_saved=3
                          )
+        self.cmaps['Spyrakos2018'] = OWT_kernel.cmap_owt
         self.xowt_spyrakos2018 = OWT_kernel.multi_process()
-        self.owt_sam_spyrakos2018 = OWT_kernel.owt_sam_np  # (13, H, W) float32
 
         owt_database = 'Bi2024'
         OWT_kernel = OWT(self.raster,
                          owt_database=owt_database,
                          param='m_Rrs',
-                         suffix=owt_database,
+                         owt_database_name=owt_database,
                          chunk=self.chunk,
                          Nproc=self.Nproc
                          )
+        self.cmaps['Bi2024'] = OWT_kernel.cmap_owt
         self.xowt_bi2024 = OWT_kernel.multi_process()
 
         # 2025-10-27 add OWT used in Tarasenko et al., 2025
-        xowt = xr.open_dataarray(OWT_tarasenko2025_file)
+        owt_database = 'Tarasenko2025'
         OWT_kernel = OWT(self.raster,
-                         xowt=xowt,
-                         suffix='Ta2025',
+                         owt_database=owt_database,
+                         owt_database_name='Ta2025',
                          param='m_nRrs',
                          chunk=self.chunk,
                          Nproc=self.Nproc
                          )
+        self.cmaps['Tarasenko2025'] = OWT_kernel.cmap_owt
         self.xowt_Ta2025 = OWT_kernel.multi_process()
+
+        # NOTE: Cordeiro (2022) SPM OWT mean spectra are unnormalised Rrs.so,
+        # always this is executed with magnitude-driven distance metrics, such as
+        #  with Euclidean distance.
+        owt_database = 'Cordeiro2022SPM'
+        OWT_kernel = OWT(self.raster,
+                         owt_database=owt_database,
+                         owt_database_name='Cordeiro2022SPM',
+                         param='m_Rrs',
+                         spectral_distance='euclidean',
+                         chunk=self.chunk,
+                         Nproc=self.Nproc,
+                         Nclasses_to_be_saved=2,
+                         )
+        self.cmaps['Cordeiro2022SPM'] = OWT_kernel.cmap_owt
+        self.xowt_Cordeiro2022SPM = OWT_kernel.multi_process()
 
         self.output = xr.merge([self.xowt_spyrakos2018,
                                 self.xowt_bi2024,
-                                self.xowt_Ta2025])
+                                self.xowt_Ta2025,
+                                self.xowt_Cordeiro2022SPM], compat='no_conflicts', join='outer')

@@ -8,5 +8,7 @@ netcdf4
 numba 
 xarray 
 rioxarray 
-zarr<3
+zarr>=3
 dask[distributed]
+pystac
+pyproj

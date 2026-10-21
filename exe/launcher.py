@@ -19,7 +19,7 @@ def main():
     if(len(sys.argv)>1):
         config_file=sys.argv[1]
     else:
-        config_file="/home/obs2co_l2bgen/exe/global_config.yml"
+        config_file="/opt/GRSl2bgen/exe/global_config.yml"
 
     with open(config_file, 'r') as yamlfile:
         data = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -47,7 +47,7 @@ def main():
     logger.addHandler(handler)
     
     
-    from obs2co_l2bgen import process
+    from GRSl2bgen import Process
     
     #get all config
     for key, value in data.items():
@@ -82,11 +82,11 @@ def main():
         logging.info('File ' + outfile + ' already processed; skip!')
         exit(-1)
     
-    logging.info('call obs2co_l2bgen for the following parameters. File:' +
+    logging.info('call GRSl2bgen for the following parameters. File:' +
                  file + ', output file:' + outfile)
     
     try:
-        process().execute(file, outfile)
+        Process(file, outfile).run()
         
     except Exception as inst:
         logging.info('-------------------------------')

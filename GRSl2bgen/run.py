@@ -1,7 +1,8 @@
 ''' Executable to process Sentinel-2 L2A images into water quality paratmeters
 
 Usage:
-  GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>]  [--no_clobber]
+  GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--level <level>] [--no_clobber]
+            [--product_dir] [--stac]
   GRSl2bgen -h | --help
   GRSl2bgen -v | --version
 
@@ -15,7 +16,22 @@ Options:
 
   -o ofile         Full (absolute or relative) path to output L2 image directory.
   --odir odir      Ouput directory [default: ./]
-  --no_clobber     Do not process <input_file> if <output_file> already exists.
+  --pyramid  bool, optional, for Zarr output, write a multiscale (pyramid) store with
+            `export_to_zarr_pyramid` instead of a single-resolution store
+            (`export_to_zarr`). Ignored, with a warning, for NetCDF. [default: False]
+  --level level    Level read when <input_file> is a multiscale Zarr pyramid: 0 is
+                   full resolution, level k is 2**k coarser. Ignored for the other
+                   inputs. [default: 0]
+  --no_clobber     Do not process <input_file> if <output_file> already exists (with
+                   --stac: if its STAC Item exists, i.e. the product is complete).
+  --product_dir    Write the product in its own folder, <odir>/<name>/<name>.nc (or
+                   <dirname of ofile>/<name>/<name>.nc with -o), together with its log
+                   and STAC Item, ready to be uploaded as a whole (e.g. to an S3 bucket).
+  --stac           Write the STAC Item of the product, <name>.json, next to it, once
+                   the product and its log are complete.
+
+  The log of the run is written next to the output, named after it with the .log
+  extension (e.g. <name>.log for <name>.nc).
 
 
   Example:
@@ -23,11 +39,27 @@ Options:
       GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc
 '''
 
-import os, sys
+import os, sys, re
 from docopt import docopt
 import logging
 from . import __package__, __version__
 from . import Process
+from .logger import RunLogger
+from .stac import item_path, write_stac_item
+
+
+def default_output_name(file):
+    """L2B file name derived from the L2A input path.
+
+    The ``.nc`` or ``.zarr`` extension of the input, if any, is replaced by
+    ``.nc`` (other dots, e.g. in a version ``V3.0.1dev``, are kept), and the
+    ``L2Agrs`` level tag is replaced by ``L2B`` whatever its case (``L2Agrs``,
+    ``L2AGRS``, ...).
+    """
+    basename = os.path.basename(file.rstrip('/'))
+    basename = re.sub(r'\.(nc|zarr)$', '', basename)
+    basename = re.sub('L2Agrs', 'L2B', basename, flags=re.IGNORECASE)
+    return basename + '.nc'
 
 
 def main():
@@ -35,7 +67,11 @@ def main():
     print(args)
 
     file = args['<input_file>']
+    pyramid = args['--pyramid']
+    level = int(args['--level'])
     noclobber = args['--no_clobber']
+    product_dir = args['--product_dir']
+    stac = args['--stac']
 
     ##################################
     # File naming convention
@@ -44,11 +80,7 @@ def main():
     outfile = args['-o']
 
     if outfile == None:
-        outfile = file
-        basename = os.path.basename(file)
-        if basename[-3:] != '.nc':
-            basename = basename + '.nc'
-        basename = basename.replace('L2Agrs', 'L2B')
+        basename = default_output_name(file)
         odir = args['--odir']
         if odir == './':
             odir = os.getcwd()
@@ -56,21 +88,33 @@ def main():
         basename = os.path.basename(outfile)
         odir = os.path.dirname(outfile)
 
+    if product_dir:
+        odir = os.path.join(odir, re.sub(r'\.(nc|zarr)$', '', basename.rstrip('/')))
+
     if not os.path.exists(odir):
         os.makedirs(odir)
 
     outfile = os.path.join(odir, basename)
 
-    if os.path.isfile(outfile) & noclobber:
+    # exists, not isfile: a Zarr output is a directory; with --stac, the Item is
+    # written last and marks a complete product
+    done = item_path(outfile) if stac else outfile
+    if noclobber and os.path.exists(done):
         print('File ' + outfile + ' already processed; skip!')
         sys.exit()
 
-    logging.info('call GRSl2bgen for the following paramater. File:' +
-                 file + ', output file:' + outfile)
-    process_ = Process(file, outfile)
-    process_.execute()
-    if process_.successful:
-        process_.write_output()
+    # log file next to the output, named after it (as the GRS processor log_file.log)
+    log_file = re.sub(r'\.(nc|zarr)$', '', outfile.rstrip('/')) + '.log'
+    with RunLogger(log_file, log_level='INFO', log_console=True):
+        logging.info(f'{__package__} {__version__}')
+        logging.info('call GRSl2bgen for the following paramater. File:' +
+                     file + ', output file:' + outfile)
+        process_ = Process(file, outfile, pyramid=pyramid, level=level)
+        process_.run()
+
+    # after the log is closed, so that its checksum in the Item is final
+    if stac:
+        print('STAC Item: ' + write_stac_item(outfile, l2a=file, log_file=log_file))
 
     return
 

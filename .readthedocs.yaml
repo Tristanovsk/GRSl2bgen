@@ -1,0 +1,23 @@
+version: 2
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "mambaforge-22.9"
+
+sphinx:
+  configuration: docs/source/conf.py
+  fail_on_warning: false
+
+formats: all
+
+conda:
+  environment: docs/environment.yml
+
+python:
+  install:
+    - requirements: requirements.txt
+    # Sphinx/docs dependencies come from docs/requirements.txt,
+    # installed through the conda environment (docs/environment.yml)
+    - method: pip
+      path: .

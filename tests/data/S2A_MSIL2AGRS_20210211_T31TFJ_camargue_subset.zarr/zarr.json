@@ -1,0 +1,2352 @@
+{
+  "attributes": {
+    "long_name": "CA BLUE GREEN RED VRE_1 VRE_2 VRE_3 NIR NARROW_NIR WV SWIR_CIRRUS SWIR_1 SWIR_2",
+    "constellation": "Sentinel-2",
+    "constellation_id": "S2",
+    "product_path": "/data/satellite/Sentinel-2/L1C/31TFJ/2021/02/11/S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831.SAFE",
+    "product_name": "S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831",
+    "instrument": "MSI",
+    "product_type": "MSIL1C",
+    "condensed_name": "20210211T104151_S2_T31TFJ_L1C_124831",
+    "orbit_direction": "DESCENDING",
+    "radiometry": "reflectance",
+    "cloud_cover": 0.298419212910631,
+    "wl_to_process": [
+      443,
+      490,
+      560,
+      665,
+      705,
+      740,
+      783,
+      842,
+      865,
+      1610,
+      2190
+    ],
+    "PRODUCT_START_TIME": "2021-02-11T10:41:51.024Z",
+    "PRODUCT_STOP_TIME": "2021-02-11T10:41:51.024Z",
+    "PRODUCT_URI": "S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831.SAFE",
+    "PROCESSING_LEVEL": "Level-1C",
+    "PRODUCT_TYPE": "S2MSI1C",
+    "PROCESSING_BASELINE": "05.00",
+    "PRODUCT_DOI": "https://doi.org/10.5270/S2_-742ikth",
+    "GENERATION_TIME": "2023-06-08T12:48:31.000000Z",
+    "PREVIEW_IMAGE_URL": "Not applicable",
+    "PREVIEW_GEO_INFO": "Not applicable",
+    "DATATAKE_1_ID": "GS2A_20210211T104151_029463_N05.00",
+    "DATATAKE_1_SPACECRAFT_NAME": "Sentinel-2A",
+    "DATATAKE_1_DATATAKE_TYPE": "INS-NOBS",
+    "DATATAKE_1_DATATAKE_SENSING_START": "2021-02-11T10:41:51.024Z",
+    "DATATAKE_1_SENSING_ORBIT_NUMBER": "8",
+    "DATATAKE_1_SENSING_ORBIT_DIRECTION": "DESCENDING",
+    "SPECIAL_VALUE_NODATA": "0",
+    "SPECIAL_VALUE_SATURATED": "65535",
+    "QUANTIFICATION_VALUE": "10000",
+    "REFLECTANCE_CONVERSION_U": "1.02797384085035",
+    "REFERENCE_BAND": "B4",
+    "FOOTPRINT": "POLYGON((5.60587179594094 44.22356260496734, 5.603180260352006 44.2168141066275, 5.545054326414713 44.07124784491373, 5.488617426771677 43.92538502712244, 5.431470463259359 43.77979555216909, 5.374127201257345 43.63415586433456, 5.317672934234263 43.4882498438203, 5.260699582987787 43.34241789296115, 5.221273044732835 43.24164985609328, 4.232032700041831 43.25815531909012, 4.252480872223193 44.24655093494868, 5.60587179594094 44.22356260496734))",
+    "CLOUD_COVERAGE_ASSESSMENT": "0.298419212910631",
+    "DEGRADED_ANC_DATA_PERCENTAGE": "0.0",
+    "DEGRADED_MSI_DATA_PERCENTAGE": "0",
+    "FORMAT_CORRECTNESS": "PASSED",
+    "GENERAL_QUALITY": "PASSED",
+    "GEOMETRIC_QUALITY": "PASSED",
+    "RADIOMETRIC_QUALITY": "PASSED",
+    "SENSOR_QUALITY": "PASSED",
+    "satellite": "S2A",
+    "tile": "31TFJ",
+    "solar_irradiance": [
+      1884.69,
+      1959.66,
+      1823.24,
+      1512.06,
+      1424.64,
+      1287.61,
+      1162.08,
+      1041.63,
+      955.32,
+      812.92,
+      367.15,
+      245.59,
+      85.25
+    ],
+    "solar_irradiance_unit": "W/m\u00b2/\u00b5m",
+    "mean_solar_azimuth": 161.4385708884688,
+    "mean_solar_zenith_angle": 59.534822684310015,
+    "acquisition_date": "2021-02-11T10:41:51.024Z",
+    "processing_time": "2026-10-19T09:45:30.733873",
+    "processor": "grs_cnes_3.1.0",
+    "version": "3.1.0",
+    "flag_nodata": 0.0,
+    "flag_cloud_p06": 0.0019133977657672006,
+    "flag_cloud_p08": 5.1393326498584944e-05,
+    "flag_water_swir_visible_index": 0.18189259491507992,
+    "flag_water_red_visible_index": 0.1891832807455848,
+    "flag_thin_cirrus": 0.035700578299342076,
+    "flag_opac_cirrus": 0.0019856934781238285,
+    "flag_high_swir": 0.014668796719320773,
+    "flag_surfwater_land": 0.0,
+    "flag_surfwater_water": 1.0,
+    "flag_surfwater_cloud_and_shadow": 0.0,
+    "flag_OCM_Thick_Cloud": 0.0,
+    "flag_OCM_Thin_Cloud": 0.0,
+    "flag_OCM_Cloud_Shadow": 0.0,
+    "opac_model": "WASO_rh0",
+    "aot_resolution": 480,
+    "sunglint_threshold": "0.2",
+    "ndwi_threshold": "0.0",
+    "vis_swir_index_threshold": "0.0",
+    "hcld_threshold": "0.003",
+    "dirdata": "/data/grs/grsdata",
+    "abs_gas_file": "/home/harmel/Dropbox/Dropbox/work/git/satellite_app/grs/grs/data/lut/gases/lut_abs_opt_thickness_normalized.nc",
+    "water_vapor_transmittance_file": "/home/harmel/Dropbox/Dropbox/work/git/satellite_app/grs/grs/data/lut/gases/water_vapor_transmittance.nc",
+    "GRSdriver_version": "2.0.4",
+    "metadata_profile": "datacube",
+    "multiscales": [
+      {
+        "description": "pyramid of the main product, group k is 2**k coarser than group 0",
+        "resampling": "mean ignoring NaN for continuous variables, nearest for integer variables (flags, mask)",
+        "layout": [
+          {
+            "group": "0",
+            "scale": 1,
+            "shape": [
+              128,
+              128
+            ]
+          },
+          {
+            "group": "1",
+            "scale": 2,
+            "shape": [
+              64,
+              64
+            ]
+          }
+        ]
+      }
+    ],
+    "test_subset": "crop of S2A_MSIL2AGRS_20210211T104151_N0500_R008_T31TFJ_20230608T124831_V3.1.0.zarr, level-0 window y=[4128, 4256), x=[1056, 1184), made with tests/data/make_test_l2a.py"
+  },
+  "zarr_format": 3,
+  "consolidated_metadata": {
+    "kind": "inline",
+    "must_understand": false,
+    "metadata": {
+      "0": {
+        "attributes": {
+          "long_name": "CA BLUE GREEN RED VRE_1 VRE_2 VRE_3 NIR NARROW_NIR WV SWIR_CIRRUS SWIR_1 SWIR_2",
+          "constellation": "Sentinel-2",
+          "constellation_id": "S2",
+          "product_path": "/data/satellite/Sentinel-2/L1C/31TFJ/2021/02/11/S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831.SAFE",
+          "product_name": "S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831",
+          "instrument": "MSI",
+          "product_type": "MSIL1C",
+          "condensed_name": "20210211T104151_S2_T31TFJ_L1C_124831",
+          "orbit_direction": "DESCENDING",
+          "radiometry": "reflectance",
+          "cloud_cover": 0.298419212910631,
+          "wl_to_process": [
+            443,
+            490,
+            560,
+            665,
+            705,
+            740,
+            783,
+            842,
+            865,
+            1610,
+            2190
+          ],
+          "PRODUCT_START_TIME": "2021-02-11T10:41:51.024Z",
+          "PRODUCT_STOP_TIME": "2021-02-11T10:41:51.024Z",
+          "PRODUCT_URI": "S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831.SAFE",
+          "PROCESSING_LEVEL": "Level-1C",
+          "PRODUCT_TYPE": "S2MSI1C",
+          "PROCESSING_BASELINE": "05.00",
+          "PRODUCT_DOI": "https://doi.org/10.5270/S2_-742ikth",
+          "GENERATION_TIME": "2023-06-08T12:48:31.000000Z",
+          "PREVIEW_IMAGE_URL": "Not applicable",
+          "PREVIEW_GEO_INFO": "Not applicable",
+          "DATATAKE_1_ID": "GS2A_20210211T104151_029463_N05.00",
+          "DATATAKE_1_SPACECRAFT_NAME": "Sentinel-2A",
+          "DATATAKE_1_DATATAKE_TYPE": "INS-NOBS",
+          "DATATAKE_1_DATATAKE_SENSING_START": "2021-02-11T10:41:51.024Z",
+          "DATATAKE_1_SENSING_ORBIT_NUMBER": "8",
+          "DATATAKE_1_SENSING_ORBIT_DIRECTION": "DESCENDING",
+          "SPECIAL_VALUE_NODATA": "0",
+          "SPECIAL_VALUE_SATURATED": "65535",
+          "QUANTIFICATION_VALUE": "10000",
+          "REFLECTANCE_CONVERSION_U": "1.02797384085035",
+          "REFERENCE_BAND": "B4",
+          "FOOTPRINT": "POLYGON((5.60587179594094 44.22356260496734, 5.603180260352006 44.2168141066275, 5.545054326414713 44.07124784491373, 5.488617426771677 43.92538502712244, 5.431470463259359 43.77979555216909, 5.374127201257345 43.63415586433456, 5.317672934234263 43.4882498438203, 5.260699582987787 43.34241789296115, 5.221273044732835 43.24164985609328, 4.232032700041831 43.25815531909012, 4.252480872223193 44.24655093494868, 5.60587179594094 44.22356260496734))",
+          "CLOUD_COVERAGE_ASSESSMENT": "0.298419212910631",
+          "DEGRADED_ANC_DATA_PERCENTAGE": "0.0",
+          "DEGRADED_MSI_DATA_PERCENTAGE": "0",
+          "FORMAT_CORRECTNESS": "PASSED",
+          "GENERAL_QUALITY": "PASSED",
+          "GEOMETRIC_QUALITY": "PASSED",
+          "RADIOMETRIC_QUALITY": "PASSED",
+          "SENSOR_QUALITY": "PASSED",
+          "satellite": "S2A",
+          "tile": "31TFJ",
+          "solar_irradiance": [
+            1884.69,
+            1959.66,
+            1823.24,
+            1512.06,
+            1424.64,
+            1287.61,
+            1162.08,
+            1041.63,
+            955.32,
+            812.92,
+            367.15,
+            245.59,
+            85.25
+          ],
+          "solar_irradiance_unit": "W/m\u00b2/\u00b5m",
+          "mean_solar_azimuth": 161.4385708884688,
+          "mean_solar_zenith_angle": 59.534822684310015,
+          "acquisition_date": "2021-02-11T10:41:51.024Z",
+          "processing_time": "2026-10-19T09:45:30.733873",
+          "processor": "grs_cnes_3.1.0",
+          "version": "3.1.0",
+          "flag_nodata": 0.0,
+          "flag_cloud_p06": 0.0019133977657672006,
+          "flag_cloud_p08": 5.1393326498584944e-05,
+          "flag_water_swir_visible_index": 0.18189259491507992,
+          "flag_water_red_visible_index": 0.1891832807455848,
+          "flag_thin_cirrus": 0.035700578299342076,
+          "flag_opac_cirrus": 0.0019856934781238285,
+          "flag_high_swir": 0.014668796719320773,
+          "flag_surfwater_land": 0.0,
+          "flag_surfwater_water": 1.0,
+          "flag_surfwater_cloud_and_shadow": 0.0,
+          "flag_OCM_Thick_Cloud": 0.0,
+          "flag_OCM_Thin_Cloud": 0.0,
+          "flag_OCM_Cloud_Shadow": 0.0,
+          "opac_model": "WASO_rh0",
+          "aot_resolution": 480,
+          "sunglint_threshold": "0.2",
+          "ndwi_threshold": "0.0",
+          "vis_swir_index_threshold": "0.0",
+          "hcld_threshold": "0.003",
+          "dirdata": "/data/grs/grsdata",
+          "abs_gas_file": "/home/harmel/Dropbox/Dropbox/work/git/satellite_app/grs/grs/data/lut/gases/lut_abs_opt_thickness_normalized.nc",
+          "water_vapor_transmittance_file": "/home/harmel/Dropbox/Dropbox/work/git/satellite_app/grs/grs/data/lut/gases/water_vapor_transmittance.nc",
+          "GRSdriver_version": "2.0.4",
+          "metadata_profile": "datacube"
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "1": {
+        "attributes": {
+          "long_name": "CA BLUE GREEN RED VRE_1 VRE_2 VRE_3 NIR NARROW_NIR WV SWIR_CIRRUS SWIR_1 SWIR_2",
+          "constellation": "Sentinel-2",
+          "constellation_id": "S2",
+          "product_path": "/data/satellite/Sentinel-2/L1C/31TFJ/2021/02/11/S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831.SAFE",
+          "product_name": "S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831",
+          "instrument": "MSI",
+          "product_type": "MSIL1C",
+          "condensed_name": "20210211T104151_S2_T31TFJ_L1C_124831",
+          "orbit_direction": "DESCENDING",
+          "radiometry": "reflectance",
+          "cloud_cover": 0.298419212910631,
+          "wl_to_process": [
+            443,
+            490,
+            560,
+            665,
+            705,
+            740,
+            783,
+            842,
+            865,
+            1610,
+            2190
+          ],
+          "PRODUCT_START_TIME": "2021-02-11T10:41:51.024Z",
+          "PRODUCT_STOP_TIME": "2021-02-11T10:41:51.024Z",
+          "PRODUCT_URI": "S2A_MSIL1C_20210211T104151_N0500_R008_T31TFJ_20230608T124831.SAFE",
+          "PROCESSING_LEVEL": "Level-1C",
+          "PRODUCT_TYPE": "S2MSI1C",
+          "PROCESSING_BASELINE": "05.00",
+          "PRODUCT_DOI": "https://doi.org/10.5270/S2_-742ikth",
+          "GENERATION_TIME": "2023-06-08T12:48:31.000000Z",
+          "PREVIEW_IMAGE_URL": "Not applicable",
+          "PREVIEW_GEO_INFO": "Not applicable",
+          "DATATAKE_1_ID": "GS2A_20210211T104151_029463_N05.00",
+          "DATATAKE_1_SPACECRAFT_NAME": "Sentinel-2A",
+          "DATATAKE_1_DATATAKE_TYPE": "INS-NOBS",
+          "DATATAKE_1_DATATAKE_SENSING_START": "2021-02-11T10:41:51.024Z",
+          "DATATAKE_1_SENSING_ORBIT_NUMBER": "8",
+          "DATATAKE_1_SENSING_ORBIT_DIRECTION": "DESCENDING",
+          "SPECIAL_VALUE_NODATA": "0",
+          "SPECIAL_VALUE_SATURATED": "65535",
+          "QUANTIFICATION_VALUE": "10000",
+          "REFLECTANCE_CONVERSION_U": "1.02797384085035",
+          "REFERENCE_BAND": "B4",
+          "FOOTPRINT": "POLYGON((5.60587179594094 44.22356260496734, 5.603180260352006 44.2168141066275, 5.545054326414713 44.07124784491373, 5.488617426771677 43.92538502712244, 5.431470463259359 43.77979555216909, 5.374127201257345 43.63415586433456, 5.317672934234263 43.4882498438203, 5.260699582987787 43.34241789296115, 5.221273044732835 43.24164985609328, 4.232032700041831 43.25815531909012, 4.252480872223193 44.24655093494868, 5.60587179594094 44.22356260496734))",
+          "CLOUD_COVERAGE_ASSESSMENT": "0.298419212910631",
+          "DEGRADED_ANC_DATA_PERCENTAGE": "0.0",
+          "DEGRADED_MSI_DATA_PERCENTAGE": "0",
+          "FORMAT_CORRECTNESS": "PASSED",
+          "GENERAL_QUALITY": "PASSED",
+          "GEOMETRIC_QUALITY": "PASSED",
+          "RADIOMETRIC_QUALITY": "PASSED",
+          "SENSOR_QUALITY": "PASSED",
+          "satellite": "S2A",
+          "tile": "31TFJ",
+          "solar_irradiance": [
+            1884.69,
+            1959.66,
+            1823.24,
+            1512.06,
+            1424.64,
+            1287.61,
+            1162.08,
+            1041.63,
+            955.32,
+            812.92,
+            367.15,
+            245.59,
+            85.25
+          ],
+          "solar_irradiance_unit": "W/m\u00b2/\u00b5m",
+          "mean_solar_azimuth": 161.4385708884688,
+          "mean_solar_zenith_angle": 59.534822684310015,
+          "acquisition_date": "2021-02-11T10:41:51.024Z",
+          "processing_time": "2026-10-19T09:45:30.733873",
+          "processor": "grs_cnes_3.1.0",
+          "version": "3.1.0",
+          "flag_nodata": 0.0,
+          "flag_cloud_p06": 0.0019133977657672006,
+          "flag_cloud_p08": 5.1393326498584944e-05,
+          "flag_water_swir_visible_index": 0.18189259491507992,
+          "flag_water_red_visible_index": 0.1891832807455848,
+          "flag_thin_cirrus": 0.035700578299342076,
+          "flag_opac_cirrus": 0.0019856934781238285,
+          "flag_high_swir": 0.014668796719320773,
+          "flag_surfwater_land": 0.0,
+          "flag_surfwater_water": 1.0,
+          "flag_surfwater_cloud_and_shadow": 0.0,
+          "flag_OCM_Thick_Cloud": 0.0,
+          "flag_OCM_Thin_Cloud": 0.0,
+          "flag_OCM_Cloud_Shadow": 0.0,
+          "opac_model": "WASO_rh0",
+          "aot_resolution": 480,
+          "sunglint_threshold": "0.2",
+          "ndwi_threshold": "0.0",
+          "vis_swir_index_threshold": "0.0",
+          "hcld_threshold": "0.003",
+          "dirdata": "/data/grs/grsdata",
+          "abs_gas_file": "/home/harmel/Dropbox/Dropbox/work/git/satellite_app/grs/grs/data/lut/gases/lut_abs_opt_thickness_normalized.nc",
+          "water_vapor_transmittance_file": "/home/harmel/Dropbox/Dropbox/work/git/satellite_app/grs/grs/data/lut/gases/water_vapor_transmittance.nc",
+          "GRSdriver_version": "2.0.4",
+          "metadata_profile": "datacube"
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "0/aot550": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time",
+          "scale_factor": 0.001,
+          "_FillValue": -9999
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/band": {
+        "shape": [],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/BRDFg": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time",
+          "add_offset": 0.3,
+          "scale_factor": 1e-05,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/central_wavelength": {
+        "shape": [
+          11
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              11
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "wl"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/dem": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "AREA_OR_POINT": "Area",
+          "long_name": "digital elevation model",
+          "units": "m",
+          "source": "/home/harmel/Dropbox/Dropbox/satellite/dem/COP-DEM_GLO-30-DGED_31TFJ.tif",
+          "coordinates": "band spatial_ref time",
+          "add_offset": 500,
+          "scale_factor": 1,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/flags": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "uint32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 4,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "flags computed from l1c image",
+          "flag_descriptions": [
+            "nodata in input image",
+            "low confidence cloud mask from s2cloudless with settings proba. threshold=0.60, dilation_size=12",
+            "high confidence cloud mask from s2cloudless with settings proba. threshold=0.80, dilation_size=5",
+            "water mask from normalized index from swir and visible band, bands centered on 490.0 and 1610.0 nm, threshold=0.20",
+            "water mask from normalized index from nir and visible band, warning could fail for turbid waters, bands centered on 490.0 and 842.0 nm, threshold=0.00",
+            "thin cirrus mask from cirrus band, threshold 0.0030",
+            "opac cirrus mask from cirrus band, threshold 0.0090",
+            "high swir (bright cloud, too bright reflection...), threshold 0.2000",
+            "land mask from surfwater input file",
+            "water mask from surfwater input file",
+            "cloud and shadow mask from surfwater input file",
+            "Thick Cloud from OmniCloudMask version 1.7.0",
+            "Thin Cloud from OmniCloudMask version 1.7.0",
+            "Cloud Shadow from OmniCloudMask version 1.7.0",
+            "None",
+            "None",
+            "None",
+            "None",
+            "negative Rrs for blue or green bands",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "flag_names": [
+            "nodata",
+            "cloud_p06",
+            "cloud_p08",
+            "water_swir_visible_index",
+            "water_red_visible_index",
+            "thin_cirrus",
+            "opac_cirrus",
+            "high_swir",
+            "surfwater_land",
+            "surfwater_water",
+            "surfwater_cloud_and_shadow",
+            "OCM_Thick_Cloud",
+            "OCM_Thin_Cloud",
+            "OCM_Cloud_Shadow",
+            "None",
+            "None",
+            "None",
+            "None",
+            "neg_rrs",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time"
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/mask": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "uint8",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 1,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "binary mask from flags",
+          "flag_descriptions": [
+            "nodata in input image",
+            "low confidence cloud mask from s2cloudless with settings proba. threshold=0.60, dilation_size=12",
+            "high confidence cloud mask from s2cloudless with settings proba. threshold=0.80, dilation_size=5",
+            "water mask from normalized index from swir and visible band, bands centered on 490.0 and 1610.0 nm, threshold=0.20",
+            "water mask from normalized index from nir and visible band, warning could fail for turbid waters, bands centered on 490.0 and 842.0 nm, threshold=0.00",
+            "thin cirrus mask from cirrus band, threshold 0.0030",
+            "opac cirrus mask from cirrus band, threshold 0.0090",
+            "high swir (bright cloud, too bright reflection...), threshold 0.2000",
+            "land mask from surfwater input file",
+            "water mask from surfwater input file",
+            "cloud and shadow mask from surfwater input file",
+            "Thick Cloud from OmniCloudMask version 1.7.0",
+            "Thin Cloud from OmniCloudMask version 1.7.0",
+            "Cloud Shadow from OmniCloudMask version 1.7.0",
+            "None",
+            "None",
+            "None",
+            "None",
+            "negative Rrs for blue or green bands",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "flag_names": [
+            "nodata",
+            "cloud_p06",
+            "cloud_p08",
+            "water_swir_visible_index",
+            "water_red_visible_index",
+            "thin_cirrus",
+            "opac_cirrus",
+            "high_swir",
+            "surfwater_land",
+            "surfwater_water",
+            "surfwater_cloud_and_shadow",
+            "OCM_Thick_Cloud",
+            "OCM_Thin_Cloud",
+            "OCM_Cloud_Shadow",
+            "None",
+            "None",
+            "None",
+            "None",
+            "neg_rrs",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "gas_absorption_correction": true,
+          "description": "good pixels for mask == 0, bad pixels when mask == 1",
+          "coordinates": "band spatial_ref time"
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/raa": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "coordinates": "band spatial_ref time",
+          "add_offset": 180,
+          "scale_factor": 0.01,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/Rrs": {
+        "shape": [
+          11,
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              6,
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band central_wavelength spatial_ref time",
+          "add_offset": 0.3,
+          "scale_factor": 1e-05,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "wl",
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/spatial_ref": {
+        "shape": [],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "crs_wkt": "PROJCS[\"WGS 84 / UTM zone 31N\",GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4326\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",3],PARAMETER[\"scale_factor\",0.9996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"32631\"]]",
+          "semi_major_axis": 6378137.0,
+          "semi_minor_axis": 6356752.314245179,
+          "inverse_flattening": 298.257223563,
+          "reference_ellipsoid_name": "WGS 84",
+          "longitude_of_prime_meridian": 0.0,
+          "prime_meridian_name": "Greenwich",
+          "geographic_crs_name": "WGS 84",
+          "horizontal_datum_name": "World Geodetic System 1984",
+          "projected_crs_name": "WGS 84 / UTM zone 31N",
+          "grid_mapping_name": "transverse_mercator",
+          "latitude_of_projection_origin": 0.0,
+          "longitude_of_central_meridian": 3.0,
+          "false_easting": 500000.0,
+          "false_northing": 0.0,
+          "scale_factor_at_central_meridian": 0.9996,
+          "spatial_ref": "PROJCS[\"WGS 84 / UTM zone 31N\",GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4326\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",3],PARAMETER[\"scale_factor\",0.9996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"32631\"]]",
+          "GeoTransform": "621120.0 20.0 0.0 4817460.0 0.0 -20.0"
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/sza": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "coordinates": "band spatial_ref time",
+          "add_offset": 30,
+          "scale_factor": 0.01,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/time": {
+        "shape": [],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "units": "days since 2021-02-11 10:41:51",
+          "calendar": "proleptic_gregorian"
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/vza": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "coordinates": "band spatial_ref time",
+          "scale_factor": 0.01,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/wind": {
+        "shape": [
+          128,
+          128
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128,
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time",
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/wl": {
+        "shape": [
+          11
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              11
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {},
+        "dimension_names": [
+          "wl"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/x": {
+        "shape": [
+          128
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "axis": "X",
+          "long_name": "x coordinate of projection",
+          "standard_name": "projection_x_coordinate",
+          "units": "metre",
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "0/y": {
+        "shape": [
+          128
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              128
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "axis": "Y",
+          "long_name": "y coordinate of projection",
+          "standard_name": "projection_y_coordinate",
+          "units": "metre",
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "y"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/aot550": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time",
+          "scale_factor": 0.001,
+          "_FillValue": -9999
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/band": {
+        "shape": [],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/BRDFg": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time",
+          "add_offset": 0.3,
+          "scale_factor": 1e-05,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/central_wavelength": {
+        "shape": [
+          11
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              11
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "wl"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/dem": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "AREA_OR_POINT": "Area",
+          "long_name": "digital elevation model",
+          "units": "m",
+          "source": "/home/harmel/Dropbox/Dropbox/satellite/dem/COP-DEM_GLO-30-DGED_31TFJ.tif",
+          "coordinates": "band spatial_ref time",
+          "add_offset": 500,
+          "scale_factor": 1,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/flags": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "uint32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 4,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "flags computed from l1c image",
+          "flag_descriptions": [
+            "nodata in input image",
+            "low confidence cloud mask from s2cloudless with settings proba. threshold=0.60, dilation_size=12",
+            "high confidence cloud mask from s2cloudless with settings proba. threshold=0.80, dilation_size=5",
+            "water mask from normalized index from swir and visible band, bands centered on 490.0 and 1610.0 nm, threshold=0.20",
+            "water mask from normalized index from nir and visible band, warning could fail for turbid waters, bands centered on 490.0 and 842.0 nm, threshold=0.00",
+            "thin cirrus mask from cirrus band, threshold 0.0030",
+            "opac cirrus mask from cirrus band, threshold 0.0090",
+            "high swir (bright cloud, too bright reflection...), threshold 0.2000",
+            "land mask from surfwater input file",
+            "water mask from surfwater input file",
+            "cloud and shadow mask from surfwater input file",
+            "Thick Cloud from OmniCloudMask version 1.7.0",
+            "Thin Cloud from OmniCloudMask version 1.7.0",
+            "Cloud Shadow from OmniCloudMask version 1.7.0",
+            "None",
+            "None",
+            "None",
+            "None",
+            "negative Rrs for blue or green bands",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "flag_names": [
+            "nodata",
+            "cloud_p06",
+            "cloud_p08",
+            "water_swir_visible_index",
+            "water_red_visible_index",
+            "thin_cirrus",
+            "opac_cirrus",
+            "high_swir",
+            "surfwater_land",
+            "surfwater_water",
+            "surfwater_cloud_and_shadow",
+            "OCM_Thick_Cloud",
+            "OCM_Thin_Cloud",
+            "OCM_Cloud_Shadow",
+            "None",
+            "None",
+            "None",
+            "None",
+            "neg_rrs",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time"
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/mask": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "uint8",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 1,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "binary mask from flags",
+          "flag_descriptions": [
+            "nodata in input image",
+            "low confidence cloud mask from s2cloudless with settings proba. threshold=0.60, dilation_size=12",
+            "high confidence cloud mask from s2cloudless with settings proba. threshold=0.80, dilation_size=5",
+            "water mask from normalized index from swir and visible band, bands centered on 490.0 and 1610.0 nm, threshold=0.20",
+            "water mask from normalized index from nir and visible band, warning could fail for turbid waters, bands centered on 490.0 and 842.0 nm, threshold=0.00",
+            "thin cirrus mask from cirrus band, threshold 0.0030",
+            "opac cirrus mask from cirrus band, threshold 0.0090",
+            "high swir (bright cloud, too bright reflection...), threshold 0.2000",
+            "land mask from surfwater input file",
+            "water mask from surfwater input file",
+            "cloud and shadow mask from surfwater input file",
+            "Thick Cloud from OmniCloudMask version 1.7.0",
+            "Thin Cloud from OmniCloudMask version 1.7.0",
+            "Cloud Shadow from OmniCloudMask version 1.7.0",
+            "None",
+            "None",
+            "None",
+            "None",
+            "negative Rrs for blue or green bands",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "flag_names": [
+            "nodata",
+            "cloud_p06",
+            "cloud_p08",
+            "water_swir_visible_index",
+            "water_red_visible_index",
+            "thin_cirrus",
+            "opac_cirrus",
+            "high_swir",
+            "surfwater_land",
+            "surfwater_water",
+            "surfwater_cloud_and_shadow",
+            "OCM_Thick_Cloud",
+            "OCM_Thin_Cloud",
+            "OCM_Cloud_Shadow",
+            "None",
+            "None",
+            "None",
+            "None",
+            "neg_rrs",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None"
+          ],
+          "gas_absorption_correction": true,
+          "description": "good pixels for mask == 0, bad pixels when mask == 1",
+          "coordinates": "band spatial_ref time"
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/raa": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "coordinates": "band spatial_ref time",
+          "add_offset": 180,
+          "scale_factor": 0.01,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/Rrs": {
+        "shape": [
+          11,
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              11,
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band central_wavelength spatial_ref time",
+          "add_offset": 0.3,
+          "scale_factor": 1e-05,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "wl",
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/spatial_ref": {
+        "shape": [],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "crs_wkt": "PROJCS[\"WGS 84 / UTM zone 31N\",GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4326\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",3],PARAMETER[\"scale_factor\",0.9996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"32631\"]]",
+          "semi_major_axis": 6378137.0,
+          "semi_minor_axis": 6356752.314245179,
+          "inverse_flattening": 298.257223563,
+          "reference_ellipsoid_name": "WGS 84",
+          "longitude_of_prime_meridian": 0.0,
+          "prime_meridian_name": "Greenwich",
+          "geographic_crs_name": "WGS 84",
+          "horizontal_datum_name": "World Geodetic System 1984",
+          "projected_crs_name": "WGS 84 / UTM zone 31N",
+          "grid_mapping_name": "transverse_mercator",
+          "latitude_of_projection_origin": 0.0,
+          "longitude_of_central_meridian": 3.0,
+          "false_easting": 500000.0,
+          "false_northing": 0.0,
+          "scale_factor_at_central_meridian": 0.9996,
+          "spatial_ref": "PROJCS[\"WGS 84 / UTM zone 31N\",GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4326\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",3],PARAMETER[\"scale_factor\",0.9996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"32631\"]]",
+          "GeoTransform": "621120.0 40.0 0.0 4817460.0 0.0 -40.0"
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/sza": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "coordinates": "band spatial_ref time",
+          "add_offset": 30,
+          "scale_factor": 0.01,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/time": {
+        "shape": [],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "units": "days since 2021-02-11 10:41:51",
+          "calendar": "proleptic_gregorian"
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/vza": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "int16",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 2,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "shuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "coordinates": "band spatial_ref time",
+          "scale_factor": 0.01,
+          "_FillValue": -32768
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/wind": {
+        "shape": [
+          64,
+          64
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64,
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "gas_absorption_correction": true,
+          "coordinates": "band spatial_ref time",
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "y",
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/wl": {
+        "shape": [
+          11
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              11
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {},
+        "dimension_names": [
+          "wl"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/x": {
+        "shape": [
+          64
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "axis": "X",
+          "long_name": "x coordinate of projection",
+          "standard_name": "projection_x_coordinate",
+          "units": "metre",
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "1/y": {
+        "shape": [
+          64
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              64
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "axis": "Y",
+          "long_name": "y coordinate of projection",
+          "standard_name": "projection_y_coordinate",
+          "units": "metre",
+          "_FillValue": "AAAAAAAA+H8="
+        },
+        "dimension_names": [
+          "y"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      }
+    }
+  },
+  "node_type": "group"
+}

@@ -1,3 +1,5 @@
+"""Container for an L2A (atmospherically corrected) image product."""
+
 import os, sys, re, glob
 
 import numpy as np
@@ -12,41 +14,136 @@ from . import __package__, __version__
 
 opj = os.path.join
 
+# default spatial chunk size (pixels) of the processing: larger than the 256 x 256
+# chunks of the GRS products, which make the dask graph too fine (task overhead)
+SPATIAL_CHUNK = 1024
+
 
 class Product():
-    '''
+    """L2A image product loaded from disk or from an in-memory dataset.
 
-    '''
+    Reads an L2A product (NetCDF, Zarr, possibly a multiscale Zarr pyramid,
+    or a directory holding one of them) into an `xarray.Dataset`, and, for
+    products using
+    the legacy "beam" metadata profile, reshapes the per-band variables
+    ``Rrs_<wl>`` and ``Rrs_g_<wl>`` into datacubes ``Rrs`` and ``Rrs_g`` with a
+    ``wl`` dimension.
 
-    def __init__(self, l2a_obj):
-        '''
-        Get the L2A product object
-        :param l2a_obj: path or xarray of the L2A input image
-        '''
+    Parameters
+    ----------
+    l2a_obj : str or xarray.Dataset
+        Path to the L2A product or an already loaded dataset (see
+        `__init__`).
+
+    Attributes
+    ----------
+    processor : str
+        Processor identifier, ``'<package>_<version>'``.
+    raster : xarray.Dataset
+        Main L2A dataset. Not set if the input format is not recognized.
+    ancillary : xarray.Dataset or None
+        Ancillary dataset: the ``_anc.nc`` file of a NetCDF directory input or
+        the ``ancillary`` group of a Zarr pyramid, otherwise None.
+    """
+
+
+    def __init__(self, l2a_obj, chunks=None, level=0, spatial_chunk=SPATIAL_CHUNK):
+        """Load the L2A product.
+
+        Parameters
+        ----------
+        chunks : dict, optional
+            Dask chunks for NetCDF inputs, used as is. Default: the chunks
+            stored in the file (each stored chunk is read once, without the
+            xarray warning raised when requested chunks split stored ones),
+            then rechunked as described for `spatial_chunk`. Not applied to
+            Zarr inputs.
+        spatial_chunk : int or None, optional
+            When `chunks` is None, the product (NetCDF or Zarr) is rechunked
+            to ``spatial_chunk x spatial_chunk`` pixels along ``y``/``x`` and
+            one chunk along ``wl`` (band maths and ``sel`` need all bands).
+            Default `SPATIAL_CHUNK` (1024): with the 256 x 256 chunks of the
+            GRS products, the dask graph has too many small tasks. None keeps
+            the stored spatial chunks.
+        level : int, optional
+            Pyramid level read from a multiscale Zarr store (default 0, full
+            resolution; level ``k`` is ``2**k`` coarser). Ignored for the
+            other inputs.
+
+        l2a_obj : str or xarray.Dataset
+            Input product, one of:
+
+            - path to a ``.nc`` file: opened with ``xr.open_dataset``,
+              chunked with a single chunk along ``wl``;
+            - path to a Zarr store (extension containing ``zarr``): opened
+              with ``xr.open_zarr``. If the store is a multiscale pyramid
+              (root ``multiscales`` attribute, as written by GRS), the group
+              of pyramid `level` is opened, and its ``ancillary`` group, if
+              any, as ``ancillary``;
+            - path to a directory ``<dir>/`` containing ``<dir>.zarr`` (read
+              as above), or ``<dir>.nc`` (main product) and ``<dir>_anc.nc``
+              (ancillary data), where the file names match the directory's
+              base name;
+            - an `xarray.Dataset`, used as is (no reshaping is applied and
+              ``ancillary`` is None).
+
+        Notes
+        -----
+        If the path format is not recognized, a message is logged and the
+        constructor returns without setting ``raster``.
+
+        If the loaded file has the metadata attribute
+        ``metadata_profile == 'beam'``, the ``Rrs_<wl>`` and ``Rrs_g_<wl>``
+        variables are stacked along a new ``wl`` dimension (chunk size 1)
+        and merged with the remaining variables. This block is marked as
+        deprecated in the code (TODO). It requires integer wavelengths
+        because the variable names are built with ``'{:d}'``.
+        """
+
         self.processor = __package__ + '_' + __version__
+        # datasets opened from disk here, closed by `close`; a dataset passed
+        # in by the caller is not ours to close
+        self._opened = []
+        # chunks requested at opening must not split the stored chunks, so the
+        # default opens with the stored ones and rechunks afterwards
+        rechunk = None
+        if chunks is None:
+            chunks = {}
+            rechunk = {'wl': -1}
+            if spatial_chunk is not None:
+                rechunk.update(y=spatial_chunk, x=spatial_chunk)
 
         ##################################
         # Get image data
         ##################################
         if isinstance(l2a_obj, str):
             logging.info('Load L2A from files')
+            l2a_obj = l2a_obj.rstrip('/')
+            basename = os.path.basename(l2a_obj)
             # get extension
             extension = l2a_obj.split('.')[-1]
             if extension == 'nc':
-                self.raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks={'wl': -1})
+                raster = xr.open_dataset(l2a_obj, decode_coords='all', chunks=chunks)
+                self.raster = self._rechunk(raster, rechunk)
                 self.ancillary = None
+                self._opened = [raster]
             elif 'zarr' in extension:
-                self.raster = xr.open_zarr(l2a_obj, decode_coords='all')
-                self.ancillary = None
+                self._open_zarr(l2a_obj, level)
+                self.raster = self._rechunk(self.raster, rechunk)
+
+            elif os.path.isdir(opj(l2a_obj, basename + '.zarr')):
+                self._open_zarr(opj(l2a_obj, basename + '.zarr'), level)
+                self.raster = self._rechunk(self.raster, rechunk)
 
             elif os.path.isdir(l2a_obj):
 
-                basename = os.path.basename(l2a_obj)
                 main_file = opj(l2a_obj, basename + '.nc')
                 ancillary_file = opj(l2a_obj, basename + '_anc.nc')
 
-                self.raster = xr.open_dataset(main_file, decode_coords='all', chunks={'wl': -1})
+                raster = xr.open_dataset(main_file, decode_coords='all', chunks=chunks)
+                self.raster = self._rechunk(raster, rechunk)
                 self.ancillary = xr.open_dataset(ancillary_file, decode_coords='all')
+                self._opened = [raster, self.ancillary]
 
 
             else:
@@ -81,8 +178,54 @@ class Product():
         Rrs_g = self.raster[Rrs_g_vars].to_array(dim='wl', name='Rrs_g').chunk({'wl': 1})
         Rrs_g = Rrs_g.assign_coords({'wl': wls})
         raster = raster.drop_vars(Rrs_g_vars)
-        self.raster = xr.merge([raster, Rrs, Rrs_g])
+        self.raster = xr.merge([raster, Rrs, Rrs_g], compat='no_conflicts', join='outer')
 
+    def _open_zarr(self, store, level=0):
+        """Open a Zarr store, or one level of a multiscale Zarr pyramid.
 
+        A pyramid is recognized by the ``multiscales`` attribute of its root
+        group, whose ``layout`` lists the group of each level. The group of
+        `level` is opened as ``raster`` and the ``ancillary`` group, if
+        present, as ``ancillary``. Other stores are opened as a single
+        dataset, with ``ancillary`` set to None.
+        """
+        root = xr.open_zarr(store)
+        multiscales = root.attrs.get('multiscales')
+        if not multiscales:
+            root.close()
+            self.raster = xr.open_zarr(store, decode_coords='all')
+            self.ancillary = None
+            self._opened = [self.raster]
+            return
 
+        layout = multiscales[0]['layout']
+        if not 0 <= level < len(layout):
+            root.close()
+            raise ValueError(f'pyramid level {level} not in [0, {len(layout) - 1}]')
+        group = layout[level]['group']
+        logging.info(f'Load pyramid level {level} (group {group!r}) of {store}')
+        self.raster = xr.open_zarr(store, group=group, decode_coords='all')
+        self._opened = [self.raster]
+        self.ancillary = None
+        if os.path.isdir(opj(store, 'ancillary')):
+            self.ancillary = xr.open_zarr(store, group='ancillary', decode_coords='all')
+            self._opened.append(self.ancillary)
+        root.close()
 
+    @staticmethod
+    def _rechunk(raster, rechunk):
+        """Apply `rechunk` to the dimensions of `raster` that have it."""
+        if rechunk is None:
+            return raster
+        rechunk = {d: c for d, c in rechunk.items() if d in raster.dims}
+        return raster.chunk(rechunk) if rechunk else raster
+
+    def close(self):
+        """Close the files opened from disk by `__init__`.
+
+        A dataset passed directly as ``l2a_obj`` is left open. Lazy arrays
+        derived from the closed datasets reopen their file if accessed again.
+        """
+        for ds in self._opened:
+            ds.close()
+        self._opened = []
