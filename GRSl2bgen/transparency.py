@@ -99,8 +99,11 @@ class Transparency():
             'coef': str(KD2E['coef']),
             'reference': 'Mueller, J.L. SeaWiFS algorithm for the diffuse attenuation '
                          'coefficient, K(490), using water-leaving radiances at 490 and 555 nm. '
-                         'NASA Tech. Memo. 2000-206892, vol. 11, 2000, 24-27; NASA OBPG Kd '
-                         'ATBD, https://oceancolor.gsfc.nasa.gov/resources/atbd/kd/',
+                         'NASA Tech. Memo. 2000-206892, vol. 11, 2000, 24-27; coefficients '
+                         'from NOMAD v2 (Werdell, P.J.; Bailey, S.W. Remote Sens. Environ. '
+                         '2005, 98, 122-140), NASA OBPG Kd ATBD, https://oceandata.sci.gsfc.'
+                         'nasa.gov/files/atbd/legacy/atbd-obdaac-diffuse-attenuation-'
+                         'coefficient.pdf',
             'units': 'm-1',
             'range': [0, 50]
         }

@@ -600,8 +600,9 @@ Diffuse attenuation at 490 nm (``Kd490_Lee13``, ``Kd490_KD2``)
 of :math:`E_d(490)`, from the same QAA v6 IOPs. ``Kd490_KD2``
 (:py:meth:`~GRSl2bgen.transparency.Transparency.kd490_KD2`) is the empirical
 band-ratio algorithm of NASA (KD2; Mueller, 2000), with the MERIS (KD2E)
-coefficients, whose 490/560 nm band pair is the one of MSI (no MSI set is
-published):
+coefficients fitted on NOMAD v2 (Werdell and Bailey, 2005; NASA OBPG ATBD
+`Kd_490 <https://oceandata.sci.gsfc.nasa.gov/files/atbd/legacy/atbd-obdaac-diffuse-attenuation-coefficient.pdf>`_),
+whose 490/560 nm band pair is the one of MSI (no MSI set is published):
 
 .. math::
    :label: kd2
@@ -729,6 +730,9 @@ References
 - Tavares, M. H., Guimarães, D., Roussillon, J., et al. (2025). A framework to
   retrieve water quality parameters in small, optically diverse freshwater
   ecosystems using Sentinel-2 MSI imagery. *Remote Sensing*, 17, 2729.
+- Werdell, P. J., Bailey, S. W. (2005). An improved in-situ bio-optical data set
+  for ocean color algorithm development and satellite data product validation.
+  *Remote Sensing of Environment*, 98, 122--140.
 - Zhang, Y., Shi, K., Liu, X., Zhou, Y., Qin, B. (2014). Lake topography and
   wind waves determining seasonal-spatial dynamics of total suspended matter
   in turbid Lake Taihu, China: assessment using long-term high-resolution
