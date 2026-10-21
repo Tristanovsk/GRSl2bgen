@@ -49,6 +49,23 @@ def test_l2b_variables_and_grid(l2b, l2a):
     np.testing.assert_array_equal(l2b.y, l2a.y)
 
 
+def test_l2b_scalar_coordinates(l2b):
+    # only the acquisition time and the grid mapping, no leftover of the
+    # input (band) or of the wavelength selections (wl, central_wavelength)
+    scalar_coords = {c for c in l2b.coords if c not in l2b.dims}
+    assert scalar_coords <= {'time', 'spatial_ref'}
+    for name in ('band', 'wl', 'central_wavelength',
+                 'forecast_period', 'forecast_reference_time'):
+        assert name not in l2b.variables, name
+
+
+def test_l2b_coordinates_attribute(l2b_nc):
+    with xr.open_dataset(l2b_nc, decode_cf=False) as ds:
+        for var in ds.data_vars:
+            coords = set(ds[var].attrs.get('coordinates', '').split())
+            assert coords <= {'time', 'spatial_ref'}, (var, coords)
+
+
 def test_l2b_only_water_pixels(l2b, l2a):
     land = (l2a['mask'] != 0).values
     water = ~land

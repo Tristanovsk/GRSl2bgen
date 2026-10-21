@@ -102,10 +102,16 @@ class L2bProduct():
            create them as ``uint8`` arrays of zeros on the image grid. Add
            ``flags_l2b``, the bit field of the L2B processing flags
            (`GRSl2bgen.mask.l2b_flags`).
-        3. Convert the ``float64`` geophysical variables to ``float32``: they
+        3. Drop the scalar coordinates other than ``time`` and
+           ``spatial_ref``, inherited from the input (``band``, the
+           ``forecast_period`` and ``forecast_reference_time`` of the
+           meteorological data of GRS) or left by the wavelength selections of
+           the algorithms (``wl``, ``central_wavelength``): they do not
+           describe the L2B parameters.
+        4. Convert the ``float64`` geophysical variables to ``float32``: they
            are packed into ``int16`` on export, far coarser than ``float32``,
            and the conversion halves the memory of the product.
-        4. Copy the attributes of the input raster and add
+        5. Copy the attributes of the input raster and add
            ``processing_time`` (local time, ISO 8601) and ``processor``.
 
         Notes
@@ -131,6 +137,14 @@ class L2bProduct():
             l2b_prod['mask'] = self.prod.raster['mask']
         else:
             l2b_prod['mask'] = xr.zeros_like(self.prod.raster.Rrs.isel(wl=0, drop=True).squeeze().astype(np.uint8))
+
+        keep = {'time', 'spatial_ref'}
+        l2b_prod = l2b_prod.drop_vars([c for c in l2b_prod.coords
+                                       if c not in l2b_prod.dims and c not in keep])
+        # the coordinates encoding inherited from the input (flags, mask) would
+        # list the dropped ones again in the file
+        for variable in l2b_prod.variables.values():
+            variable.encoding = {k: v for k, v in variable.encoding.items() if k != 'coordinates'}
 
         l2b_prod.attrs = self.prod.raster.attrs
         l2b_prod.attrs['processing_time'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')

@@ -27,6 +27,8 @@ v1.1.0:
     - CLI log file next to the output (<name>.log), in the GRS processor format
     - atomic export: the product is renamed to its final name once complete
     - CLI --product_dir (one folder per product) and --stac (STAC Item, written last)
+    - output without the scalar coordinates band, wl, central_wavelength,
+      forecast_period and forecast_reference_time (only time and spatial_ref kept)
 '''
 
 
