@@ -45,6 +45,9 @@ written, and the OWT classification runs on numba-compiled kernels.
 | `TURB_dogliotti` | FNU | Turbidity (Dogliotti et al. 2015) |
 | `acdom_B15` | m⁻¹ | CDOM absorption at 440 nm (Brezonik et al. 2015) |
 | `Kd_par` | m⁻¹ | Diffuse attenuation coefficient of PAR (Roy and Das 2022) |
+| `Kd490_KD2`, `Kd490_Lee13` | m⁻¹ | Diffuse attenuation coefficient at 490 nm (NASA KD2; Lee et al. 2013) |
+| `Kd_par_Mo07`, `Kd_par_Lee05` | m⁻¹ | Diffuse attenuation coefficient of PAR (Morel et al. 2007; Lee et al. 2005) |
+| `Zeu_Lee05` | m | Euphotic depth (Lee et al. 2005) |
 
 The `flags` and `mask` variables of the input product are carried over. See the
 [Output Product](https://grsl2bgen.readthedocs.io/en/latest/output_product.html) and

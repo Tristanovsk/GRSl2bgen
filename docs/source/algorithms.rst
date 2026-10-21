@@ -592,6 +592,67 @@ assumes optically deep water: if a bathymetry is passed to
 :math:`Z_{SD}` exceeds the water depth are flagged ``bottom_limited`` (not done
 by the processing chain, which has no bathymetry input).
 
+Diffuse attenuation at 490 nm (``Kd490_Lee13``, ``Kd490_KD2``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``Kd490_Lee13`` is :math:`K_d(490)` of step B of the Secchi disk depth
+(:eq:`kd-lee13`), the average attenuation from the surface to the depth of 10 %
+of :math:`E_d(490)`, from the same QAA v6 IOPs. ``Kd490_KD2``
+(:py:meth:`~GRSl2bgen.transparency.Transparency.kd490_KD2`) is the empirical
+band-ratio algorithm of NASA (KD2; Mueller, 2000), with the MERIS (KD2E)
+coefficients, whose 490/560 nm band pair is the one of MSI (no MSI set is
+published):
+
+.. math::
+   :label: kd2
+
+   K_d(490) = K_w(490) + 10^{\sum_{i=0}^{4} c_i X^i},
+   \qquad X = \log_{10}\frac{\Rrs(490)}{\Rrs(560)}
+
+with :math:`K_w(490) = 0.0166` m\ :sup:`-1` and :math:`c = (-0.8641, -1.6549,
+2.0112, -2.5174, -1.1035)`. It is designed for open ocean (Case 1) waters and
+saturates in turbid waters, where ``Kd490_Lee13`` should be preferred. Both are
+kept within :math:`0 < K_d(490) < 50` m\ :sup:`-1`.
+
+Kd(PAR) and euphotic depth (``Kd_par_Mo07``, ``Zeu_Lee05``, ``Kd_par_Lee05``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``Kd_par_Mo07`` (:py:meth:`~GRSl2bgen.transparency.Transparency.kd_par_Mo07`):
+attenuation of PAR over the first optical depth from ``Kd490_Lee13``, Morel et
+al. (2007), for open ocean (Case 1) waters:
+
+.. math::
+   :label: kdpar-mo07
+
+   K_d(\mathrm{PAR}) = 0.0864 + 0.884\, K_d(490) - \frac{0.00137}{K_d(490)}
+
+``Zeu_Lee05`` and ``Kd_par_Lee05``
+(:py:meth:`~GRSl2bgen.transparency.Transparency.zeu_Lee05`): the model of Lee et
+al. (2005) gives the average attenuation of PAR from the surface to the depth
+:math:`z` from the QAA v6 :math:`a(490)` and :math:`b_b(490)` (step A of the
+Secchi disk depth, with :math:`a \ge a_w`):
+
+.. math::
+   :label: kpar-lee05
+
+   K_{\mathrm{PAR}}(z) = K_1 + \frac{K_2}{\sqrt{1 + z}}
+
+   K_1 = \left(-0.057 + 0.482 \sqrt{a(490)} + 4.221\, b_b(490)\right)
+         \left(1 + 0.090 \sin\theta_s\right)
+
+   K_2 = \left(0.183 + 0.702\, a(490) - 2.567\, b_b(490)\right)
+         \left(1.465 - 0.667 \cos\theta_s\right)
+
+with the in-air solar zenith angle :math:`\theta_s`, as in NASA OCSSW. The
+euphotic depth :math:`Z_{eu}`, where PAR is 1 % of its value below the surface,
+solves :math:`K_{\mathrm{PAR}}(Z_{eu})\, Z_{eu} = \ln 100` (bisection in
+:math:`\ln z`); it is NaN where :math:`K_1 \le 0` or the root is not between
+1 mm and 2 km, then kept within :math:`0 < Z_{eu} < 200` m. ``Kd_par_Lee05`` is
+the average attenuation of PAR over the euphotic zone,
+:math:`\ln 100 / Z_{eu}`, kept within :math:`0 < K_d(\mathrm{PAR}) < 50`
+m\ :sup:`-1`. These products are only computed when the L2A product provides
+``sza``.
+
 References
 ----------
 
@@ -625,6 +686,9 @@ References
   112386.
 - IOCCG (2014). Update of the Quasi-Analytical Algorithm (QAA_v6).
   International Ocean Colour Coordinating Group.
+- Lee, Z., Du, K., Arnone, R., Liew, S., Penta, B. (2005). Penetration of solar
+  radiation in the upper ocean: a numerical model for oceanic and coastal
+  waters. *Journal of Geophysical Research*, 110, C09019.
 - Lee, Z., Hu, C., Shang, S., Du, K., Lewis, M., Arnone, R., Brewin, R. (2013).
   Penetration of UV-visible solar radiation in the global oceans: insights from
   ocean color remote sensing. *Journal of Geophysical Research: Oceans*, 118,
@@ -639,12 +703,20 @@ References
   Towards reliable high-resolution satellite products for the monitoring of
   chlorophyll-a and suspended particulate matter in optically shallow coastal
   lagoons. *Remote Sensing*, 17, 3430. https://doi.org/10.3390/rs17203430
+- Morel, A., Huot, Y., Gentili, B., Werdell, P. J., Hooker, S. B., Franz, B. A.
+  (2007). Examining the consistency of products derived from various ocean
+  color sensors in open ocean (Case 1) waters in the perspective of a
+  multi-sensor approach. *Remote Sensing of Environment*, 111, 69--88.
 - Mishra, S., Mishra, D. R. (2012). Normalized difference chlorophyll index: a
   novel model for remote estimation of chlorophyll-a concentration in turbid
   productive waters. *Remote Sensing of Environment*, 117, 394--406.
 - Moses, W. J., Gitelson, A. A., Berdnikov, S., Povazhnyy, V. (2009).
   Estimation of chlorophyll-a concentration in case II waters using MODIS and
   MERIS data: successes and challenges. *Environmental Research Letters*, 4, 1--8.
+- Mueller, J. L. (2000). SeaWiFS algorithm for the diffuse attenuation
+  coefficient, K(490), using water-leaving radiances at 490 and 555 nm. In
+  *SeaWiFS Postlaunch Calibration and Validation Analyses, Part 3*, NASA Tech.
+  Memo. 2000-206892, vol. 11, 24--27.
 - Nechad, B., Ruddick, K. G., Park, Y. (2010). Calibration and validation of a
   generic multisensor algorithm for mapping of total suspended matter in
   turbid waters. *Remote Sensing of Environment*, 114, 854--866.

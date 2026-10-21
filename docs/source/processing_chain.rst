@@ -247,6 +247,15 @@ description (dimensions, attributes, quality flags, packing).
    * - ``Zsd_Lee15``
      - m
      - Secchi disk depth (Lee et al. 2015)
+   * - ``Kd490_KD2``, ``Kd490_Lee13``
+     - m\ :sup:`-1`
+     - Diffuse attenuation coefficient at 490 nm (NASA KD2; Lee et al. 2013)
+   * - ``Kd_par_Mo07``, ``Kd_par_Lee05``
+     - m\ :sup:`-1`
+     - Diffuse attenuation coefficient of PAR (Morel et al. 2007; Lee et al. 2005)
+   * - ``Zeu_Lee05``
+     - m
+     - Euphotic depth, 1 % of the surface PAR (Lee et al. 2005)
    * - ``flags``, ``mask``
      - --
      - L2A bit field (cloud, water, cirrus, ...) and binary mask (``0`` = processed

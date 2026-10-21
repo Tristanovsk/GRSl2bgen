@@ -11,6 +11,7 @@ EXPECTED_VARIABLES = (
     'owt_dist_Cordeiro2022SPM', 'owt_index_Cordeiro2022SPM',
     'Chla_OWTblend_Ta2025', 'SPM_OWTblend_Ta2025', 'TURB_dogliotti',
     'adg443_QAAv6Chl', 'Kd_par', 'Zsd_Lee15',
+    'Kd490_KD2', 'Kd490_Lee13', 'Kd_par_Mo07', 'Zeu_Lee05', 'Kd_par_Lee05',
     'flags', 'flags_l2b', 'mask',
 )
 
@@ -91,6 +92,8 @@ VALID_RANGES = {
     'SPM_OWTblend_Ta2025': [0, 2000],
     'acdom_B15': [0, 30], 'adg443_QAAv6': [0, 30], 'adg443_QAAv6Chl': [0, 30],
     'Kd_par': [0, 3000], 'Zsd_Lee15': [0, 100],
+    'Kd490_KD2': [0, 50], 'Kd490_Lee13': [0, 50], 'Kd_par_Mo07': [0, 50],
+    'Zeu_Lee05': [0, 200], 'Kd_par_Lee05': [0, 50],
 }
 
 

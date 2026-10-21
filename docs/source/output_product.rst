@@ -53,6 +53,11 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        adg443_QAAv6Chl         (y, x) float64 ...
        Kd_par                  (y, x) float64 ...
        Zsd_Lee15               (y, x) float64 ...
+       Kd490_KD2               (y, x) float64 ...
+       Kd490_Lee13             (y, x) float64 ...
+       Kd_par_Mo07             (y, x) float64 ...
+       Zeu_Lee05               (y, x) float64 ...
+       Kd_par_Lee05            (y, x) float64 ...
        flags                   (y, x) uint32 ...
        flags_l2b               (y, x) uint32 ...
        mask                    (y, x) uint8 ...
@@ -272,13 +277,41 @@ CDOM and transparency
      - Secchi disk depth, Lee et al. (2015) (:eq:`zsd`), from QAA v6 IOPs and the
        Kd model of Lee et al. (2013) at the most transparent band (443--665 nm);
        only written when the L2A product has the solar zenith angle ``sza``.
+   * - ``Kd490_KD2``
+     - m\ :sup:`-1`
+     - ]0, 50[
+     - Diffuse attenuation coefficient at 490 nm, NASA KD2 band ratio algorithm
+       with the MERIS coefficients (:eq:`kd2`); open ocean (Case 1) waters.
+   * - ``Kd490_Lee13``
+     - m\ :sup:`-1`
+     - ]0, 50[
+     - Diffuse attenuation coefficient at 490 nm, Lee et al. (2013) from QAA v6
+       IOPs (:eq:`kd-lee13`); only written when the L2A product has ``sza``.
+   * - ``Kd_par_Mo07``
+     - m\ :sup:`-1`
+     - ]0, 50[
+     - Diffuse attenuation coefficient of PAR over the first optical depth, Morel
+       et al. (2007) from ``Kd490_Lee13`` (:eq:`kdpar-mo07`); open ocean (Case 1)
+       waters; only written when the L2A product has ``sza``.
+   * - ``Zeu_Lee05``
+     - m
+     - ]0, 200[
+     - Euphotic depth (1 % of the surface PAR), Lee et al. (2005) from QAA v6
+       a(490) and bb(490) (:eq:`kpar-lee05`); only written when the L2A product
+       has ``sza``.
+   * - ``Kd_par_Lee05``
+     - m\ :sup:`-1`
+     - ]0, 50[
+     - Diffuse attenuation coefficient of PAR averaged over the euphotic zone,
+       ln(100) / ``Zeu_Lee05``; only written when the L2A product has ``sza``.
 
 .. note::
 
    The ``range`` attribute of the geophysical variables gives the bounds of the
    validity filter applied, listed in the tables above (e.g. ``[0, 1200]`` for Chl-a,
    ``[0, 2000]`` for SPM and turbidity, ``[0, 30]`` for the CDOM products, ``[0, 3000]``
-   for ``Kd_par``, ``[0, 100]`` for ``Zsd_Lee15``). Products written by GRSl2bgen
+   for ``Kd_par``, ``[0, 100]`` for ``Zsd_Lee15``, ``[0, 50]`` for ``Kd490_*`` and the
+   other ``Kd_par_*``, ``[0, 200]`` for ``Zeu_Lee05``). Products written by GRSl2bgen
    versions earlier than 1.1.0 may carry different, informative values (e.g.
    ``[0, 2000]`` for Chl-a, ``[0, 200]`` for ``Kd_par``).
 
