@@ -43,6 +43,26 @@ def test_product_rejects_missing_level(l2a_path):
         Product(l2a_path, level=2)
 
 
+def test_product_reads_netcdf_dir(l2a_netcdf_dir, l2a):
+    prod = Product(l2a_netcdf_dir)
+    assert prod.raster['Rrs'].dims == ('wl', 'y', 'x')
+    # the coarse grid of <name>_anc.nc (8 x 8), not the main file
+    assert dict(prod.ancillary.sizes) == {'y': 8, 'x': 8}
+    xr.testing.assert_allclose(prod.raster['Rrs'].load(), l2a['Rrs'])
+    prod.close()
+
+
+def test_l2b_from_netcdf_matches_zarr(tmp_path, l2a_netcdf_dir, l2b):
+    from GRSl2bgen import Process
+
+    ofile = str(tmp_path / 'l2b.nc')
+    Process(l2a_netcdf_dir, l2b_path=ofile).run()
+    with xr.open_dataset(ofile) as from_nc:
+        assert set(from_nc.data_vars) == set(l2b.data_vars)
+        for name in l2b.data_vars:
+            xr.testing.assert_allclose(from_nc[name].load(), l2b[name], rtol=1e-6)
+
+
 def test_l2b_variables_and_grid(l2b, l2a):
     missing = [v for v in EXPECTED_VARIABLES if v not in l2b]
     assert not missing

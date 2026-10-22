@@ -6,6 +6,22 @@ import xarray as xr
 from GRSl2bgen.transparency import Transparency
 
 
+def test_kd490_kd2():
+    # Rrs(490) / Rrs(560) = 1, 2, 0.5, then a negative Rrs(490); the other bands
+    # are set so that a wrong band selection changes the result
+    ratio = np.array([1., 2., 0.5, -1.])
+    rrs = np.stack([np.full(4, 0.5), 0.01 * ratio, np.full(4, 0.01), np.full(4, 0.5)])
+    raster = xr.Dataset({'Rrs': (('wl', 'x'), rrs)}, coords={'wl': [443, 490, 560, 665]})
+    kd = Transparency(raster).kd490_KD2().values
+    # MERIS KD2E of the NASA OBPG Kd_490 ATBD
+    X = np.log10(ratio[:3])
+    expected = 0.0166 + 10 ** (-0.8641 - 1.6549 * X + 2.0112 * X ** 2
+                               - 2.5174 * X ** 3 - 1.1035 * X ** 4)
+    np.testing.assert_allclose(kd[:3], expected)
+    np.testing.assert_allclose(kd[0], 0.0166 + 10 ** -0.8641)
+    assert np.isnan(kd[3])
+
+
 def test_depth_lee05_solves_the_equation():
     K1 = np.array([0.05, 0.2, 1.0, 3.0])
     K2 = np.array([0.1, 0.05, 0.3, 0.0])
