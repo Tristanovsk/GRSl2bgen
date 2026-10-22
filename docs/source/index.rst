@@ -11,6 +11,7 @@ Tristanovsk/GRSl2bgen documentation
    processing_chain
    output_product
    algorithms
+   history
 
 
 .. toctree::
