@@ -90,7 +90,8 @@ Examples
        -o $img_dir/L2B/S2B_MSIL2B_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc
 
 Without ``-o``, the output is written to ``--odir`` (default: current directory) as
-``<input name>.nc``, with ``L2Agrs`` (any case, e.g. ``L2AGRS``) replaced by ``L2B``. Add
+``<input name>.nc``, with ``L2Agrs`` or ``L2A`` (any case, e.g. ``L2AGRS``, ``MSIL2A``) replaced by
+``L2B``. Add
 ``--no_clobber`` to skip products that are already processed. ``--product_dir`` writes the
 product in its own folder ``<name>/``, and ``--stac`` adds its STAC Item ``<name>.json``
 (see :ref:`the output product page <stac-item>`):

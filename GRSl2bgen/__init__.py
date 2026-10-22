@@ -33,6 +33,8 @@ v1.2.0dev0:
     - Kd(490): NASA KD2 band ratio (Kd490_KD2) and Lee et al. (2013) from QAA v6 (Kd490_Lee13)
     - Kd(PAR) of Morel et al. (2007) from Kd490_Lee13 (Kd_par_Mo07)
     - euphotic depth and Kd(PAR) over it, Lee et al. (2005) from QAA v6 (Zeu_Lee05, Kd_par_Lee05)
+    - default L2B name also for the L2A tag of the GRS NetCDF products (MSIL2A -> MSIL2B)
+    - batch processing notebook: GRS NetCDF products (folder with <name>.nc and <name>_anc.nc)
 '''
 
 

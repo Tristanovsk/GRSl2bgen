@@ -53,12 +53,12 @@ def default_output_name(file):
 
     The ``.nc`` or ``.zarr`` extension of the input, if any, is replaced by
     ``.nc`` (other dots, e.g. in a version ``V3.0.1dev``, are kept), and the
-    ``L2Agrs`` level tag is replaced by ``L2B`` whatever its case (``L2Agrs``,
-    ``L2AGRS``, ...).
+    ``L2Agrs`` or ``L2A`` level tag is replaced by ``L2B`` whatever its case
+    (``L2Agrs``, ``L2AGRS``, ``MSIL2A`` of the GRS NetCDF products, ...).
     """
     basename = os.path.basename(file.rstrip('/'))
     basename = re.sub(r'\.(nc|zarr)$', '', basename)
-    basename = re.sub('L2Agrs', 'L2B', basename, flags=re.IGNORECASE)
+    basename = re.sub('L2A(grs)?', 'L2B', basename, count=1, flags=re.IGNORECASE)
     return basename + '.nc'
 
 
