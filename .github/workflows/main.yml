@@ -57,10 +57,10 @@ jobs:
           echo "Lancement des tests du répertoire  grs/tests/integration_tests/"
           python -m pytest --tb=short -vv -s -x tests/ --cov=GRSl2bgen --cov-report=term --cov-report=html:cov_html --cov-report=xml:coverage.xml --cov-fail-under=65 --junitxml=test-results.xml
          
-          # badge of the released code: updated on main only (the merge of a release or a hotfix),
-          # pushed to the branch explicitly (the checkout is a detached HEAD)
-          # (from the Python 3.12 job only, one badge commit per push)
-          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" && "${{ matrix.python-version }}" == "3.12" ]]; then
+          # badge of develop, the default branch whose README GitHub shows; pushed to the branch
+          # explicitly (the checkout is a detached HEAD), from the Python 3.12 job only (one
+          # badge commit per push)
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/develop" && "${{ matrix.python-version }}" == "3.12" ]]; then
             echo "Génération du badge coverage"
             python -m pip install genbadge[coverage]
             mkdir -p badges
@@ -74,7 +74,8 @@ jobs:
 
             if ! git diff --cached --quiet; then
               git commit -m "Update coverage badge [skip ci]"
-              git push origin HEAD:main
+              # rejected if develop moved during the run: the next push updates the badge
+              git push origin HEAD:develop || echo "develop moved during the run, badge not pushed"
             fi
           fi
 
