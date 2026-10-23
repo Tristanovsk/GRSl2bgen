@@ -11,9 +11,9 @@ request features. Include:
 - the `GRSl2bgen` version (see `GRSl2bgen --version`) and how you installed it (pip, conda,
   Docker),
 - the exact command line used,
-- the relevant console output (GRSl2bgen currently logs to stderr, see the
-  [processing chain documentation](https://grsl2bgen.readthedocs.io/en/latest/processing_chain.html#log-format)
-  for details — there is no `log_file.log`/`error.log` on disk yet),
+- the relevant part of the log: the console output, or the log file written next to the
+  product (`<name>.log`, see the
+  [processing chain documentation](https://grsl2bgen.readthedocs.io/en/latest/processing_chain.html#log-format)),
 - if possible, a minimal way to reproduce (input L2A product, resolution...).
 
 ## Development setup
@@ -46,7 +46,7 @@ pytest tests/
 
 This is the same test suite executed by CI (job `python-tests` in
 [`.github/workflows/main.yml`](.github/workflows/main.yml)). Run it from the environment of the
-development setup above; the whole suite takes about 20 s. If you add a feature or fix a bug,
+development setup above; the whole suite takes about 35 s. If you add a feature or fix a bug,
 please add tests in `tests/` as part of your change.
 
 The end-to-end tests (`tests/test_process.py`) run the full processing chain on a small real
@@ -64,16 +64,100 @@ python tests/data/make_test_l2a.py <L2A product dir or .zarr> [y0 x0 size]
 session whatever the number of tests using them:
 
 - `l2a_path`: path of the test L2A product;
+- `l2a_netcdf_dir`: the same product as a GRS NetCDF folder (`<name>.nc` and `<name>_anc.nc`);
 - `l2b_nc`: L2B NetCDF produced from it by `Process(...).run()`;
 - `l2b_pyramid`: L2B multiscale Zarr store (levels 0 to 2) produced from it.
 
-## Submitting changes
+## Branching model and releases
 
-1. Create a branch off `develop` named `feature/<short-description>`.
-2. Make your changes, with tests where relevant.
-3. Open a pull request targeting `develop` (CI runs automatically on PRs to `main` and
-   `develop`). Make sure the `python-tests` job passes.
-4. One of the maintainers will review your PR.
+GRSl2bgen follows [git-flow](https://git-flow.readthedocs.io/en/latest/presentation.html).
+Every step below uses plain git commands; the
+[git-flow plugin](https://git-flow.readthedocs.io/) does the same with `git flow feature start`,
+`git flow release finish`, ... after `git flow init` (production branch `main`, development
+branch `develop`, prefixes `feature/`, `release/`, `hotfix/`, version tag prefix `v`).
+
+| Branch | Started from | Merged into | Content |
+|---|---|---|---|
+| `main` | | | released versions only, each tagged `vX.Y.Z` |
+| `develop` | | | integration of the next version, at version `X.Y.ZdevN` |
+| `feature/<description>` | `develop` | `develop` | one feature or fix |
+| `release/X.Y.0` | `develop` | `main` and `develop` | preparation of a major or minor version |
+| `hotfix/X.Y.Z` | `main` | `main` and `develop` | urgent fix of a released version (patch) |
+
+The reference repository is [CNES/GRSl2bgen](https://github.com/CNES/GRSl2bgen), whose
+production branch is `main`. The mirror
+[Tristanovsk/GRSl2bgen](https://github.com/Tristanovsk/GRSl2bgen) names it `master`: push
+`main` there as `master` (`git push origin main:master`), together with `develop` and the tags.
+
+### Versions and changelog
+
+- The version is set in `GRSl2bgen/__init__.py` (`__version__`), from which `pyproject.toml`
+  reads it, following [semantic versioning](https://semver.org/): features and releases
+  increase the major or minor number, hotfixes the patch number.
+- `develop` carries the version being prepared with a `devN` suffix (e.g. `1.2.0dev0`); the
+  suffix is removed on the release branch only.
+- Every change that matters to users gets a line in the `Unreleased` section of
+  [`CHANGELOG.md`](CHANGELOG.md) (Added, Changed, Fixed...), in the same pull request as the
+  change. The changelog is also the History page of the documentation.
+
+### Features
+
+1. Create the branch from an up-to-date `develop`:
+   ```bash
+   git checkout develop && git pull --rebase
+   git checkout -b feature/<short-description>
+   ```
+2. Make your changes, with tests and a `CHANGELOG.md` entry where relevant.
+3. Before opening the pull request, rebase the branch on `develop` (`git rebase develop`)
+   rather than merging `develop` into it, so the history stays linear.
+4. Open a pull request targeting `develop`; make sure the `python-tests` job passes. One of
+   the maintainers will review it.
+
+External contributors push their feature branches to their own fork of the repository and
+open the pull request from it; only `main`, `develop`, and the release and hotfix branches
+being prepared live in the reference repository.
+
+### Releases (maintainers)
+
+1. Start the release branch from `develop` when it holds everything planned for the version:
+   ```bash
+   git checkout -b release/1.2.0 develop
+   ```
+2. On this branch only: set `__version__ = '1.2.0'`, rename the `Unreleased` section of
+   `CHANGELOG.md` to `[1.2.0] - YYYY-MM-DD` (with its comparison link at the bottom), and
+   commit (`release 1.2.0`). Only fixes go to the release branch from then on; new features
+   keep going to `develop`.
+3. Open a pull request from `release/1.2.0` to `main` for review (CI runs on every push to
+   `release/*` and on the pull request).
+4. Finish the release: merge into `main` without fast-forward, tag, merge back into
+   `develop`, and delete the branch:
+   ```bash
+   git checkout main && git merge --no-ff release/1.2.0
+   git tag -a v1.2.0 -m "GRSl2bgen 1.2.0"
+   git checkout develop && git merge --no-ff release/1.2.0
+   git branch -d release/1.2.0
+   ```
+5. On `develop`, start the next version: `__version__ = '1.3.0dev0'` and a new empty
+   `Unreleased` section in `CHANGELOG.md`.
+6. Push both branches and the tag, to the reference repository and to the mirror:
+   ```bash
+   git push cnes main develop v1.2.0
+   git push origin main:master develop v1.2.0
+   ```
+
+### Hotfixes (maintainers)
+
+For a bug of a released version that cannot wait for the next release:
+
+1. `git checkout -b hotfix/1.2.1 main`
+2. Fix the bug with a test, set `__version__ = '1.2.1'`, add a `[1.2.1] - YYYY-MM-DD` section
+   (Fixed) to `CHANGELOG.md`, and open a pull request to `main` so that CI runs.
+3. Merge into `main` without fast-forward and tag `v1.2.1`, then merge into `develop` (keep
+   the `devN` version of `develop` if the version line conflicts), delete the branch and
+   push as for a release.
+
+Release and hotfix branches are merged with `--no-ff`, so that each version and each fix
+stays visible as one merge in the history; feature branches are rebased instead.
 
 ## Documentation
 
