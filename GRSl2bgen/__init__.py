@@ -26,6 +26,5 @@ import logging
 #init logger
 logger = logging.getLogger()
 
-level = logging.getLevelName("INFO")
-logger.setLevel(level)
+logger.setLevel('INFO')
 

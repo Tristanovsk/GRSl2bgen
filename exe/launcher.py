@@ -36,8 +36,7 @@ def main():
     file_handler = RotatingFileHandler(data['logfile'], 'a', 1000000, 1)
     formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d    %(levelname)s:%(filename)s::%(funcName)s:%(message)s', datefmt='%Y-%m-%dT%H:%M:%S')
 
-    level = logging.getLevelName(data['level'])
-    file_handler.setLevel(level)
+    file_handler.setLevel(data['level'])
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     
