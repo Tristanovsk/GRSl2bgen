@@ -29,11 +29,17 @@ v1.1.0:
     - CLI --product_dir (one folder per product) and --stac (STAC Item, written last)
     - output without the scalar coordinates band, wl, central_wavelength,
       forecast_period and forecast_reference_time (only time and spatial_ref kept)
+v1.1.1:
+    - scipy added to the dependencies (needed by the xarray interpolations)
+    - packing tests through a temporary file (in-memory NetCDF needs h5netcdf)
+    - Python >= 3.11 (requires-python), as zarr 3
+    - Docker image on Ubuntu 24.04 (Python 3.12) in a virtual environment: the Python 3.10
+      of Ubuntu 22.04 could not install zarr 3
 '''
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 from .product import Product
 from .output import L2bProduct

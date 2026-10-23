@@ -12,3 +12,4 @@ zarr>=3
 dask[distributed]
 pystac
 pyproj
+scipy
