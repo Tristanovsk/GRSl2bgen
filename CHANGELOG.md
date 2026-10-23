@@ -26,6 +26,12 @@ repository.
 - Python 3.11 to 3.14, all tested by CI (test matrix); build, lint and documentation on 3.12.
 - `develop` is the default branch on GitHub; the coverage badge is updated on each push to
   `develop` instead of `main`.
+- Logging: importing `GRSl2bgen` no longer sets the root logger to `INFO`; the package logs
+  through the loggers of its modules (`GRSl2bgen.process`, `GRSl2bgen.output`, ...), named in
+  the log records (`GRSl2bgen.output::export_to_netcdf` instead of `root::export_to_netcdf`).
+  The command line and `RunLogger` still log at `INFO`; from Python, configure the logging
+  (e.g. `logging.basicConfig(level=logging.INFO)`) to see the processing steps.
+- Logging level names passed to `setLevel` directly instead of `logging.getLevelName`.
 - Default L2B name: the `L2A` level tag of the GRS NetCDF products is replaced by `L2B` as
   well (`MSIL2A` -> `MSIL2B`), not only `L2Agrs` (any case).
 - Batch processing notebook: a Zarr product is complete only when its levels hold the

@@ -13,6 +13,9 @@ import datetime
 from . import __package__, __version__
 from .mask import l2b_flags
 
+# records of the package logger (GRSl2bgen.<module>), configured by the application
+logger = logging.getLogger(__name__)
+
 # integer variables: not packed, nearest-neighbour resampling in the pyramid
 CATEGORICAL = ('flags', 'flags_l2b', 'mask')
 # OWT class IDs (owt_index_<database>, 1-based, NaN where not classified):
@@ -120,7 +123,7 @@ class L2bProduct():
         so the two new attributes are also written to the input product.
         """
 
-        logging.info('construct l2b')
+        logger.info('construct l2b')
 
         l2b_prod = xr.merge(self.l2b_raster_list, compat='override')
         for v in l2b_prod.data_vars:
@@ -246,7 +249,7 @@ class L2bProduct():
         """
         ofile = str(ofile).rstrip('/\\')
         if pyramid and not ofile.endswith('.zarr'):
-            logging.warning('pyramids are only written for Zarr output; ignored for NetCDF')
+            logger.warning('pyramids are only written for Zarr output; ignored for NetCDF')
 
         # written under a temporary name in the same directory, renamed at the
         # end: an interrupted run never leaves an incomplete file under `ofile`
@@ -381,7 +384,7 @@ class L2bProduct():
         if zarr:
             return self.export_to_zarr(ofile, persist=persist)
 
-        logging.info('export into encoded netcdf')
+        logger.info('export into encoded netcdf')
         encoding = self._packing_encoding(persist=persist)
         for variable, enc in encoding.items():
             enc.update({"zlib": True, "complevel": self.complevel})
@@ -490,7 +493,7 @@ class L2bProduct():
         -------
         None
         """
-        logging.info('export into encoded zarr')
+        logger.info('export into encoded zarr')
         encoding = self._packing_encoding(persist=persist)
 
         if chunks is None:
@@ -562,7 +565,7 @@ class L2bProduct():
             ds = ds.rio.set_spatial_dims(x_dim=dims[1], y_dim=dims[0])
             ds = ds.rio.write_transform(ds.rio.transform(recalc=True))
         except Exception as e:
-            logging.warning(f'could not update geotransform: {e}')
+            logger.warning(f'could not update geotransform: {e}')
         return ds
 
     def export_to_zarr_pyramid(self,
@@ -624,7 +627,7 @@ class L2bProduct():
         -------
         None
         """
-        logging.info('export into encoded multiscale zarr')
+        logger.info('export into encoded multiscale zarr')
         for d in dims:
             if d not in self.l2b_prod.dims:
                 raise ValueError(f'dimension {d!r} not found in the L2B product')
@@ -674,7 +677,7 @@ class L2bProduct():
         try:
             zarr.consolidate_metadata(ofile)
         except Exception as e:
-            logging.warning(f'could not consolidate zarr metadata: {e}')
+            logger.warning(f'could not consolidate zarr metadata: {e}')
 
         return
 

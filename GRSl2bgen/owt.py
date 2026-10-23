@@ -14,6 +14,9 @@ from . import __package__
 from .sam import sam as _sam, sam_dataarray
 from .euclidean import euclidean as _euclidean, euclidean_dataarray
 
+# records of the package logger (GRSl2bgen.<module>), configured by the application
+logger = logging.getLogger(__name__)
+
 OWT_Spyrakos2018_file = 'Spyrakos_et_al_2018_OWT_inland_mean_standardised.csv'
 OWT_Bi2024_file = 'Bi_etal_2024_OWT_mean_spec_v01.csv'
 
@@ -274,7 +277,7 @@ class OWT():
             ``Nclasses`` dimension is dropped when only one class is kept.
         """
 
-        logging.info('OWT classification')
+        logger.info('OWT classification')
 
         Rrs = self.Rrs
         if Rrs.chunks is not None and self.chunk:
@@ -286,7 +289,7 @@ class OWT():
                                              wl_dim='wl',
                                              name_dim=self.Nclasses_dim)
 
-        logging.info('construct xarray owt product')
+        logger.info('construct xarray owt product')
         self.xowt = xr.Dataset({self.owt_dist_name: dist.rename(self.owt_dist_name),
                                 self.owt_index_name: index.rename(self.owt_index_name)})
         self.xowt = self.xowt.assign_coords(

@@ -19,12 +19,3 @@ from .utils import iopw
 
 from .process import Process
 
-
-
-import logging
-
-#init logger
-logger = logging.getLogger()
-
-logger.setLevel('INFO')
-

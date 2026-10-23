@@ -47,6 +47,9 @@ from . import Process
 from .logger import RunLogger
 from .stac import item_path, write_stac_item
 
+# records of the package logger (GRSl2bgen.<module>), configured by the application
+logger = logging.getLogger(__name__)
+
 
 def default_output_name(file):
     """L2B file name derived from the L2A input path.
@@ -106,8 +109,8 @@ def main():
     # log file next to the output, named after it (as the GRS processor log_file.log)
     log_file = re.sub(r'\.(nc|zarr)$', '', outfile.rstrip('/')) + '.log'
     with RunLogger(log_file, log_level='INFO', log_console=True):
-        logging.info(f'{__package__} {__version__}')
-        logging.info('call GRSl2bgen for the following paramater. File:' +
+        logger.info(f'{__package__} {__version__}')
+        logger.info('call GRSl2bgen for the following paramater. File:' +
                      file + ', output file:' + outfile)
         process_ = Process(file, outfile, pyramid=pyramid, level=level)
         process_.run()

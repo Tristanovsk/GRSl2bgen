@@ -109,7 +109,10 @@ GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T1248
 ### Python
 
 ```python
+import logging
 from GRSl2bgen import Process
+
+logging.basicConfig(level=logging.INFO)   # follow the processing steps (default: warnings only)
 
 proc = Process(
     'S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T124834.nc',

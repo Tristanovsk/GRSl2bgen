@@ -11,6 +11,9 @@ from . import Product, L2bProduct
 from .mask import QC_L2A
 from . import Chl, Spm, Cdom, Transparency, OWT_process
 
+# records of the package logger (GRSl2bgen.<module>), configured by the application
+logger = logging.getLogger(__name__)
+
 opj = os.path.join
 
 
@@ -48,7 +51,7 @@ def _dask_client(n_workers=None, threads_per_worker=1, memory_limit='auto', n_th
                       threads_per_worker=threads_per_worker,
                       memory_limit=memory_limit) as cluster:
         with Client(cluster) as client:
-            logging.info(f'dask dashboard: {client.dashboard_link}')
+            logger.info(f'dask dashboard: {client.dashboard_link}')
             yield client
 
 
@@ -171,7 +174,7 @@ class Process():
 
         """
 
-        logging.info('import l2a product')
+        logger.info('import l2a product')
         l2a_obj = self.l2a_obj
 
         prod = Product(l2a_obj, level=self.level)
@@ -187,35 +190,35 @@ class Process():
         # ----------------------
         # QC of the L2A reflectance (flags_l2b)
         # ----------------------
-        logging.info('QC of L2A')
+        logger.info('QC of L2A')
         qc_l2a = QC_L2A(raster)
         qc_l2a.process()
 
         #  ----------------------
         # get OWT parameters
         # ----------------------
-        logging.info('get OWT classification')
+        logger.info('get OWT classification')
         owt_process = OWT_process(raster)
         owt_process.execute()
 
         # ----------------------
         # get SPM parameters
         # ----------------------
-        logging.info('get SPM parameters')
+        logger.info('get SPM parameters')
         spm_prod = Spm(raster, xowt_prod=owt_process.xowt_Cordeiro2022SPM)
         spm_prod.process()
 
         # ----------------------
         # get Chl-a parameters
         # ----------------------
-        logging.info('get Chl-a parameters')
+        logger.info('get Chl-a parameters')
         chl_prod = Chl(raster,xowt_prod=owt_process.xowt_spyrakos2018)
         chl_prod.process()
 
         # ----------------------
         # get CDOM parameters
         # ----------------------
-        logging.info('get CDOM parameters')
+        logger.info('get CDOM parameters')
         # first-guess Chl-a for the QAA decomposition of CDOM absorption
         cdom_prod = Cdom(raster, chl=chl_prod.output.get('Chla_OWTblend_Ta2025'))
         cdom_prod.process()
@@ -223,11 +226,11 @@ class Process():
         # ----------------------
         # get transparency parameters
         # ----------------------
-        logging.info('get transparency parameters')
+        logger.info('get transparency parameters')
         trans_prod = Transparency(raster)
         trans_prod.process()
 
-        logging.info('construct l2b product')
+        logger.info('construct l2b product')
         l2_raster_list = [
             owt_process.output,
             chl_prod.output,
@@ -250,7 +253,7 @@ class Process():
         AttributeError
             If `execute` has not been run (``self.l2b`` does not exist yet).
         """
-        logging.info('export final l2b product')
+        logger.info('export final l2b product')
         self.l2b.export(self.l2b_path, persist=self.persist_output, pyramid=self.pyramid)
 
     def run(self):

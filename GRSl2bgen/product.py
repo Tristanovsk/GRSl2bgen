@@ -12,6 +12,9 @@ import logging
 
 from . import __package__, __version__
 
+# records of the package logger (GRSl2bgen.<module>), configured by the application
+logger = logging.getLogger(__name__)
+
 opj = os.path.join
 
 # default spatial chunk size (pixels) of the processing: larger than the 256 x 256
@@ -117,7 +120,7 @@ class Product():
         # Get image data
         ##################################
         if isinstance(l2a_obj, str):
-            logging.info('Load L2A from files')
+            logger.info('Load L2A from files')
             l2a_obj = l2a_obj.rstrip('/')
             basename = os.path.basename(l2a_obj)
             # get extension
@@ -147,7 +150,7 @@ class Product():
 
 
             else:
-                logging.info('input file format not recognized, stop')
+                logger.info('input file format not recognized, stop')
                 return
 
         elif isinstance(l2a_obj, xr.Dataset):
@@ -203,7 +206,7 @@ class Product():
             root.close()
             raise ValueError(f'pyramid level {level} not in [0, {len(layout) - 1}]')
         group = layout[level]['group']
-        logging.info(f'Load pyramid level {level} (group {group!r}) of {store}')
+        logger.info(f'Load pyramid level {level} (group {group!r}) of {store}')
         self.raster = xr.open_zarr(store, group=group, decode_coords='all')
         self._opened = [self.raster]
         self.ancillary = None

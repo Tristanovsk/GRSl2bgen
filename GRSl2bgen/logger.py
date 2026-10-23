@@ -2,7 +2,7 @@
 
 Records look like::
 
-    2026-10-20T09:20:46.123     INFO | root::write_output | export into encoded netcdf
+    2026-10-20T09:20:46.123     INFO | GRSl2bgen.output::export_to_netcdf | export into encoded netcdf
 
 and the run ends with its resource statistics (peak memory, CPU and run times) and the
 number of records per level.

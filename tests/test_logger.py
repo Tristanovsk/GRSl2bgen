@@ -44,3 +44,24 @@ def test_run_logger_restores_previous_handlers(tmp_path):
         assert previous in root.handlers and root.level == level
     finally:
         root.removeHandler(previous)
+
+
+def test_package_records_in_run_log(tmp_path):
+    # records of the package loggers (GRSl2bgen.<module>) reach the handlers of the root logger
+    from GRSl2bgen import process
+
+    log_file = tmp_path / 'l2b.log'
+    with RunLogger(log_file, log_console=False):
+        process.logger.info('package record')
+    assert 'INFO | GRSl2bgen.process::test_package_records_in_run_log | package record' \
+        in log_file.read_text()
+
+
+def test_import_leaves_root_logger_alone():
+    # a fresh interpreter: the logging configuration belongs to the application
+    import subprocess
+    import sys
+
+    code = 'import logging, GRSl2bgen; print(logging.getLogger().level, logging.getLogger().handlers)'
+    out = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, check=True)
+    assert out.stdout.split() == [str(logging.WARNING), '[]']

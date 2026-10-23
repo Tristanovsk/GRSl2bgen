@@ -33,6 +33,7 @@ def main():
             os.makedirs(log_folder)
             
     logger = logging.getLogger()
+    logger.setLevel(data['level'])
     file_handler = RotatingFileHandler(data['logfile'], 'a', 1000000, 1)
     formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d    %(levelname)s:%(filename)s::%(funcName)s:%(message)s', datefmt='%Y-%m-%dT%H:%M:%S')
 

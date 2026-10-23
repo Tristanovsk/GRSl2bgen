@@ -434,7 +434,7 @@ level and above, also go to the console (stderr) and use the format of the GRS p
 
     YYYY-MM-DDThh:mm:ss.mmm     LEVEL | logger::function | message
 
-    2026-10-20T18:58:41.538     INFO | root::export_to_netcdf | export into encoded netcdf
+    2026-10-20T18:58:41.538     INFO | GRSl2bgen.output::export_to_netcdf | export into encoded netcdf
 
 Python warnings are logged as ``WARNING`` records. The log ends with the resource
 statistics of the run and the number of records per level::
@@ -448,8 +448,21 @@ statistics of the run and the number of records per level::
     ...     INFO | service_logger::log_stats | info: 23
     ...     INFO | service_logger::log_stats | debug: 0
 
-When the chain is run from Python (:py:class:`GRSl2bgen.process.Process`), no log file is
-written unless the run is wrapped in :py:class:`GRSl2bgen.logger.RunLogger`::
+The records of the chain come from the loggers of the package modules, named after them
+(``GRSl2bgen.process``, ``GRSl2bgen.output``, ...). Importing ``GRSl2bgen`` does not change the
+logging configuration: it belongs to the application. When the chain is run from Python
+(:py:class:`GRSl2bgen.process.Process`), only the warnings are shown by default; to follow the
+processing steps, configure the logging, e.g.::
+
+   import logging
+
+   logging.basicConfig(level=logging.INFO)            # all the INFO records, any package
+   # or only those of GRSl2bgen:
+   logging.basicConfig()
+   logging.getLogger('GRSl2bgen').setLevel(logging.INFO)
+
+No log file is written unless the run is wrapped in :py:class:`GRSl2bgen.logger.RunLogger`,
+which also sets the level (``INFO`` by default) for the run::
 
    from GRSl2bgen.logger import RunLogger
 
