@@ -23,19 +23,24 @@ repository.
 
 ### Changed
 
-- Python 3.11 or later (`requires-python`, as zarr 3), tested by CI on Python 3.11 to 3.14.
-- Docker image on Ubuntu 24.04 (Python 3.12), in a virtual environment; the image could not
-  install zarr 3 with the Python 3.10 of Ubuntu 22.04.
-- CI: tests fail below 65 % coverage; the coverage badge is updated on each push to `main`.
+- Python 3.11 to 3.14, all tested by CI (test matrix); build, lint and documentation on 3.12.
 - Default L2B name: the `L2A` level tag of the GRS NetCDF products is replaced by `L2B` as
   well (`MSIL2A` -> `MSIL2B`), not only `L2Agrs` (any case).
 - Batch processing notebook: a Zarr product is complete only when its levels hold the
   `Rrs` and `mask` arrays (a GRS run that failed while writing the store leaves them out).
 
+## [1.1.1] - 2026-10-23
+
 ### Fixed
 
 - `scipy` added to the dependencies: it is needed by the interpolations of xarray and was only
   installed by chance.
+- Python 3.11 or later (`requires-python`, as zarr 3), instead of 3.9.
+- Docker image on Ubuntu 24.04 (Python 3.12), in a virtual environment: the image could not
+  install zarr 3 with the Python 3.10 of Ubuntu 22.04.
+- Packing tests through a temporary file (in-memory NetCDF needs `h5netcdf`, not a dependency).
+- CI: the coverage badge is updated on each push to `main` (it was stuck at 23 %), and the
+  tests fail below 65 % coverage.
 
 ## [1.1.0] - 2026-10-21
 
@@ -111,5 +116,6 @@ repository.
 
 - First version, adapted from obs2co_l2bgen.
 
-[Unreleased]: https://github.com/Tristanovsk/GRSl2bgen/compare/v1.1.0...develop
+[Unreleased]: https://github.com/Tristanovsk/GRSl2bgen/compare/v1.1.1...develop
+[1.1.1]: https://github.com/Tristanovsk/GRSl2bgen/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Tristanovsk/GRSl2bgen/releases/tag/v1.1.0
