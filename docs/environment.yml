@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - default
 dependencies:
+  - python=3.12   # GRSl2bgen needs Python >= 3.11
   - gdal
   - dask
   - xarray

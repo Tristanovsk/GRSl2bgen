@@ -28,8 +28,9 @@ pip install -r requirements.txt
 pip install -e .[dev]
 ```
 
-The `dev` extra (see `pyproject.toml`) installs `black`, `isort`, `bumpver`, `pip-tools` and
-`pytest`.
+GRSl2bgen supports Python 3.11 to 3.14, all tested by CI; 3.12 is the version of the Docker
+image and of the documentation build. The `dev` extra (see `pyproject.toml`) installs `black`,
+`isort`, `bumpver`, `pip-tools`, `pytest` and `pytest-cov`.
 
 ## Code style
 
@@ -53,7 +54,6 @@ CI measures the test coverage of the package and fails below 65 % (about 80 % to
 locally with `pytest-cov`:
 
 ```bash
-pip install pytest-cov
 pytest tests/ --cov=GRSl2bgen --cov-report=term-missing
 ```
 

@@ -1,4 +1,5 @@
-import io
+import os
+import tempfile
 import unittest
 
 import numpy as np
@@ -13,11 +14,14 @@ def _roundtrip(values):
     scale_factor, add_offset = L2bProduct.compute_scale_and_offset(values, nbit=16)
     encoding = {'v': {'dtype': 'int16', 'scale_factor': scale_factor,
                       'add_offset': add_offset, '_FillValue': -32768}}
-    raw = xr.Dataset({'v': ('i', values)}).to_netcdf(encoding=encoding)
-    with xr.open_dataset(io.BytesIO(raw), mask_and_scale=False) as ds:
-        packed = ds['v'].values
-    with xr.open_dataset(io.BytesIO(raw)) as ds:
-        unpacked = ds['v'].values
+    # a file rather than bytes: in-memory NetCDF needs h5netcdf (or scipy), not a dependency
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, 'packing.nc')
+        xr.Dataset({'v': ('i', values)}).to_netcdf(path, encoding=encoding)
+        with xr.open_dataset(path, mask_and_scale=False) as ds:
+            packed = ds['v'].values
+        with xr.open_dataset(path) as ds:
+            unpacked = ds['v'].values
     return scale_factor, packed, unpacked
 
 

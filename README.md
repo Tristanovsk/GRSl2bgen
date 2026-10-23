@@ -1,7 +1,7 @@
 <img src="illustration/GRSl2bgen_bg.png" alt="GRSl2bgen_icon" width="100"/>
 
 # GRSl2bgen
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Python 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/Apache-2.0)
 [![L2BGEN](https://github.com/CNES/GRSl2bgen/actions/workflows/main.yml/badge.svg)](https://github.com/CNES/GRSl2bgen/actions)
 ![Coverage](badges/coverage.svg)
@@ -56,7 +56,7 @@ pages for the full product description and the equations of every retrieval.
 
 ## Installation
 
-From PyPI:
+GRSl2bgen requires Python 3.11 or later. From PyPI:
 
 ```bash
 pip install GRSl2bgen

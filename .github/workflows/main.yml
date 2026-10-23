@@ -28,6 +28,11 @@ jobs:
    # push of the coverage badge to main
    permissions:
      contents: write
+   # all the supported Python versions, each tested even if another one fails
+   strategy:
+     fail-fast: false
+     matrix:
+       python-version: ["3.11", "3.12", "3.13", "3.14"]
    steps:
       - uses: actions/checkout@v4
         with:
@@ -36,7 +41,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: Installation dépendances et lancement des tests
         run: |
@@ -54,7 +59,8 @@ jobs:
          
           # badge of the released code: updated on main only (the merge of a release or a hotfix),
           # pushed to the branch explicitly (the checkout is a detached HEAD)
-          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+          # (from the Python 3.12 job only, one badge commit per push)
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" && "${{ matrix.python-version }}" == "3.12" ]]; then
             echo "Génération du badge coverage"
             python -m pip install genbadge[coverage]
             mkdir -p badges
@@ -97,7 +103,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name : Build
         run: |
@@ -170,7 +176,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name : Install ruff and mypi
         run: pip install ruff mypy
