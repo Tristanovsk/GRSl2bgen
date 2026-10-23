@@ -23,6 +23,9 @@ jobs:
 # =============================================================================
   python-tests:
    runs-on: ubuntu-latest
+   # push of the coverage badge to main
+   permissions:
+     contents: write
    steps:
       - uses: actions/checkout@v4
         with:
@@ -45,9 +48,11 @@ jobs:
           python -m pip install pytest pytest-cov
           
           echo "Lancement des tests du répertoire  grs/tests/integration_tests/"
-          python -m pytest --tb=short -vv -s -x tests/ --cov=GRSl2bgen --cov-report=html:cov_html --cov-report=xml:coverage.xml --junitxml=test-results.xml
+          python -m pytest --tb=short -vv -s -x tests/ --cov=GRSl2bgen --cov-report=term --cov-report=html:cov_html --cov-report=xml:coverage.xml --cov-fail-under=65 --junitxml=test-results.xml
          
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+          # badge of the released code: updated on main only (the merge of a release or a hotfix),
+          # pushed to the branch explicitly (the checkout is a detached HEAD)
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
             echo "Génération du badge coverage"
             python -m pip install genbadge[coverage]
             mkdir -p badges
@@ -61,7 +66,7 @@ jobs:
 
             if ! git diff --cached --quiet; then
               git commit -m "Update coverage badge [skip ci]"
-              git push
+              git push origin HEAD:main
             fi
           fi
 
