@@ -48,6 +48,21 @@ def test_item_content(item, l2a_path):
     assert 4.4 < lon0 < lon1 < 4.6 and 43.4 < lat0 < lat1 < 43.6
 
 
+def test_derived_from_local_path(item, l2a_path):
+    d = json.load(open(item))
+    assert d['links'][0]['href'] == os.path.abspath(str(l2a_path).rstrip('/'))
+
+
+def test_derived_from_url_kept(tmp_path, l2b_nc):
+    """An L2A product in a bucket is linked by its URL, not turned into a local path."""
+    ofile = tmp_path / 'l2b.nc'
+    shutil.copy(l2b_nc, ofile)
+    url = 's3://bucket/L2A_zarr/31TFJ/2021/02/11/product/product.zarr'
+    d = json.load(open(write_stac_item(ofile, l2a=url + '/')))
+    assert [link['href'] for link in d['links'] if link['rel'] == 'derived_from'] == [url]
+    assert d['properties']['processing:lineage'].endswith(' product.zarr')
+
+
 def test_item_reads_with_pystac(item):
     it = pystac.Item.from_file(item)
     assert it.assets['data'].get_absolute_href() == os.path.join(os.path.dirname(item), 'l2b.nc')

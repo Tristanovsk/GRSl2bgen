@@ -37,6 +37,11 @@ repository.
 - Batch processing notebook: a Zarr product is complete only when its levels hold the
   `Rrs` and `mask` arrays (a GRS run that failed while writing the store leaves them out).
 
+### Fixed
+
+- STAC Item: the `derived_from` link of an L2A product given by URL (e.g. `s3://`) keeps the
+  URL; it was made a local absolute path (`<cwd>/s3:/bucket/...`).
+
 ## [1.1.1] - 2026-10-23
 
 ### Fixed

@@ -89,7 +89,8 @@ def make_stac_item(ofile, l2a=None, log_file=None):
     ofile : str
         L2B product (NetCDF file or Zarr store).
     l2a : str, optional
-        L2A input: ``derived_from`` link and lineage.
+        L2A input: ``derived_from`` link and lineage. A URL (e.g. ``s3://``) is
+        linked as given, a local path as an absolute path.
     log_file : str, optional
         Log of the run, added as a ``metadata`` asset.
 
@@ -147,7 +148,9 @@ def make_stac_item(ofile, l2a=None, log_file=None):
                                            title=f'{__package__} processing log', roles=['metadata'],
                                            extra_fields=_file_info(log_file)))
     if l2a:
-        item.add_link(pystac.Link('derived_from', os.path.abspath(str(l2a).rstrip('/')),
+        l2a = str(l2a).rstrip('/')
+        # a URL (s3://, https://) is kept as given, a local path made absolute
+        item.add_link(pystac.Link('derived_from', l2a if '://' in l2a else os.path.abspath(l2a),
                                   title='GRS L2A product'))
     return item
 
