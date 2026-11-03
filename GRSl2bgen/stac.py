@@ -1,8 +1,9 @@
 """STAC Item of an L2B product.
 
-The Item (``<name>.json``) is written next to the product and its log, with
-relative asset links, so that the product folder can be moved or uploaded as a
-whole (e.g. to an S3 bucket). It is written last, once the product and its log are
+The Item (``<name>.json``) is written next to the product, its log and its quick
+look (``<name>_ql_l2b.png``, see `GRSl2bgen.quicklook`), with relative asset
+links, so that the product folder can be moved or uploaded as a whole (e.g. to an
+S3 bucket). It is written last, once the product, its log and its quick look are
 complete: an existing Item marks a finished product.
 
 Extensions: projection (grid of the product), processing (software versions,
@@ -13,6 +14,7 @@ grid (MGRS tile).
 import datetime
 import hashlib
 import json
+import logging
 import os
 
 import numpy as np
@@ -21,6 +23,9 @@ import xarray as xr
 from pyproj import Transformer
 
 from . import __package__, __version__
+from .quicklook import write_quicklook
+
+logger = logging.getLogger(__name__)
 
 STAC_EXTENSIONS = [
     'https://stac-extensions.github.io/projection/v2.0.0/schema.json',
@@ -81,7 +86,7 @@ def _datetime(value):
     return datetime.datetime.fromisoformat(str(value).replace('Z', '+00:00'))
 
 
-def make_stac_item(ofile, l2a=None, log_file=None):
+def make_stac_item(ofile, l2a=None, log_file=None, quicklook=None):
     """Build the STAC Item of the L2B product `ofile`.
 
     Parameters
@@ -93,6 +98,8 @@ def make_stac_item(ofile, l2a=None, log_file=None):
         linked as given, a local path as an absolute path.
     log_file : str, optional
         Log of the run, added as a ``metadata`` asset.
+    quicklook : str, optional
+        Quick look PNG, added as a ``thumbnail`` asset.
 
     Returns
     -------
@@ -147,6 +154,10 @@ def make_stac_item(ofile, l2a=None, log_file=None):
         item.add_asset('log', pystac.Asset(href=os.path.abspath(log_file), media_type='text/plain',
                                            title=f'{__package__} processing log', roles=['metadata'],
                                            extra_fields=_file_info(log_file)))
+    if quicklook and os.path.isfile(quicklook):
+        item.add_asset('thumbnail', pystac.Asset(href=os.path.abspath(quicklook), media_type='image/png',
+                                                 title=f'{__package__} quick look', roles=['thumbnail'],
+                                                 extra_fields=_file_info(quicklook)))
     if l2a:
         l2a = str(l2a).rstrip('/')
         # a URL (s3://, https://) is kept as given, a local path made absolute
@@ -155,7 +166,7 @@ def make_stac_item(ofile, l2a=None, log_file=None):
     return item
 
 
-def write_stac_item(ofile, l2a=None, log_file=None, item_file=None):
+def write_stac_item(ofile, l2a=None, log_file=None, item_file=None, quicklook=True):
     """Write the STAC Item of `ofile` (see `make_stac_item`), atomically.
 
     Asset links are relative to the Item; the ``derived_from`` link stays as given.
@@ -166,6 +177,12 @@ def write_stac_item(ofile, l2a=None, log_file=None, item_file=None):
         See `make_stac_item`.
     item_file : str, optional
         Item path (default: `item_path` of `ofile`).
+    quicklook : bool or str, optional
+        True (default): write the quick look of the product next to it, before the
+        Item (`GRSl2bgen.quicklook.write_quicklook`), and add it as the ``thumbnail``
+        asset. If it cannot be written, a warning is logged and the Item is written
+        without it, so that the product is still complete. A path: an existing quick
+        look. False: no quick look.
 
     Returns
     -------
@@ -173,7 +190,13 @@ def write_stac_item(ofile, l2a=None, log_file=None, item_file=None):
         Path of the Item.
     """
     item_file = os.path.abspath(item_file or item_path(ofile))
-    item = make_stac_item(ofile, l2a=l2a, log_file=log_file)
+    if quicklook is True:
+        try:
+            quicklook = write_quicklook(ofile)
+        except Exception as e:
+            logger.warning(f'no quick look for {ofile}: {type(e).__name__}: {e}')
+            quicklook = None
+    item = make_stac_item(ofile, l2a=l2a, log_file=log_file, quicklook=quicklook or None)
     item_dir = os.path.dirname(item_file)
     for asset in item.assets.values():
         asset.href = './' + os.path.relpath(asset.href, item_dir)

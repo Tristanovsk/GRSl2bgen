@@ -544,19 +544,27 @@ Product folder, log and STAC Item
 ---------------------------------
 
 With ``--product_dir``, the CLI writes each product in its own folder, together with
-the log of the run and, with ``--stac``, its `STAC <https://stacspec.org>`_ Item:
+the log of the run and, with ``--stac``, its quick look and its `STAC <https://stacspec.org>`_ Item:
 
 .. code-block:: text
 
    <odir>/S2B_MSIL2B_<...>_V3.1.0/
        S2B_MSIL2B_<...>_V3.1.0.nc      (or .zarr/)   product
        S2B_MSIL2B_<...>_V3.1.0.log                   log of the run (see Log Format)
+       S2B_MSIL2B_<...>_V3.1.0_ql_l2b.png            quick look (Chl-a, SPM, Kd(PAR))
        S2B_MSIL2B_<...>_V3.1.0.json                  STAC Item
 
 One folder per product is the layout expected on object storage (one S3 prefix per
 item): a product is copied, listed or deleted as a whole, and two products of the same
-date never share a folder. Without ``--product_dir`` the three files are written side by
+date never share a folder. Without ``--product_dir`` the files are written side by
 side in the output directory.
+
+The quick look shows ``Chla_OC2nasa``, ``SPM_nechad`` and ``Kd_par`` over the valid water
+pixels (grey elsewhere), on fixed logarithmic colour scales so that the quick looks of
+different dates compare. It is read from a coarse level of a Zarr pyramid, or from one
+pixel out of ``step`` of the other products: a few seconds for a full tile. It is
+written before the Item; if it cannot be written, a warning is logged and the Item is
+written without it.
 
 The Item is written last, once the product and its log are complete (the product
 itself is written under a temporary name and renamed when complete): an existing Item
@@ -567,17 +575,17 @@ The Item holds:
 
 - ``geometry`` and ``bbox``: the product grid in longitude/latitude; ``datetime``: the
   acquisition time of the L1C;
-- the ``data`` asset (role ``data``) and the ``log`` asset (role ``metadata``), with
-  links relative to the Item (``./<name>.nc``), so that the folder can be moved or
-  uploaded unchanged;
+- the ``data`` asset (role ``data``), the ``log`` asset (role ``metadata``) and the
+  ``thumbnail`` asset (role ``thumbnail``, the quick look), with links relative to the
+  Item (``./<name>.nc``), so that the folder can be moved or uploaded unchanged;
 - extensions: `projection <https://github.com/stac-extensions/projection>`_
   (``proj:code``, ``proj:shape``, ``proj:transform``, ``proj:bbox``),
   `processing <https://github.com/stac-extensions/processing>`_ (``processing:level``
   ``L2B``, ``processing:software`` with the GRSl2bgen and GRS versions,
   ``processing:datetime``, ``processing:lineage``),
   `file <https://github.com/stac-extensions/file>`_ (``file:size`` and
-  ``file:checksum``, SHA2-256 multihash, of the NetCDF and the log; none for a Zarr
-  store), `eo <https://github.com/stac-extensions/eo>`_ (``eo:cloud_cover`` of the L1C)
+  ``file:checksum``, SHA2-256 multihash, of the NetCDF, the log and the quick look;
+  none for a Zarr store), `eo <https://github.com/stac-extensions/eo>`_ (``eo:cloud_cover`` of the L1C)
   and `grid <https://github.com/stac-extensions/grid>`_ (``grid:code``, MGRS tile);
 - a ``derived_from`` link to the L2A input, with its path as given to the CLI.
 
@@ -587,6 +595,9 @@ product::
    from GRSl2bgen.stac import write_stac_item
 
    write_stac_item('out/l2b.nc', l2a=l2a_path, log_file='out/l2b.log')
+
+``quicklook=False`` leaves out the quick look; :py:func:`GRSl2bgen.quicklook.write_quicklook`
+writes it alone.
 
 .. note::
 

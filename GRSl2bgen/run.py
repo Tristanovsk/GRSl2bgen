@@ -28,7 +28,8 @@ Options:
                    <dirname of ofile>/<name>/<name>.nc with -o), together with its log
                    and STAC Item, ready to be uploaded as a whole (e.g. to an S3 bucket).
   --stac           Write the STAC Item of the product, <name>.json, next to it, once
-                   the product and its log are complete.
+                   the product and its log are complete, with its quick look
+                   <name>_ql_l2b.png (Chl-a, SPM and Kd(PAR)) as thumbnail.
 
   The log of the run is written next to the output, named after it with the .log
   extension (e.g. <name>.log for <name>.nc).

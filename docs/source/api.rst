@@ -23,3 +23,4 @@
    GRSl2bgen.process
    GRSl2bgen.logger
    GRSl2bgen.stac
+   GRSl2bgen.quicklook

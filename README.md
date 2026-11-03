@@ -104,7 +104,8 @@ GRSl2bgen $img_dir/S2B_MSIL2Agrs_20220731T103629_N0400_R008_T31TFJ_20220731T1248
 - `--product_dir` writes the product in its own folder, `<odir>/<name>/`, with its log
   and STAC Item: one prefix per product, ready to upload to an S3 bucket.
 - `--stac` writes the STAC Item of the product, `<name>.json`, next to it, with relative
-  links to the product and its log.
+  links to the product, its log and its quick look `<name>_ql_l2b.png` (Chl-a, SPM and
+  Kd(PAR)), written with the Item.
 
 ### Python
 

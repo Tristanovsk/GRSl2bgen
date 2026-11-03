@@ -20,6 +20,10 @@ repository.
 - Case study notebook: light attenuation and transparency in the Étang de Berre.
 - Tests of the NetCDF L2A input and of the KD2 coefficients.
 - This changelog, also rendered as the History page of the documentation.
+- Quick look of the L2B product, `<name>_ql_l2b.png` (Chl-a, SPM and Kd(PAR) on fixed
+  logarithmic scales, read from a coarse pyramid level), written with the STAC Item
+  (`--stac`, `write_stac_item`) and added to it as its `thumbnail` asset
+  (`GRSl2bgen.quicklook`).
 
 ### Changed
 

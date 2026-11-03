@@ -26,7 +26,8 @@ def item(tmp_path_factory, l2b_nc, l2a_path):
 
 def test_item_next_to_product(item):
     assert item == item_path(os.path.join(os.path.dirname(item), 'l2b.nc'))
-    assert sorted(os.listdir(os.path.dirname(item))) == ['l2b.json', 'l2b.log', 'l2b.nc']
+    assert sorted(os.listdir(os.path.dirname(item))) == ['l2b.json', 'l2b.log', 'l2b.nc',
+                                                         'l2b_ql_l2b.png']
 
 
 def test_item_content(item, l2a_path):
@@ -73,7 +74,70 @@ def test_cli_product_dir_and_stac(tmp_path, l2a_path):
            l2a_path, '--odir', str(tmp_path), '--product_dir', '--stac', '--no_clobber']
     subprocess.run(run, check=True, capture_output=True)
     name = 'S2A_MSIL2B_20210211_T31TFJ_camargue_subset'
-    assert sorted(os.listdir(tmp_path / name)) == [name + ext for ext in ('.json', '.log', '.nc')]
+    assert sorted(os.listdir(tmp_path / name)) == [name + ext for ext in
+                                                   ('.json', '.log', '.nc', '_ql_l2b.png')]
     # complete product (its Item exists): skipped
     out = subprocess.run(run, check=True, capture_output=True, text=True).stdout
     assert 'already processed; skip!' in out
+
+
+def test_quicklook_asset(item):
+    """The quick look is written next to the product and is the thumbnail asset of the Item."""
+    d = json.load(open(item))
+    thumbnail = d['assets']['thumbnail']
+    assert thumbnail['href'] == './l2b_ql_l2b.png' and thumbnail['roles'] == ['thumbnail']
+    assert thumbnail['type'] == 'image/png' and thumbnail['file:checksum'].startswith('1220')
+    png = os.path.join(os.path.dirname(item), 'l2b_ql_l2b.png')
+    with open(png, 'rb') as f:
+        assert f.read(8) == b'\x89PNG\r\n\x1a\n'
+    assert thumbnail['file:size'] == os.path.getsize(png)
+
+
+def test_quicklook_of_pyramid(tmp_path, l2b_pyramid):
+    """A Zarr pyramid is read at its finest level not larger than max_size."""
+    from GRSl2bgen.quicklook import open_coarse, write_quicklook
+
+    with open_coarse(l2b_pyramid, max_size=64) as ds:
+        assert max(ds.sizes['x'], ds.sizes['y']) <= 64
+    with open_coarse(l2b_pyramid, max_size=1000) as ds:
+        assert ds.sizes['x'] == 128
+    png = write_quicklook(l2b_pyramid, path=tmp_path / 'ql.png', max_size=64)
+    assert png == str(tmp_path / 'ql.png') and os.path.getsize(png) > 0
+
+
+def test_item_without_quicklook(tmp_path, l2b_nc):
+    """quicklook=False: no image and no thumbnail asset."""
+    ofile = tmp_path / 'l2b.nc'
+    shutil.copy(l2b_nc, ofile)
+    d = json.load(open(write_stac_item(ofile, quicklook=False)))
+    assert 'thumbnail' not in d['assets']
+    assert sorted(os.listdir(tmp_path)) == ['l2b.json', 'l2b.nc']
+
+
+def test_failed_quicklook_keeps_item(tmp_path, l2b_nc, monkeypatch, caplog):
+    """A quick look that cannot be written leaves the Item without thumbnail, with a warning."""
+    import GRSl2bgen.stac as stac
+
+    def fail(ofile):
+        raise RuntimeError('no display')
+
+    monkeypatch.setattr(stac, 'write_quicklook', fail)
+    ofile = tmp_path / 'l2b.nc'
+    shutil.copy(l2b_nc, ofile)
+    d = json.load(open(stac.write_stac_item(ofile)))
+    assert 'thumbnail' not in d['assets']
+    assert 'no quick look' in caplog.text and 'no display' in caplog.text
+
+
+def test_quicklook_without_parameters(tmp_path, l2b_nc, caplog):
+    """A product without the parameters of the quick look gives no image, with a warning."""
+    import xarray as xr
+
+    from GRSl2bgen.quicklook import PANELS, write_quicklook
+
+    ofile = tmp_path / 'other.nc'
+    with xr.open_dataset(l2b_nc) as ds:
+        ds.drop_vars([p[0] for p in PANELS]).to_netcdf(ofile)
+    assert write_quicklook(ofile) is None
+    assert not os.path.exists(tmp_path / 'other_ql_l2b.png')
+    assert 'no quick look' in caplog.text
