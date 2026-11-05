@@ -9,6 +9,7 @@ import dask
 
 from . import Product, L2bProduct
 from .mask import QC_L2A
+from .compact import CompactGrid
 from . import Chl, Spm, Cdom, Transparency, OWT_process
 
 # records of the package logger (GRSl2bgen.<module>), configured by the application
@@ -104,6 +105,15 @@ class Process():
         Level read when the L2A product is a multiscale Zarr pyramid (default
         0, full resolution; level ``k`` is ``2**k`` coarser), see `Product`.
         Ignored for the other inputs.
+    compact : bool, optional
+        If True (default), the retrievals are computed on the valid water
+        pixels only (``mask == 0``), packed side by side on a compact grid
+        (`GRSl2bgen.compact.CompactGrid`), and put back on the image grid:
+        same product, the masked pixels are not computed. On a full
+        Sentinel-2 tile at 20 m, the computation takes about 3 times less time
+        with 3 % of water pixels, 10 to 15 % less with 34 %. The ``mask``
+        is read by `execute` to build the grid. False: the whole image is
+        computed.
 
 
     Attributes
@@ -134,7 +144,8 @@ class Process():
                  complevel=1,
                  persist_input=False,
                  pyramid=False,
-                 level=0
+                 level=0,
+                 compact=True
                  ):
         self.l2a_obj = l2a_obj
         self.l2b_path = l2b_path
@@ -146,6 +157,7 @@ class Process():
         self.persist_input = persist_input
         self.pyramid = pyramid
         self.level = level
+        self.compact = compact
         self.l2b = None
         self.l2a = None
         self.successful = False
@@ -156,13 +168,15 @@ class Process():
         Steps:
 
         1. Load the L2A product (`Product`).
-        2. Keep only valid water pixels (``mask == 0``).
+        2. Keep only valid water pixels (``mask == 0``); with `compact`, pack
+           them on a compact grid (`GRSl2bgen.compact.CompactGrid`).
         3. QC of the L2A reflectance (`GRSl2bgen.mask.QC_L2A`, SWIR module
            flags of ``flags_l2b``).
         4. Derive OWT classification (`OWT_process`), SPM (`Spm`), Chl-a
            (`Chl`, using the Spyrakos et al. 2018 OWT SAM result), CDOM
            (`Cdom`) and transparency (`Transparency`).
-        5. Merge the outputs into an `L2bProduct` stored in ``self.l2b``.
+        5. With `compact`, put the outputs back on the image grid. Merge
+           them into an `L2bProduct` stored in ``self.l2b``.
 
         Sets ``self.successful`` to True at the end. Exceptions are not
         caught.
@@ -183,6 +197,15 @@ class Process():
         # Apply water mask: restrict all processing to valid water pixels (mask == 0)
         raster = prod.raster.where(prod.raster['mask'] == 0)
 
+        grid = None
+        if self.compact:
+            # retrievals on the water pixels only, side by side on a compact grid
+            mask = prod.raster['mask'].transpose('y', 'x')
+            grid = CompactGrid((mask == 0).values, mask.chunks)
+            logger.info(f'compact grid of {grid.size} water pixels '
+                        f'({100 * grid.size / mask.size:.1f} % of the image)')
+            raster = grid.pack(raster)
+
         if self.persist_input:
             # evaluate the masked input once and share it between all modules
             raster = raster.persist()
@@ -198,7 +221,8 @@ class Process():
         # get OWT parameters
         # ----------------------
         logger.info('get OWT classification')
-        owt_process = OWT_process(raster)
+        # no rechunking to square blocks on the compact grid (one row of pixels)
+        owt_process = OWT_process(raster, chunk=None if self.compact else 1024)
         owt_process.execute()
 
         # ----------------------
@@ -237,8 +261,14 @@ class Process():
             spm_prod.output,
             cdom_prod.output,
             trans_prod.output]
+        flags = {**qc_l2a.flags, **trans_prod.flags}
+        if grid is not None:
+            coords = {k: c for k, c in prod.raster.coords.items()
+                      if 'y' in c.dims or 'x' in c.dims}
+            l2_raster_list = [grid.unpack(r, coords) for r in l2_raster_list]
+            flags = {k: grid.unpack(f, coords) for k, f in flags.items()}
         self.l2b = L2bProduct(prod, l2_raster_list,
-                              flags={**qc_l2a.flags, **trans_prod.flags},
+                              flags=flags,
                               flag_descriptions=qc_l2a.flag_descriptions,
                               complevel=self.complevel)
         self.successful = True

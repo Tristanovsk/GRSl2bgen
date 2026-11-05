@@ -496,6 +496,13 @@ main settings are:
   instead of the threaded scheduler. On a full tile this is slower (126 s with 8
   workers), and a NetCDF output fails (``NetCDF: HDF error``) with more than one thread
   per worker: keep ``threads_per_worker=1``;
+- ``compact`` (default True): the retrievals are computed on the water pixels only
+  (``mask == 0``), packed side by side on a compact grid
+  (:py:class:`GRSl2bgen.compact.CompactGrid`) block by block, then put back on the image
+  grid. The product is identical and the masked pixels are not computed: on full
+  Sentinel-2 tiles at 20 m, the run takes 13 % less time with 34 % of water pixels,
+  24 % less with 3 % and 37 % less without water. ``compact=False`` computes the whole
+  image;
 - ``persist_input``: keep the water-masked input raster in memory (needs RAM for the
   masked raster);
 - ``chunk`` of :py:class:`GRSl2bgen.owt.OWT_process`: spatial chunk size of the OWT

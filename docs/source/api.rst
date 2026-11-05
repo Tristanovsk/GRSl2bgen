@@ -21,6 +21,7 @@
    GRSl2bgen.utils
 
    GRSl2bgen.process
+   GRSl2bgen.compact
    GRSl2bgen.logger
    GRSl2bgen.stac
    GRSl2bgen.quicklook

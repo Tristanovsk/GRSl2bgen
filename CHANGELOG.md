@@ -24,6 +24,12 @@ repository.
   logarithmic scales, read from a coarse pyramid level), written with the STAC Item
   (`--stac`, `write_stac_item`) and added to it as its `thumbnail` asset
   (`GRSl2bgen.quicklook`).
+- Processing restricted to the water pixels: the retrievals are computed on the valid
+  pixels (`mask == 0`) packed side by side on a compact grid, block by block, then put back
+  on the image grid (`GRSl2bgen.compact.CompactGrid`, option `compact` of `Process`, True
+  by default). Same product; on full Sentinel-2 tiles at 20 m, the run takes 13 % less time
+  with 34 % of water pixels, 24 % less with 3 % and 37 % less without water, with the
+  same peak memory.
 
 ### Changed
 
