@@ -51,6 +51,12 @@ repository.
   dask; the file is unchanged and a full Sentinel-2 tile at 20 m is processed in about 70 s
   instead of 90 s, with the same peak memory (the memory freed by the dask threads is
   returned to the system, `malloc_trim` of glibc).
+- NetCDF output: with `persist=True`, the variables are packed to `int16` (and the OWT class
+  IDs to `uint8`) in parallel by dask, with the CF encoder of xarray, before the file is
+  written, instead of on one thread by the writer. Same file (values, attributes and their
+  order); on a full Sentinel-2 tile at 20 m the run is about 5 s faster with 34 % of water
+  pixels and 16 s faster without water. The packed copy is kept beside the product during
+  the write: up to 0.7 GB more peak memory on a tile with much water.
 
 ### Fixed
 

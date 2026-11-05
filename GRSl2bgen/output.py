@@ -6,6 +6,7 @@ import shutil
 
 import numpy as np
 import xarray as xr
+from xarray.conventions import encode_cf_variable, encode_dataset_coordinates
 import zarr
 import logging
 import datetime
@@ -382,9 +383,11 @@ class L2bProduct():
         persist : bool, optional
             If True, the whole dataset is computed once and held in memory
             before the packing ranges are determined and the file is written
-            (the lazy graph is evaluated once instead of twice), from numpy
-            arrays rather than through dask (faster, same file). Needs enough
-            RAM for all variables (default False).
+            (the lazy graph is evaluated once instead of twice). The variables
+            are then packed to their integer types in parallel by dask and
+            written from numpy arrays rather than through dask (faster, same
+            file, see `_pack_in_memory`). Needs enough RAM for all variables,
+            unpacked and packed (default False).
 
         Notes
         -----
@@ -409,19 +412,12 @@ class L2bProduct():
             if chunks is not None:
                 enc['chunksizes'] = tuple(c[0] for c in chunks)
 
+        if persist:
+            ds, encoding = self._pack_in_memory(encoding)
+        else:
+            ds = self.l2b_prod.copy(deep=False)
         # NetCDF has no boolean attribute type (e.g. ``gas_absorption_correction``
         # inherited from the L2A Rrs): write them as 0/1 integers
-        if persist:
-            # the persisted chunks are already in memory: written as numpy arrays,
-            # the file is written in one call per variable instead of one dask task
-            # per chunk under the HDF5 lock (about 30 s instead of 50 s for a full
-            # Sentinel-2 tile at 20 m, same file). Loaded in place and one variable
-            # at a time, so that the persisted chunks of a variable are released as
-            # soon as it is loaded: the product is held in memory only once.
-            for var in self.l2b_prod.variables.values():
-                var.load()
-                _trim_memory()
-        ds = self.l2b_prod.copy(deep=False)
         for attrs in [ds.attrs] + [v.attrs for v in ds.variables.values()]:
             for key, value in attrs.items():
                 if isinstance(value, (bool, np.bool_)):
@@ -433,6 +429,62 @@ class L2bProduct():
         self.l2b_prod.close()
 
         return
+
+    def _pack_in_memory(self, encoding):
+        """Packed product in memory, ready to be written to NetCDF.
+
+        The persisted product is packed to the integer types of `encoding`
+        (``int16`` with ``scale_factor``, ``add_offset`` and ``_FillValue``,
+        ``uint8`` class IDs) by the CF encoder of xarray, the one used by
+        ``to_netcdf``, applied lazily to the dask chunks: the packing runs in
+        parallel instead of on one thread in the writer, which is left with
+        the compression. The packed variables are then loaded as numpy arrays,
+        so that the file is written in one call per variable instead of one
+        dask task per chunk under the HDF5 lock. Same file as writing
+        ``self.l2b_prod`` with `encoding`.
+
+        ``self.l2b_prod`` is left unchanged (persisted, unpacked).
+
+        Parameters
+        ----------
+        encoding : dict
+            Output encoding of each variable (`_packing_encoding` plus the
+            compression and chunk sizes).
+
+        Returns
+        -------
+        ds : xarray.Dataset
+            Product with the packed variables in memory.
+        encoding : dict
+            Encoding left to the writer (compression, chunk sizes).
+        """
+        ds = self.l2b_prod.copy(deep=False)
+        # the ``coordinates`` attribute, set as in to_netcdf before the packing
+        # attributes, so that the attributes are written in the same order
+        with_coordinates, _ = encode_dataset_coordinates(ds)
+        write_encoding = {}
+        for name, enc in encoding.items():
+            var = ds.variables[name].copy(deep=False)
+            if _is_categorical(name) and not name.startswith(CLASS_ID_PREFIX):
+                # flags and mask keep their dtype: nothing to pack
+                write_encoding[name] = enc
+            else:
+                coordinates = with_coordinates[name].attrs.get('coordinates')
+                if coordinates is not None:
+                    var.attrs = {**var.attrs, 'coordinates': coordinates}
+                var.encoding = dict(enc)
+                var = encode_cf_variable(var, name=name)
+                write_encoding[name] = var.encoding
+                var.encoding = {}
+            # computed by dask (in parallel), one variable at a time; the memory
+            # freed by the dask threads is returned to the system (see _trim_memory)
+            var.load()
+            _trim_memory()
+            ds[name] = var
+        for name, var in ds.variables.items():
+            if name not in encoding:
+                var.load()
+        return ds, write_encoding
 
     def _write_zarr_group(self, ds, ofile, encoding, chunks,
                           group=None, mode='w', consolidated=None):
