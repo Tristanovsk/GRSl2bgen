@@ -5,7 +5,7 @@ Release history: CHANGELOG.md at the root of the repository.
 
 
 __package__ = 'GRSl2bgen'
-__version__ = '1.2.0dev0'
+__version__ = '1.2.0dev1'
 
 from .product import Product
 from .output import L2bProduct
