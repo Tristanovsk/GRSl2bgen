@@ -28,6 +28,21 @@ def _is_categorical(variable):
     return variable in CATEGORICAL or variable.startswith(CLASS_ID_PREFIX)
 
 
+def _trim_memory():
+    """Return the freed heap memory to the operating system (glibc only, else no-op).
+
+    The chunks computed by the dask threads are freed in the per-thread arenas of
+    glibc, which keeps them and does not reuse them for the arrays of the main
+    thread: without trimming, the memory of a product persisted then loaded is
+    counted twice (as dask.distributed does, see its ``trim_memory``).
+    """
+    try:
+        import ctypes
+        ctypes.CDLL('libc.so.6').malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
+
+
 def _json_safe(value):
     """Convert numpy scalars/arrays (recursively) to plain JSON-serializable Python objects."""
     if isinstance(value, np.generic):
@@ -367,7 +382,8 @@ class L2bProduct():
         persist : bool, optional
             If True, the whole dataset is computed once and held in memory
             before the packing ranges are determined and the file is written
-            (the lazy graph is evaluated once instead of twice). Needs enough
+            (the lazy graph is evaluated once instead of twice), from numpy
+            arrays rather than through dask (faster, same file). Needs enough
             RAM for all variables (default False).
 
         Notes
@@ -395,6 +411,16 @@ class L2bProduct():
 
         # NetCDF has no boolean attribute type (e.g. ``gas_absorption_correction``
         # inherited from the L2A Rrs): write them as 0/1 integers
+        if persist:
+            # the persisted chunks are already in memory: written as numpy arrays,
+            # the file is written in one call per variable instead of one dask task
+            # per chunk under the HDF5 lock (about 30 s instead of 50 s for a full
+            # Sentinel-2 tile at 20 m, same file). Loaded in place and one variable
+            # at a time, so that the persisted chunks of a variable are released as
+            # soon as it is loaded: the product is held in memory only once.
+            for var in self.l2b_prod.variables.values():
+                var.load()
+                _trim_memory()
         ds = self.l2b_prod.copy(deep=False)
         for attrs in [ds.attrs] + [v.attrs for v in ds.variables.values()]:
             for key, value in attrs.items():

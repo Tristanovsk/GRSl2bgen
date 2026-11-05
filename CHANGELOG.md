@@ -40,6 +40,11 @@ repository.
   well (`MSIL2A` -> `MSIL2B`), not only `L2Agrs` (any case).
 - Batch processing notebook: a Zarr product is complete only when its levels hold the
   `Rrs` and `mask` arrays (a GRS run that failed while writing the store leaves them out).
+- Faster NetCDF output: with `persist=True` (the default of `Process`), the L2B product,
+  already computed in memory, is written from numpy arrays instead of chunk by chunk through
+  dask; the file is unchanged and a full Sentinel-2 tile at 20 m is processed in about 70 s
+  instead of 90 s, with the same peak memory (the memory freed by the dask threads is
+  returned to the system, `malloc_trim` of glibc).
 
 ### Fixed
 
