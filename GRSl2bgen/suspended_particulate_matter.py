@@ -95,7 +95,14 @@ class Spm():
         spm = red.where(red > switch[0], spm_low)
         spm = spm.where(red < switch[1], spm_high)
         spm = spm.where((red <= switch[0]) | (red >= switch[1]), spm_mixing)
-        return spm.where((spm >= valid_limit[0]), 0).where(spm <= valid_limit[1])
+
+        spm = spm.where((red > 0) & (nir >= 0))
+        if valid_limit[0] is not None:
+            spm = spm.where(spm >= valid_limit[0])
+        if valid_limit[1] is not None:
+            spm = spm.where(spm <= valid_limit[1])
+
+        return spm
 
     def turbi_D15(self, switch=[0.05, 0.07],
                   coef_l=[228.1, 0.1641],
