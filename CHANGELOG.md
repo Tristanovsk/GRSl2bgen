@@ -5,7 +5,7 @@ All notable changes to GRSl2bgen are listed here, the most recent first. The for
 [Semantic Versioning](https://semver.org/). Dates are those of the version change in the
 repository.
 
-## [Unreleased] - 1.2.0dev2
+## [1.2.0] - 2026-11-17
 
 ### Added
 
