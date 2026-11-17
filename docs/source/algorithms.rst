@@ -136,14 +136,21 @@ dimension.
      - see ``owt_tarasenko2025.nc``
      - 1
      - Standardised :math:`\Rrs` (``m_nRrs``)
-   * - Cordeiro (2022), SPM
-     - 4
+   * - invRrs water types (``invRrsWT``), SPM
+     - 14
      - 2
-     - :math:`\Rrs` (``m_Rrs``), always with the Euclidean distance
-       :eq:`euclidean` since the classes differ mainly by their magnitude
+     - :math:`\Rrs` (``m_Rrs``), always with the spectral angle
 
-The Cordeiro (2022) classes (1: clear, 2: moderate, 3: turbid, 4: very turbid)
-are only used for the OWT-blended SPM product.
+The invRrs water types are simulated with the invRrs forward model (two size modes
+of mineral particles, phytoplankton and coloured dissolved and detrital matter,
+above-water reflectance), from oligotrophic to extremely turbid waters along the
+three axes of phytoplankton biomass (types 1--7), coloured dissolved matter (8--10)
+and mineral particles (11--14); each type is the median of 200 simulated spectra
+(``GRSl2bgen/data/owt_invrrs_water_types.nc``). They are only used for the
+OWT-blended SPM product, with the spectral angle: the turbid waters are recognised
+by the shape of their spectrum, whatever their brightness. They replace the four
+Cordeiro (2022) classes of GRSl2bgen 1.2.0, classified with the Euclidean distance,
+whose SPM blending was less accurate on the GLORIA data set (see below).
 
 Chlorophyll-a
 -------------
@@ -324,38 +331,48 @@ switching variable :math:`x` (see table):
 OWT-blended SPM (``SPM_OWTblend_Ta2025``, mg L\ :sup:`-1`)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Same scheme as the OWT-blended Chl-a (:eq:`chl-blend`), with the Cordeiro
-(2022) SPM classes, the :math:`K = 2` best classes and weights
-:math:`w_k = 1 / (d_{(k)} + \varepsilon)` from the Euclidean distance
-(:py:meth:`~GRSl2bgen.suspended_particulate_matter.Spm.spm_blending`).
+Same scheme as the OWT-blended Chl-a (:eq:`chl-blend`), with the invRrs water
+types, the :math:`K = 2` best classes and weights
+:math:`w_k = 1 / (d_{(k)} + \varepsilon)` from the spectral angle
+(:py:meth:`~GRSl2bgen.suspended_particulate_matter.Spm.spm_blending`, recipe
+``SPM_OWT_RECIPE``).
 Each class-specific estimate is first restricted to the validity range of its
-algorithm (values outside are NaN, hence left out of the blend), and the
+algorithm (values outside are NaN, hence left out of the blend). Where no
+blended estimate is valid, the algorithm of the best class is used without its
+validity range, if its estimate is within 0--2000 mg L\ :sup:`-1`, and the
 blended product is kept within :math:`0 < \mathrm{SPM} < 2000` mg L\ :sup:`-1`.
+
+On the GLORIA data set (Lehmann et al. 2023; 3038 samples with TSS, in situ
+:math:`\Rrs` integrated over the MSI bands), the median symmetric accuracy of the
+blended SPM is 70.5 % (bias -12 %), against 72.5 % (-18 %) with the Cordeiro
+(2022) classes it replaces: lower in lakes, coastal waters and estuaries, higher in
+rivers (141 % against 126 %, 193 samples); the recipe chosen on one half of the
+data sets and scored on the other gives 70.5--72.2 %.
 
 .. list-table::
    :header-rows: 1
    :widths: 18 37 20 25
 
-   * - Cordeiro OWT
+   * - invRrs water types
      - Algorithm
      - Equation
      - Validity range (mg L\ :sup:`-1`)
-   * - 1 (clear)
+   * - 1--6, 8--10 (biomass and CDOM types)
      - Jiang et al. (2021), QAA at 560 nm
      - :eq:`jiang-green`
      - [0, 50]
-   * - 2 (moderate)
+   * - 7 (hypereutrophic), 11 (moderately turbid)
      - Jiang et al. (2021), QAA at 665 nm
      - :eq:`jiang-red`
      - [10, 500]
-   * - 3 (turbid)
+   * - 12--14 (turbid to extremely turbid)
      - Zhang et al. (2014), power law at 705 nm
      - :eq:`zhang`
      - [20, 1000]
-   * - 4 (very turbid)
-     - Binding et al. (2010), 740 nm
-     - :eq:`binding`
-     - [50, 2000]
+
+The Binding et al. (2010) algorithm (:eq:`binding`) is kept in
+:py:class:`~GRSl2bgen.suspended_particulate_matter.Spm` (``recipe`` option) but
+not used by default: it was the least accurate algorithm on GLORIA.
 
 **Jiang et al. (2021).** Both versions estimate the particulate backscattering
 :math:`b_{bp}` with a quasi-analytical algorithm (QAA) from the
@@ -666,8 +683,11 @@ References
   Factors affecting the measurement of CDOM by remote sensing of optically
   complex inland waters. *Remote Sensing of Environment*, 157, 199--215.
   https://doi.org/10.1016/j.rse.2014.04.033
-- Cordeiro, T. (2022). SPM optical water types (4 classes, :math:`\Rrs` mean
-  spectra in ``GRSl2bgen/data/owt_cordeiro2022_spm.nc``).
+- Cordeiro, T. (2022). SPM optical water types (4 classes); used up to GRSl2bgen
+  1.2.0, replaced by the invRrs water types.
+- Lehmann, M. K., et al. (2023). GLORIA - A globally representative hyperspectral
+  in situ dataset for optical sensing of water quality. *Scientific Data*, 10, 100.
+  https://doi.org/10.1038/s41597-023-01973-y
 - Bricaud, A., Morel, A., Babin, M., Allali, K., Claustre, H. (1998).
   Variations of light absorption by suspended particles with chlorophyll a
   concentration in oceanic (case 1) waters: analysis and implications for

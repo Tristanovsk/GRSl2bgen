@@ -5,8 +5,8 @@ import xarray as xr
 
 from GRSl2bgen.suspended_particulate_matter import Spm
 
-OWT_DIST_VAR = 'owt_dist_Cordeiro2022SPM'
-OWT_INDEX_VAR = 'owt_index_Cordeiro2022SPM'
+OWT_DIST_VAR = 'owt_dist_invRrsWT'
+OWT_INDEX_VAR = 'owt_index_invRrsWT'
 
 # ============================================================
 # Fixtures
@@ -53,7 +53,7 @@ def xowt_prod():
     """Synthetic ranked OWT classification product."""
     return xr.Dataset(
         {
-            "owt_dist_Cordeiro2022SPM": (
+            OWT_DIST_VAR: (
                 ("Nclasses", "y", "x"),
                 np.array([
                     [
@@ -66,7 +66,7 @@ def xowt_prod():
                     ],
                 ], dtype=np.float32),
             ),
-            "owt_index_Cordeiro2022SPM": (
+            OWT_INDEX_VAR: (
                 ("Nclasses", "y", "x"),
                 np.array([
                     [
@@ -630,7 +630,8 @@ class TestSpmBlending:
 
         assert result.attrs["units"] == "mg L-1"
         assert result.attrs["n_classes_blended"] == 2
-        assert "Cordeiro" in result.attrs["references"]
+        assert "Jiang" in result.attrs["references"]
+        assert "Zhang" in result.attrs["references"]
 
     def test_custom_number_of_classes(self,spm, xowt_prod):
         result = spm.spm_blending(
@@ -709,7 +710,7 @@ class TestSpmBlending:
     def test_nan_distance(self,spm, xowt_prod):
         product = xowt_prod.copy()
 
-        product["owt_dist_Cordeiro2022SPM"][0, 0, 0] = np.nan
+        product[OWT_DIST_VAR][0, 0, 0] = np.nan
 
         result = spm.spm_blending(product,
             owt_dist_var=OWT_DIST_VAR,
@@ -811,3 +812,69 @@ class TestProcess:
         result = spm.process()
 
         assert result is None
+
+
+# ============================================================
+# Recipe of the invRrs water types and fallback
+# ============================================================
+
+def test_recipe_covers_the_14_water_types():
+    from GRSl2bgen.suspended_particulate_matter import SPM_OWT_RECIPE
+    classes = sorted(c for cls, _ in SPM_OWT_RECIPE.values() for c in cls)
+    assert classes == list(range(1, 15))
+
+
+def _single_class(spm, cls):
+    # every pixel in class `cls` (both ranks), distance 0.1
+    return xr.Dataset({OWT_DIST_VAR: (("Nclasses", "y", "x"), np.full((2, 2, 2), 0.1)),
+                       OWT_INDEX_VAR: (("Nclasses", "y", "x"), np.full((2, 2, 2), float(cls)))},
+                      coords={"Nclasses": [0, 1], "y": spm.Rrs.y, "x": spm.Rrs.x})
+
+
+def test_recipe_algorithm_of_each_group(spm):
+    R = {w: spm.Rrs.sel(wl=w) for w in (443, 490, 560, 665, 705)}
+    green = Spm._spm_jiang_green(R[443], R[490], R[560], R[665])
+    zhang = Spm._spm_zhang2014(R[705])
+    out1 = spm.spm_blending(_single_class(spm, 1), owt_dist_var=OWT_DIST_VAR, owt_index_var=OWT_INDEX_VAR,
+                            limits=False, fallback=False)
+    out12 = spm.spm_blending(_single_class(spm, 12), owt_dist_var=OWT_DIST_VAR, owt_index_var=OWT_INDEX_VAR,
+                             limits=False, fallback=False)
+    np.testing.assert_allclose(out1.values, green.transpose(*out1.dims).values, rtol=1e-5)
+    np.testing.assert_allclose(out12.values, zhang.transpose(*out12.dims).values, rtol=1e-5)
+
+
+def test_fallback_outside_validity_range():
+    # class 12 (Zhang 705, valid 20-1000): pixel 0 inside the range, pixel 1 below it (Rrs705 = 0.005)
+    wl = [443, 490, 560, 665, 705, 740]
+    rrs = np.array([[[0.01, 0.012, 0.015, 0.02, 0.025, 0.03],
+                     [0.01, 0.012, 0.015, 0.02, 0.005, 0.003]]])               # (y, x, wl)
+    spm = Spm(xr.Dataset({'Rrs': (('y', 'x', 'wl'), rrs)}, coords={'y': [0], 'x': [0, 1], 'wl': wl}))
+    prod = xr.Dataset({OWT_DIST_VAR: (("Nclasses", "y", "x"), np.full((2, 1, 2), 0.1)),
+                       OWT_INDEX_VAR: (("Nclasses", "y", "x"), np.full((2, 1, 2), 12.))},
+                      coords={"Nclasses": [0, 1], "y": [0], "x": [0, 1]})
+    zhang = Spm._spm_zhang2014(spm.Rrs.sel(wl=705)).values.ravel()
+    assert 20 <= zhang[0] <= 1000 and 0 <= zhang[1] < 20
+    without = spm.spm_blending(prod, owt_dist_var=OWT_DIST_VAR, owt_index_var=OWT_INDEX_VAR, fallback=False).values.ravel()
+    with_ = spm.spm_blending(prod, owt_dist_var=OWT_DIST_VAR, owt_index_var=OWT_INDEX_VAR).values.ravel()
+    np.testing.assert_allclose(without[0], zhang[0], rtol=1e-5)
+    assert np.isnan(without[1])                                    # outside the range: no valid estimate
+    np.testing.assert_allclose(with_, zhang, rtol=1e-5)            # fallback: algorithm of the best class
+
+
+def test_fallback_not_applied_to_unclassified_pixels():
+    wl = [443, 490, 560, 665, 705, 740]
+    rrs = np.array([[[0.01, 0.012, 0.015, 0.02, 0.005, 0.003]]])
+    spm = Spm(xr.Dataset({'Rrs': (('y', 'x', 'wl'), rrs)}, coords={'y': [0], 'x': [0], 'wl': wl}))
+    prod = xr.Dataset({OWT_DIST_VAR: (("Nclasses", "y", "x"), np.full((2, 1, 1), np.nan)),
+                       OWT_INDEX_VAR: (("Nclasses", "y", "x"), np.full((2, 1, 1), np.nan))},
+                      coords={"Nclasses": [0, 1], "y": [0], "x": [0]})
+    out = spm.spm_blending(prod, owt_dist_var=OWT_DIST_VAR, owt_index_var=OWT_INDEX_VAR)
+    assert np.isnan(out.values).all()
+
+
+def test_custom_recipe(spm):
+    prod = _single_class(spm, 1)
+    out = spm.spm_blending(prod, owt_dist_var=OWT_DIST_VAR, owt_index_var=OWT_INDEX_VAR, limits=False,
+                           recipe={'binding2010': ([1], (0, 2000))}, fallback=False)
+    binding = Spm._spm_binding2010(spm.Rrs.sel(wl=740))
+    np.testing.assert_allclose(out.values, binding.transpose(*out.dims).values, rtol=1e-5)

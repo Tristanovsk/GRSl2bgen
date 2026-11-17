@@ -32,8 +32,8 @@ Level-2A (Rrs, remote-sensing reflectance) product. Given one L2A product, it:
    cloud or mixed land/water pixels (:py:class:`GRSl2bgen.mask.QC_L2A`);
 3. classifies every pixel into Optical Water Types (OWT) against three databases
    (Spyrakos et al. 2018, Bi et al. 2024, Tarasenko et al. 2025) with the Spectral Angle
-   Mapper (or, optionally, the Euclidean distance), and against the SPM classes of
-   Cordeiro (2022) with the Euclidean distance;
+   Mapper (or, optionally, the Euclidean distance), and against the invRrs water types
+   (oligotrophic to extremely turbid waters) with the spectral angle, for the SPM;
 4. retrieves chlorophyll-a and suspended particulate matter (SPM), each with stand-alone
    algorithms and an OWT-blended product, turbidity, colored dissolved organic matter
    (CDOM, including two QAA v6 products that use the OWT-blended chlorophyll-a), and
@@ -213,9 +213,9 @@ description (dimensions, attributes, quality flags, packing).
    * - ``owt_index_Ta2025``, ``owt_dist_Ta2025``
      - --, rad
      - Best Tarasenko et al. (2025) class and its spectral angle
-   * - ``owt_index_Cordeiro2022SPM``, ``owt_dist_Cordeiro2022SPM``
-     - --, sr\ :sup:`-1`
-     - 2 best Cordeiro (2022) SPM classes and their Euclidean distances, along the
+   * - ``owt_index_invRrsWT``, ``owt_dist_invRrsWT``
+     - --, rad
+     - 2 best invRrs water types (SPM blending) and their spectral angles, along the
        ``Nclasses`` dimension (shared with Spyrakos2018, the third entry is NaN)
    * - ``Chla_OC2nasa``, ``Chla_M09B``, ``Chla_NIRB``
      - mg m\ :sup:`-3`
@@ -228,7 +228,7 @@ description (dimensions, attributes, quality flags, packing).
      - Suspended particulate matter
    * - ``SPM_OWTblend_Ta2025``
      - mg L\ :sup:`-1`
-     - OWT-blended suspended particulate matter (Cordeiro 2022 classes)
+     - OWT-blended suspended particulate matter (invRrs water types)
    * - ``TURB_dogliotti``
      - FNU
      - Turbidity (Dogliotti et al. 2015)
@@ -370,7 +370,7 @@ convention):
        ],
        "resampling_method": "average",
        "categorical_variables": ["owt_index_Spyrakos2018", "owt_index_Bi2024",
-                                 "owt_index_Ta2025", "owt_index_Cordeiro2022SPM",
+                                 "owt_index_Ta2025", "owt_index_invRrsWT",
                                  "flags", "flags_l2b", "mask"],
        "categorical_resampling_method": "nearest",
        "dims": ["y", "x"]

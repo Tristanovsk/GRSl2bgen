@@ -38,8 +38,8 @@ Example (300 x 300 pixel subset of a Sentinel-2 image):
        owt_index_Bi2024        (y, x) float32 ...
        owt_dist_Ta2025         (y, x) float32 ...
        owt_index_Ta2025        (y, x) float32 ...
-       owt_dist_Cordeiro2022SPM  (Nclasses, y, x) float32 ...
-       owt_index_Cordeiro2022SPM (Nclasses, y, x) float32 ...
+       owt_dist_invRrsWT       (Nclasses, y, x) float32 ...
+       owt_index_invRrsWT      (Nclasses, y, x) float32 ...
        Chla_OC2nasa            (y, x) float64 ...
        Chla_M09B               (y, x) float64 ...
        Chla_NIRB               (y, x) float64 ...
@@ -85,7 +85,7 @@ Dimensions and coordinates
      - dimension, ``int64``
      - Rank of the OWT class, ``0`` = best match, ``1`` = second best, ``2`` = third
        best. Only used by the Spyrakos et al. (2018) variables (3 ranks) and the
-       Cordeiro (2022) variables (2 ranks, the third one is NaN).
+       invRrs water types (2 ranks, the third one is NaN).
    * - ``time``
      - scalar, ``datetime64``
      - Acquisition date and time.
@@ -138,16 +138,17 @@ Optical Water Types
      - (y, x)
      - rad
      - Spectral angle to this class.
-   * - ``owt_index_Cordeiro2022SPM``
+   * - ``owt_index_invRrsWT``
      - (Nclasses, y, x)
      - --
-     - Class number (1--4) of the two best-matching SPM OWT of Cordeiro (2022),
-       ordered by increasing Euclidean distance. The ``Nclasses`` dimension is shared
-       with Spyrakos2018, so the third entry is NaN.
-   * - ``owt_dist_Cordeiro2022SPM``
+     - Class number (1--14) of the two best-matching invRrs water types (simulated
+       with the invRrs forward model, oligotrophic to extremely turbid waters), ordered
+       by increasing spectral angle; they blend the SPM algorithms. The ``Nclasses``
+       dimension is shared with Spyrakos2018, so the third entry is NaN.
+   * - ``owt_dist_invRrsWT``
      - (Nclasses, y, x)
-     - sr\ :sup:`-1`
-     - Euclidean distance :math:`d` (:eq:`euclidean`) to each of these classes.
+     - rad
+     - Spectral angle to each of these classes.
 
 The meaning of each class number is stored in the ``definition`` attribute of the
 ``owt_index_*`` variables:
@@ -173,8 +174,12 @@ The meaning of each class number is stored in the ``definition`` attribute of th
      - 1--10: Bi2024 types 1, 2, 3a, 3b, 4a, 4b, 5a, 5b, 6, 7;
        11: Cyanobacteria; 12: Mesodinium; 13: Dinoflagellates2; 14: red;
        15: Dinoflagellates1; 16: Lepidodinium.
-   * - Cordeiro2022SPM
-     - 1: clear; 2: moderate; 3: turbid; 4: very turbid.
+   * - invRrsWT
+     - 1: oligotrophic; 2: mesotrophic open sea; 3: mesotrophic coastal; 4: eutrophic
+       coastal; 5: productive / bloom; 6: phytoplankton bloom; 7: hypereutrophic;
+       8: CDOM-rich coastal; 9: CDOM-rich lake; 10: dark CDOM (black water);
+       11: moderately turbid; 12: turbid estuary; 13: very turbid; 14: extremely
+       turbid river.
 
 Chlorophyll-a
 ~~~~~~~~~~~~~
@@ -234,10 +239,11 @@ Suspended particulate matter and turbidity
    * - ``SPM_OWTblend_Ta2025``
      - mg L\ :sup:`-1`
      - ]0, 2000[, plus a validity range per class algorithm
-     - OWT-blended SPM: Cordeiro2022SPM classes, 2 best classes blended
-       (``n_classes_blended`` attribute) with Jiang et al. (2021), Zhang et al. (2014)
-       and Binding et al. (2010) (:eq:`jiang-green` to :eq:`binding`); only the
-       classes with a valid estimate are averaged.
+     - OWT-blended SPM: invRrs water types, 2 best classes blended
+       (``n_classes_blended`` attribute) with Jiang et al. (2021) green and red bands
+       and Zhang et al. (2014) (:eq:`jiang-green` to :eq:`zhang`); only the classes
+       with a valid estimate are averaged, and where none is valid the algorithm of the
+       best class is used without its validity range (within 0--2000).
 
 CDOM and transparency
 ~~~~~~~~~~~~~~~~~~~~~
@@ -465,8 +471,7 @@ Variable attributes
    * - Attribute
      - Content
    * - ``units``
-     - Physical unit (``radians`` for the SAM ``owt_dist_*`` variables, ``sr-1`` for
-       ``owt_dist_Cordeiro2022SPM``).
+     - Physical unit (``radians`` for the ``owt_dist_*`` variables, spectral angle).
    * - ``description``
      - Short description of the retrieval and of the bands used.
    * - ``applicability``

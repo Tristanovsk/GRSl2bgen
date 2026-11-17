@@ -8,7 +8,7 @@ from GRSl2bgen.product import Product
 
 EXPECTED_VARIABLES = (
     'owt_dist_Spyrakos2018', 'owt_index_Spyrakos2018',
-    'owt_dist_Cordeiro2022SPM', 'owt_index_Cordeiro2022SPM',
+    'owt_dist_invRrsWT', 'owt_index_invRrsWT',
     'Chla_OWTblend_Ta2025', 'SPM_OWTblend_Ta2025', 'TURB_dogliotti',
     'adg443_QAAv6Chl', 'Kd_par', 'Zsd_Lee15',
     'Kd490_KD2', 'Kd490_Lee13', 'Kd_par_Mo07', 'Zeu_Lee05', 'Kd_par_Lee05',

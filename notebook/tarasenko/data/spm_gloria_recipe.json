@@ -1,0 +1,151 @@
+{
+  "scores": {
+    "Cordeiro (GRSl2bgen)": {
+      "N": 3036.0,
+      "valid": 0.999,
+      "MdSA": 72.484,
+      "SSPB": -17.522
+    },
+    "invRrs WT (GRSl2bgen)": {
+      "N": 3036.0,
+      "valid": 0.999,
+      "MdSA": 70.499,
+      "SSPB": -11.835
+    },
+    "Nechad 665": {
+      "N": 3009.0,
+      "valid": 0.99,
+      "MdSA": 86.156,
+      "SSPB": -23.723
+    },
+    "OBS2CO 665/865": {
+      "N": 1311.0,
+      "valid": 0.432,
+      "MdSA": 73.022,
+      "SSPB": 36.572
+    },
+    "Jiang green": {
+      "N": 3038.0,
+      "valid": 1.0,
+      "MdSA": 75.548,
+      "SSPB": -29.968
+    },
+    "Jiang red": {
+      "N": 3034.0,
+      "valid": 0.999,
+      "MdSA": 70.447,
+      "SSPB": -10.156
+    },
+    "Zhang 705": {
+      "N": 3038.0,
+      "valid": 1.0,
+      "MdSA": 498.288,
+      "SSPB": -332.799
+    },
+    "Binding 740": {
+      "N": 2121.0,
+      "valid": 0.698,
+      "MdSA": 281.087,
+      "SSPB": -253.702
+    },
+    "invRrs WT, Cordeiro algorithms": {
+      "N": 2624.0,
+      "valid": 0.864,
+      "MdSA": 72.937,
+      "SSPB": -9.708
+    },
+    "invRrs WT, best algorithm (CV)": {
+      "N": 3035.0,
+      "valid": 0.999,
+      "MdSA": 73.905,
+      "SSPB": -16.925
+    }
+  },
+  "recipe": {
+    "WT01": {
+      "n": 5,
+      "algorithm": "Jiang green",
+      "score": null,
+      "cordeiro_algorithm": "Jiang green"
+    },
+    "WT02": {
+      "n": 98,
+      "algorithm": "Jiang green",
+      "score": 284.5,
+      "cordeiro_algorithm": "Jiang green"
+    },
+    "WT03": {
+      "n": 207,
+      "algorithm": "Jiang green",
+      "score": 52.1,
+      "cordeiro_algorithm": "Jiang green"
+    },
+    "WT04": {
+      "n": 325,
+      "algorithm": "Nechad 665",
+      "score": 46.3,
+      "cordeiro_algorithm": "Jiang red"
+    },
+    "WT05": {
+      "n": 444,
+      "algorithm": "Nechad 665",
+      "score": 69.9,
+      "cordeiro_algorithm": "Jiang red"
+    },
+    "WT06": {
+      "n": 294,
+      "algorithm": "Jiang green",
+      "score": 85.3,
+      "cordeiro_algorithm": "Jiang red"
+    },
+    "WT07": {
+      "n": 163,
+      "algorithm": "Jiang red",
+      "score": 152.6,
+      "cordeiro_algorithm": "Jiang red"
+    },
+    "WT08": {
+      "n": 172,
+      "algorithm": "Jiang green",
+      "score": 50.7,
+      "cordeiro_algorithm": "Jiang green"
+    },
+    "WT09": {
+      "n": 404,
+      "algorithm": "Jiang green",
+      "score": 47.8,
+      "cordeiro_algorithm": "Jiang red"
+    },
+    "WT10": {
+      "n": 621,
+      "algorithm": "Jiang green",
+      "score": 83.1,
+      "cordeiro_algorithm": "Jiang green"
+    },
+    "WT11": {
+      "n": 233,
+      "algorithm": "Jiang red",
+      "score": 72.9,
+      "cordeiro_algorithm": "Zhang 705"
+    },
+    "WT12": {
+      "n": 58,
+      "algorithm": "Jiang red",
+      "score": 145.7,
+      "cordeiro_algorithm": "Zhang 705"
+    },
+    "WT13": {
+      "n": 7,
+      "algorithm": "Binding 740",
+      "score": null,
+      "cordeiro_algorithm": "Binding 740"
+    },
+    "WT14": {
+      "n": 7,
+      "algorithm": "Binding 740",
+      "score": null,
+      "cordeiro_algorithm": "Binding 740"
+    }
+  },
+  "n_samples": 3038
+}

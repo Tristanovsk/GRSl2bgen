@@ -27,8 +27,9 @@ OWT_Bi2024_file = files(__package__ +
 
 OWT_tarasenko2025_file = files(__package__ +
                                '.data').joinpath('owt_tarasenko2025.nc')
-OWT_cordeiro2022_spm_file = files(__package__ +
-                                  '.data').joinpath('owt_cordeiro2022_spm.nc')
+# water types simulated with invRrs, oligotrophic to extremely turbid waters (SPM blending, `GRSl2bgen.Spm`)
+OWT_invrrs_wt_file = files(__package__ +
+                           '.data').joinpath('owt_invrrs_water_types.nc')
 
 
 def handle_negative_rrs(Rrs, method='offset', negative_tolerance=5e-4, wl_dim='wl'):
@@ -80,9 +81,10 @@ class OWT():
             Externally supplied OWT spectra with dimensions (owt, wl). If given,
             `owt_database` is ignored.
         owt_database : {'Spyrakos2018', 'Bi2024', 'Tarasenko2025',
-                        'Cordeiro2022SPM'}, optional
-            Built-in OWT database. ``Cordeiro2022SPM`` uses its raw ``m_Rrs``
-            spectra and always uses Euclidean distance.
+                        'invRrsWT'}, optional
+            Built-in OWT database. ``invRrsWT``: 14 water types simulated with
+            the invRrs forward model, from oligotrophic to extremely turbid
+            waters (``m_Rrs``, sr-1), used to blend the SPM algorithms.
         owt_database_name : str, optional
             Suffix for the output variable names, e.g. ``'Spyrakos2018'`` gives
             ``owt_index_Spyrakos2018`` and ``owt_dist_Spyrakos2018``.
@@ -133,10 +135,6 @@ class OWT():
                  negative_handling='offset',
                  negative_tolerance=5e-4,
                  Nproc=8):
-
-        # Cordeiro's raw-Rrs OWT definition uses Euclidean distance.
-        if xowt is None and owt_database == 'Cordeiro2022SPM':
-            spectral_distance = 'euclidean'
 
         self.param = param
         self.chunk = chunk
@@ -236,23 +234,20 @@ class OWT():
                 self.param = self.owt.name
                 self.attrs_owt = self.owt.owt.values
                 self.cmap_owt = mpl.colormaps['Spectral_r']
-            elif self.owt_database == 'Cordeiro2022SPM':
-                with xr.open_dataarray(OWT_cordeiro2022_spm_file) as data:
-                    self.owt = data.load()
+            elif self.owt_database == 'invRrsWT':
+                with xr.open_dataarray(OWT_invrrs_wt_file) as data:
+                    data = data.load()
+                self.owt_info = {i + 1: dict(color=str(c), label=str(lab))
+                                 for i, (c, lab) in enumerate(zip(data.color.values, data.label.values))}
+                self.owt = data.drop_vars([c for c in data.coords if c not in ('owt', 'wl')])
                 self.param = self.owt.name
-                self.owt_info = {
-                    1: dict(color='#4dac26', label='OWT1: Clear'),
-                    2: dict(color='#b8e186', label='OWT2: Moderate'),
-                    3: dict(color='#f1b6da', label='OWT3: Turbid'),
-                    4: dict(color='#d01c8b', label='OWT4: Very turbid'),
-                }
             else:
                 raise ValueError(f'unknown OWT database {self.owt_database!r}')
 
             if self.owt_database in ('Spyrakos2018', 'Bi2024'):
                 self.owt = owt[self.param]
 
-            if self.owt_database in ('Spyrakos2018', 'Bi2024', 'Cordeiro2022SPM'):
+            if self.owt_database in ('Spyrakos2018', 'Bi2024', 'invRrsWT'):
                 colors = []
                 attrs = ''
                 for key, info in self.owt_info.items():
@@ -362,8 +357,9 @@ class OWT():
 
         fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(9, 6))
         ax.minorticks_on()
-        for iowt, group in self.owt.groupby('owt'):
-            group.plot(color=self.owt_info[iowt]['color'], lw=3)
+        for k, iowt in enumerate(self.owt.owt.values, start=1):
+            info = self.owt_info.get(iowt, self.owt_info.get(k))
+            self.owt.sel(owt=iowt).plot(color=info['color'], lw=3)
         ax.set_title('')
         if self.param == "m_nRrs":
             ax.set_ylabel(r'$Standardized\ R_{rs}\ (nm^{-1})$', fontsize=20)
@@ -381,9 +377,8 @@ class OWT_process():
 
     Classifies the raster against the Spyrakos et al. (2018) OWT (top 3
     classes), the Bi et al. (2024) OWT, the Tarasenko et al. (2025) OWT, and
-    the Cordeiro (2022) SPM OWT (best two classes).  The Cordeiro OWT always
-    uses Euclidean distance on unnormalised Rrs, independently of
-    ``spectral_distance``.
+    the invRrs water types (best two classes, spectral angle, independently
+    of ``spectral_distance``), which blend the SPM algorithms.
 
     Parameters
     ----------
@@ -400,7 +395,7 @@ class OWT_process():
 
     Attributes
     ----------
-    xowt_spyrakos2018, xowt_bi2024, xowt_Ta2025, xowt_Cordeiro2022SPM : xarray.Dataset
+    xowt_spyrakos2018, xowt_bi2024, xowt_Ta2025, xowt_invRrsWT : xarray.Dataset
         Per-database results.
     owt_sam_spyrakos2018 : xarray.Dataset
         Spyrakos2018 result in the form expected by ``Chl``: variables
@@ -457,23 +452,22 @@ class OWT_process():
         self.cmaps['Tarasenko2025'] = OWT_kernel.cmap_owt
         self.xowt_Ta2025 = OWT_kernel.multi_process()
 
-        # NOTE: Cordeiro (2022) SPM OWT mean spectra are unnormalised Rrs.so,
-        # always this is executed with magnitude-driven distance metrics, such as
-        #  with Euclidean distance.
-        owt_database = 'Cordeiro2022SPM'
+        # invRrs water types for the SPM blending: spectral angle (the turbid waters are identified by the shape
+        # of their spectrum, the magnitude of the simulated types being that of a given particle population)
+        owt_database = 'invRrsWT'
         OWT_kernel = OWT(self.raster,
                          owt_database=owt_database,
-                         owt_database_name='Cordeiro2022SPM',
+                         owt_database_name='invRrsWT',
                          param='m_Rrs',
-                         spectral_distance='euclidean',
+                         spectral_distance='sam',
                          chunk=self.chunk,
                          Nproc=self.Nproc,
                          Nclasses_to_be_saved=2,
                          )
-        self.cmaps['Cordeiro2022SPM'] = OWT_kernel.cmap_owt
-        self.xowt_Cordeiro2022SPM = OWT_kernel.multi_process()
+        self.cmaps['invRrsWT'] = OWT_kernel.cmap_owt
+        self.xowt_invRrsWT = OWT_kernel.multi_process()
 
         self.output = xr.merge([self.xowt_spyrakos2018,
                                 self.xowt_bi2024,
                                 self.xowt_Ta2025,
-                                self.xowt_Cordeiro2022SPM], compat='no_conflicts', join='outer')
+                                self.xowt_invRrsWT], compat='no_conflicts', join='outer')

@@ -606,7 +606,7 @@ class TestOwtProcess:
             "Spyrakos2018",
             "Bi2024",
             "Tarasenko2025",
-            "Cordeiro2022SPM",
+            "invRrsWT",
         ]
 
         assert [c["database"] for c in calls] == expected_databases
@@ -620,8 +620,8 @@ class TestOwtProcess:
         # Tarasenko2025 uses the default SAM distance.
         assert calls[2]["spectral_distance"] == "sam"
 
-        # Cordeiro2022SPM always uses Euclidean distance.
-        assert calls[3]["spectral_distance"] == "euclidean"
+        # the invRrs water types always use the spectral angle.
+        assert calls[3]["spectral_distance"] == "sam"
 
         # Check the number of saved classes.
         assert calls[0]["Nsaved"] == 3
@@ -644,7 +644,7 @@ class TestOwtProcess:
         assert hasattr(process, "xowt_spyrakos2018")
         assert hasattr(process, "xowt_bi2024")
         assert hasattr(process, "xowt_Ta2025")
-        assert hasattr(process, "xowt_Cordeiro2022SPM")
+        assert hasattr(process, "xowt_invRrsWT")
 
         # Check the merged output.
         assert isinstance(process.output, xr.Dataset)
@@ -656,8 +656,8 @@ class TestOwtProcess:
             "owt_index_Bi2024",
             "owt_dist_Ta2025",
             "owt_index_Ta2025",
-            "owt_dist_Cordeiro2022SPM",
-            "owt_index_Cordeiro2022SPM",
+            "owt_dist_invRrsWT",
+            "owt_index_invRrsWT",
         ]
 
         for variable in expected_variables:
@@ -712,8 +712,8 @@ class TestOwtProcess:
 
         assert calls[0]["spectral_distance"] == "euclidean"
 
-        # Cordeiro must also use Euclidean distance.
-        assert calls[3]["spectral_distance"] == "euclidean"
+        # the invRrs water types keep the spectral angle.
+        assert calls[3]["spectral_distance"] == "sam"
 
 
 # ============================================================
@@ -769,3 +769,18 @@ class TestNegativeRrs:
         res = OWT(raster, xowt=xowt, owt_database_name='test', negative_handling='mask').multi_process()
         assert np.isnan(res['owt_index_test'].sel(y=0, x=1))
         assert np.isfinite(res['owt_index_test'].sel(y=1)).all()
+
+
+def test_invrrs_water_types_database():
+    """Built-in invRrs water types: 14 classes in sr-1, labels and colours, classified by spectral angle."""
+    wl = [443, 490, 560, 665, 705, 740, 783]
+    raster = xr.Dataset({'Rrs': (('wl', 'y', 'x'), np.full((len(wl), 1, 2), 0.01))},
+                        coords={'wl': wl, 'y': [0], 'x': [0, 1]})
+    o = OWT(raster, owt_database='invRrsWT', owt_database_name='invRrsWT', Nclasses_to_be_saved=2)
+    assert o.Nowt == 14
+    assert list(o.owt.owt.values[:2]) == ['WT01', 'WT02']
+    assert len(o.owt_info) == 14 and o.owt_info[14]['label'].startswith('WT14')
+    res = o.multi_process()
+    assert res['owt_dist_invRrsWT'].attrs['units'] == 'radians'
+    assert res.sizes['Nclasses'] == 2
+    assert np.isfinite(res['owt_index_invRrsWT']).all()

@@ -6,6 +6,17 @@ from importlib_resources import files
 from . import __package__
 from .config import SEL_XARRAY_METHOD
 
+# OWT-blended SPM: SPM algorithm of each invRrs water type (1-based classes of
+# data/owt_invrrs_water_types.nc, WT01-WT14) and its validity range (mg L-1).
+# Recipe validated on GLORIA (3038 samples with TSS, MSI bands, spectral angle,
+# two classes): MdSA 70.5 %, bias -12 %, against 72.5 % and -18 % with the
+# Cordeiro (2022) OWT it replaces (GRSl2bgen notebook/tarasenko/08).
+SPM_OWT_RECIPE = {
+    'jiang_green': ([1, 2, 3, 4, 5, 6, 8, 9, 10], (0, 50)),   # biomass and CDOM types
+    'jiang_red': ([7, 11], (10, 500)),                        # hypereutrophic, moderately turbid
+    'zhang2014': ([12, 13, 14], (20, 1000)),                  # turbid to extremely turbid
+}
+
 
 class Spm():
     def __init__(self,
@@ -59,8 +70,8 @@ class Spm():
             spm_blend = self.spm_blending(
                 self.xowt_prod,
                 Nclasses=self.Nclasses,
-                owt_dist_var='owt_dist_Cordeiro2022SPM',
-                owt_index_var='owt_index_Cordeiro2022SPM',
+                owt_dist_var='owt_dist_invRrsWT',
+                owt_index_var='owt_index_invRrsWT',
             )
             spm_blend = self.set_range(spm_blend)
             spm_blend.attrs['range'] = [0, 2000]
@@ -141,48 +152,10 @@ class Spm():
         return coefs[0] * rho_wl / (1 - (rho_wl / coefs[1]))
 
     # ------------------------------------------------------------------
-    # OWT-blended SPM (Tavares et al. 2025 / Cordeiro 2022)
+    # Algorithms of the OWT-blended SPM
     # ------------------------------------------------------------------
 
     # @staticmethod
-    # def compute_spm_owt_distances(Rrs):
-    #     """Per-pixel Euclidean distance to each of the 4 Cordeiro2022 SPM OWT mean spectra.
-    #     Returns dist (4, H, W) float32. NaN where any of the 9 bands is NaN.
-    #     """
-    #     owt_means = _load_spm_owt_means()   # (4, 9)
-    #     # sel on a list preserves the wl dim -> (9, H, W); one dask compute for all 9 bands
-    #     rrs_stack = Rrs.sel(wl=_SPM_OWT_WLS).values.astype(np.float32)  # (9, H, W)
-    #     nan_mask  = ~np.all(np.isfinite(rrs_stack), axis=0)              # (H, W)
-    #     H, W = rrs_stack.shape[1], rrs_stack.shape[2]
-    #     dist = np.full((4, H, W), np.nan, dtype=np.float32)
-    #     for k in range(4):
-    #         diff = rrs_stack - owt_means[k, :, None, None]
-    #         dist[k] = np.where(nan_mask, np.nan, np.sqrt(np.sum(diff ** 2, axis=0)))
-    #     return dist  # (4, H, W)
-
-    # @staticmethod
-    # def compute_owt_weights(dist_np, n=2):
-    #     """Top-n OWT classes and blending weights from an (N, H, W) Euclidean distance array.
-    #     Smaller distance = better match. Same formula as Chl.compute_owt_weights.
-    #     Returns owt_classes (n, H, W) float32 (1-based) and owt_weights (n, H, W) float32.
-    #     """
-    #     N, H, W     = dist_np.shape
-    #     sorted_idx  = np.argsort(dist_np, axis=0)
-    #     sorted_dist = np.take_along_axis(dist_np, sorted_idx, axis=0)
-    #     top_dist    = sorted_dist[:n + 1]    # (n+1, H, W)
-    #     top_idx     = sorted_idx[:n]         # (n, H, W), 0-based
-    #     d_best      = top_dist[0]
-    #     d_ref       = top_dist[n]            # (n+1)-th as reference
-    #     denom       = d_best - d_ref
-    #     owt_classes = (top_idx + 1).astype(np.float32)
-    #     owt_weights = np.full((n, H, W), np.nan, dtype=np.float32)
-    #     valid       = np.isfinite(denom) & (denom != 0)
-    #     for i in range(n):
-    #         owt_weights[i] = np.where(
-    #             valid, (top_dist[i] - d_ref) / denom, np.nan
-    #         ).astype(np.float32)
-    #     return owt_classes, owt_weights
-
     @staticmethod
     def _spm_jiang_green(R443, R490, R560, R665):
         """Jiang et al. 2021, QAA at 560 nm (OWT 1, clear)."""
@@ -232,79 +205,51 @@ class Spm():
         denom = (0.54 * 128.123 / np.pi) + 0.48 * rho
         return (scale * (2.8 * rho / denom - 0.00027)).astype(np.float32)
 
-    # def _owt_spm_from_class(self, class_px, limits=True):
-    #     """Dispatch 1-based OWT class map (H, W) to the appropriate SPM algorithm."""
-    #     R443 = self.Rrs.sel(wl=443, method=SEL_XARRAY_METHOD).values.squeeze()
-    #     R490 = self.Rrs.sel(wl=490, method=SEL_XARRAY_METHOD).values.squeeze()
-    #     R560 = self.Rrs.sel(wl=560, method=SEL_XARRAY_METHOD).values.squeeze()
-    #     R665 = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD).values.squeeze()
-    #     R705 = self.Rrs.sel(wl=705, method=SEL_XARRAY_METHOD).values.squeeze()
-    #     R740 = self.Rrs.sel(wl=740, method=SEL_XARRAY_METHOD).values.squeeze()
-    #     H, W = R665.shape
-    #     spm  = np.full((H, W), np.nan, dtype=np.float32)
-
-    #     mask = class_px == 1
-    #     if mask.any():
-    #         val = self._spm_jiang_green(R443, R490, R560, R665)
-    #         if limits:
-    #             val = np.where((val >= 0) & (val <= 50), val, np.nan)
-    #         spm = np.where(mask, val, spm)
-
-    #     mask = class_px == 2
-    #     if mask.any():
-    #         val = self._spm_jiang_red(R443, R490, R560, R665)
-    #         if limits:
-    #             val = np.where((val >= 10) & (val <= 500), val, np.nan)
-    #         spm = np.where(mask, val, spm)
-
-    #     mask = class_px == 3
-    #     if mask.any():
-    #         val = self._spm_zhang2014(R705)
-    #         if limits:
-    #             val = np.where((val >= 20) & (val <= 1000), val, np.nan)
-    #         spm = np.where(mask, val, spm)
-
-    #     mask = class_px == 4
-    #     if mask.any():
-    #         val = self._spm_binding2010(R740)
-    #         if limits:
-    #             val = np.where((val >= 50) & (val <= 2000), val, np.nan)
-    #         spm = np.where(mask, val, spm)
-
-    #     return spm.astype(np.float32)
-
     def spm_blending(self,
                      xowt_prod,
                      Nclasses=2,
                      owt_dist_var='owt_dist',
                      owt_index_var='owt_index',
                      eps=1e-6,
-                     limits=True):
-        """Blend OWT-classified SPM estimates using the ranked OWT distances.
+                     limits=True,
+                     recipe=None,
+                     fallback=True):
+        """Blend the SPM algorithms of the best-matching OWT (invRrs water types).
 
-        This follows :meth:`GRSl2bgen.chlorophyll_a.Chl.owt_blending`: the
-        best ``Nclasses`` ranked OWT matches are selected, each estimate is
+        The best ``Nclasses`` ranked OWT matches are selected (as
+        :meth:`GRSl2bgen.chlorophyll_a.Chl.owt_blending`), each estimate is
         weighted by ``1 / (distance + eps)``, and the weighted sum is divided
         by the sum of the weights of the valid (not NaN, in range) estimates,
-        so an invalid estimate is left out rather than counted as 0. Pixels
-        with no valid estimate are NaN.  The Cordeiro2022 OWT-to-algorithm recipe is
-        OWT 1: Jiang et al. (2021, green), OWT 2: Jiang et al. (2021, red),
-        OWT 3: Zhang et al. (2014), and OWT 4: Binding et al. (2010).
+        so an invalid estimate is left out rather than counted as 0. Where no
+        blended estimate is valid, the algorithm of the best class is used
+        without its validity range (``fallback``), if its estimate is within
+        0-2000 mg L-1. The algorithm of each class is given by `SPM_OWT_RECIPE`
+        (invRrs water types, see ``data/owt_invrrs_water_types.nc``): Jiang et
+        al. (2021) green band for the biomass and CDOM types, Jiang et al.
+        (2021) red band for the hypereutrophic and moderately turbid types, and
+        Zhang et al. (2014) 705 nm for the turbid to extremely turbid types.
 
         Parameters
         ----------
         xowt_prod : xarray.Dataset
-            Cordeiro2022 OWT output containing ranked distance and 1-based class
-            index variables with dimensions ``(Nclasses, y, x)``.
+            OWT output containing ranked distance and 1-based class index
+            variables with dimensions ``(Nclasses, y, x)``.
         Nclasses : int, optional
             Number of ranked OWT matches to blend (default 2).  It is capped
             at the number present in ``xowt_prod``.
         owt_dist_var, owt_index_var : str, optional
-            Names of the Cordeiro distance and class-index variables.
+            Names of the distance and class-index variables.
         eps : float, optional
             Small positive value added to distances before inversion.
         limits : bool, optional
-            Apply the existing class-specific SPM validity ranges.
+            Apply the class-specific SPM validity ranges.
+        recipe : dict, optional
+            {algorithm: (1-based classes, (min, max))}, default `SPM_OWT_RECIPE`;
+            algorithms: ``jiang_green``, ``jiang_red``, ``zhang2014``,
+            ``binding2010``.
+        fallback : bool, optional
+            Use the algorithm of the best class without its validity range
+            where no blended estimate is valid (default True).
 
         Returns
         -------
@@ -313,8 +258,8 @@ class Spm():
         """
         if 'Nclasses' not in xowt_prod.dims:
             raise ValueError(
-                'Cordeiro2022 OWT blending requires ranked OWT >= 2'
-                'Set the Nclasses_to_be_saved >= 2'
+                'OWT blending of SPM requires ranked OWT >= 2: '
+                'set Nclasses_to_be_saved >= 2'
             )
 
         Nclasses = min(xowt_prod.sizes['Nclasses'], Nclasses)
@@ -327,17 +272,14 @@ class Spm():
         R705 = self.Rrs.sel(wl=705, method=SEL_XARRAY_METHOD)
         R740 = self.Rrs.sel(wl=740, method=SEL_XARRAY_METHOD)
 
-        # OWT class, algorithm and validity range (used if `limits`)
-        recipe = [
-            # OWT 1: Jiang et al. (2021), green-band QAA.
-            ([1], lambda: self._spm_jiang_green(R443, R490, R560, R665), (0, 50)),
-            # OWT 2: Jiang et al. (2021), red-band QAA.
-            ([2], lambda: self._spm_jiang_red(R443, R490, R560, R665), (10, 500)),
-            # OWT 3: Zhang et al. (2014), 705-nm power law.
-            ([3], lambda: self._spm_zhang2014(R705), (20, 1000)),
-            # OWT 4: Binding et al. (2010), 740-nm semi-analytical model.
-            ([4], lambda: self._spm_binding2010(R740), (50, 2000)),
-        ]
+        algorithms = {
+            'jiang_green': lambda: self._spm_jiang_green(R443, R490, R560, R665),
+            'jiang_red': lambda: self._spm_jiang_red(R443, R490, R560, R665),
+            'zhang2014': lambda: self._spm_zhang2014(R705),
+            'binding2010': lambda: self._spm_binding2010(R740),
+        }
+        recipe = SPM_OWT_RECIPE if recipe is None else recipe
+        estimates = {name: algorithms[name]() for name in recipe}
 
         # inverse-distance weighting as in Chl.owt_blending: the weights of a
         # class only enter the norm where its estimate is valid, so an
@@ -345,9 +287,9 @@ class Spm():
         # of counting as 0
         spm = 0
         norm = 0
-        for owt_index_to_keep, algo, (minval, maxval) in recipe:
+        for name, (owt_index_to_keep, (minval, maxval)) in recipe.items():
             mask = self.create_mask_from_owt(xowt_prod[owt_index_var], owt_index_to_keep)
-            estimate = algo()
+            estimate = estimates[name]
             if limits:
                 estimate = estimate.where((estimate >= minval) & (estimate <= maxval))
             weights = (1 / (xowt_prod[owt_dist_var].where(mask) + eps)).where(estimate.notnull())
@@ -356,17 +298,24 @@ class Spm():
 
         norm = norm.sum('Nclasses')
         spm = spm.sum('Nclasses') / norm.where(norm > 0)
+        if fallback:
+            # no valid blended estimate: algorithm of the best class without its validity range
+            best = xowt_prod[owt_index_var].isel(Nclasses=0)
+            for name, (owt_index_to_keep, _) in recipe.items():
+                estimate = estimates[name]
+                use = (spm.isnull() & self.create_mask_from_owt(best, owt_index_to_keep)
+                       & (estimate >= 0) & (estimate <= 2000))
+                spm = spm.where(~use, estimate)
         spm = spm.astype(np.float32)
         spm.name = 'SPM_OWTblend_Ta2025'
         spm.attrs = {
             'description': (
-                'OWT-blended SPM from Cordeiro (2022) SPM OWT and '
-                'class-specific SPM algorithms, weighted by inverse Euclidean '
-                'distance'
+                'OWT-blended SPM: invRrs water types (spectral angle) and '
+                'class-specific SPM algorithms, weighted by the inverse distance'
             ),
             'references': (
-                'Cordeiro, T. (2022); Jiang et al. (2021); '
-                'Zhang et al. (2014); Binding et al. (2010)'
+                'Harmel et al. (invRrs water types); Jiang et al. (2021); '
+                'Zhang et al. (2014)'
             ),
             'units': 'mg L-1',
             'n_classes_blended': Nclasses,
@@ -384,64 +333,3 @@ class Spm():
             else:
                 mask |= xowt_raster == owt_num
         return mask
-
-    # def process_blended(self, n=2, limits=True):
-    #     """OWT-blended SPM (Tavares et al. 2025), Cordeiro2022 4-class Euclidean OWT.
-    #     Sets self.spm_blend (SPM_OWTblend) and self.owt_index_spm (owt_index_Cordeiro2022_SPM).
-    #     """
-    #     owt_dist = self.compute_spm_owt_distances(self.Rrs)     # (4, H, W)
-    #     # capture before any zeroing: NaN dist means non-water pixel
-    #     water_mask = np.any(np.isfinite(owt_dist), axis=0)
-    #     owt_classes, owt_weights = self.compute_owt_weights(owt_dist, n=n)
-
-    #     aux_spm = np.stack(
-    #         [self._owt_spm_from_class(owt_classes[i], limits=limits) for i in range(n)]
-    #     )  # (n, H, W)
-
-    #     ref = aux_spm[0]
-    #     for i in range(1, n):
-    #         outlier = np.abs(aux_spm[i] - ref) > 4 * np.abs(ref)
-    #         owt_weights[i] = np.where(outlier, 0.0, owt_weights[i])
-    #         aux_spm[i]     = np.where(outlier, 0.0, aux_spm[i])
-
-    #     for i in range(n):
-    #         nan_mask = ~np.isfinite(aux_spm[i])
-    #         owt_weights[i] = np.where(nan_mask, 0.0, owt_weights[i])
-    #         aux_spm[i]     = np.where(nan_mask, 0.0, aux_spm[i])
-
-    #     weight_sum = owt_weights.sum(axis=0)
-    #     spm_blend  = np.where(
-    #         weight_sum > 0,
-    #         (owt_weights * aux_spm).sum(axis=0) / weight_sum,
-    #         np.nan,
-    #     ).astype(np.float32)
-
-    #     ref_da = self.Rrs.sel(wl=665, method=SEL_XARRAY_METHOD).drop_vars('wl', errors='ignore')
-    #     scalar_coords = [c for c in ref_da.coords if c not in ref_da.dims and ref_da[c].ndim == 0]
-    #     ref_da = ref_da.drop_vars(scalar_coords, errors='ignore')
-
-    #     self.spm_blend = xr.DataArray(
-    #         spm_blend,
-    #         dims=ref_da.dims,
-    #         coords=ref_da.coords,
-    #         name='SPM_OWTblend',
-    #         attrs={
-    #             'description': 'OWT-blended SPM (Tavares et al. 2025), Cordeiro2022 4-class Euclidean OWT',
-    #             'units': 'mg/L',
-    #             'n_classes_blended': n,
-    #             'reference': (
-    #                 'Cordeiro, T. (2022); Jiang et al. (2021); '
-    #                 'Zhang et al. (2014); Binding et al. (2010)'
-    #             ),
-    #         },
-    #     )
-
-    #     # dominant class index for diagnostics, analogous to owt_index_Spyrakos2018
-    #     dominant   = owt_classes[0].astype(np.float32)
-    #     self.owt_index_spm = xr.DataArray(
-    #         np.where(water_mask, dominant, np.nan),
-    #         dims=ref_da.dims,
-    #         coords=ref_da.coords,
-    #         name='owt_index_Cordeiro2022_SPM',
-    #         attrs={'description': 'Dominant SPM OWT class (Cordeiro2022, 4-class Euclidean distance)'},
-    #     )

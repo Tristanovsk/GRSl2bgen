@@ -7,6 +7,32 @@ repository.
 
 ## [Unreleased]
 
+### Changed
+
+- **OWT of the SPM blending: the Cordeiro (2022) classes are replaced by 14 water types
+  simulated with invRrs** (`owt_database='invRrsWT'`, `data/owt_invrrs_water_types.nc`),
+  from oligotrophic to extremely turbid waters along the biomass, CDOM and mineral
+  particle axes, classified with the spectral angle (2 best classes). Recipe
+  (`GRSl2bgen.suspended_particulate_matter.SPM_OWT_RECIPE`): Jiang et al. (2021) green
+  band for the biomass and CDOM types, Jiang et al. (2021) red band for the
+  hypereutrophic and moderately turbid types, Zhang et al. (2014) for the turbid to
+  extremely turbid types; where no blended estimate is in its validity range, the
+  algorithm of the best class is used without it (within 0-2000 mg L-1, option
+  `fallback`). On GLORIA (3038 samples with TSS, MSI bands): median symmetric accuracy
+  70.5 % and bias -12 %, against 72.5 % and -18 % with Cordeiro, every sample with a
+  value; better in lakes, coastal waters and estuaries, worse in rivers (141 % against
+  126 %, 193 samples); recipe cross-validated by data set (70.5-72.2 %). On a Loire
+  image (30TWT, 2017-04-12), the clear waters are unchanged and the turbid ones 1.3-1.8
+  times higher. Output: `owt_index_invRrsWT` and `owt_dist_invRrsWT` (radians) replace
+  `owt_index_Cordeiro2022SPM` and `owt_dist_Cordeiro2022SPM`; `SPM_OWTblend_Ta2025`
+  keeps its name. `Spm.spm_blending` takes the options `recipe` and `fallback`.
+
+### Removed
+
+- The Cordeiro (2022) OWT database (`owt_database='Cordeiro2022SPM'`,
+  `data/owt_cordeiro2022_spm.nc`, `data/Means_OWT_Cordeiro_S2A_SPM.json`) and the
+  commented-out former implementation of the SPM blending.
+
 ### Fixed
 
 - OWT classification with negative L2A reflectance: the spectral angle and the Euclidean
