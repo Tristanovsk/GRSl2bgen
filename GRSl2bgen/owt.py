@@ -31,6 +31,38 @@ OWT_cordeiro2022_spm_file = files(__package__ +
                                   '.data').joinpath('owt_cordeiro2022_spm.nc')
 
 
+def handle_negative_rrs(Rrs, method='offset', negative_tolerance=5e-4, wl_dim='wl'):
+    """Reflectance used by the OWT classification when some bands are negative (lazy for dask input).
+
+    Parameters
+    ----------
+    Rrs : xarray.DataArray
+        Reflectance (sr-1) with the wavelength dimension `wl_dim`.
+    method : {'offset', 'clip', 'mask', None}, optional
+        - ``'offset'`` (default): spectrally flat offset, the spectrum of a pixel with a negative band
+          is raised by ``-min(Rrs)`` so that its minimum is 0 (residual of the atmospheric correction
+          assumed spectrally flat); every pixel stays classified, the level of negativity being
+          reported by the ``neg_rrs_*`` flags of `GRSl2bgen.mask.QC_L2A`;
+        - ``'clip'``: negative values set to 0;
+        - ``'mask'``: pixels with a band below ``-negative_tolerance`` set to NaN (not classified),
+          the other negative values set to 0;
+        - ``None``: `Rrs` unchanged.
+    negative_tolerance : float, optional
+        Tolerance (sr-1) of ``method='mask'`` (default 5e-4, as the GRS flag ``neg_rrs``).
+    """
+    if method is None:
+        return Rrs
+    if method == 'offset':
+        offset = (-Rrs.min(wl_dim)).clip(min=0)
+        return Rrs + offset
+    if method == 'clip':
+        return Rrs.clip(min=0)
+    if method == 'mask':
+        invalid = (Rrs < -negative_tolerance).any(wl_dim)
+        return Rrs.where(~invalid).clip(min=0)
+    raise ValueError(f'unknown negative_handling {method!r}')
+
+
 class OWT():
     """Optical Water Type (OWT) retrieval from L2A images.
 
@@ -68,6 +100,14 @@ class OWT():
             Spectral range used for the SAM (default ``slice(350, 800)``).
         chunk : int, optional
             Spatial chunk size (pixels) for dask-backed input.
+        negative_handling : {'offset', 'clip', 'mask', None}, optional
+            Treatment of negative ``Rrs`` within `wl_range` before the
+            spectral distance (default ``'offset'``, see
+            `handle_negative_rrs`): over-corrected bands (e.g. 443 nm) give
+            false bloom-like shapes, and the classification of these pixels
+            should be read with the ``neg_rrs_*`` flags of ``flags_l2b``.
+        negative_tolerance : float, optional
+            Tolerance (sr-1) of ``negative_handling='mask'`` (default 5e-4).
         Nproc : int, optional
             Deprecated and unused (kept for backward compatibility): parallelism
             now comes from dask and numba.
@@ -90,6 +130,8 @@ class OWT():
                  Nclasses_to_be_saved=1,
                  wl_range=slice(350, 800),
                  chunk=1024,
+                 negative_handling='offset',
+                 negative_tolerance=5e-4,
                  Nproc=8):
 
         # Cordeiro's raw-Rrs OWT definition uses Euclidean distance.
@@ -101,7 +143,9 @@ class OWT():
         self.Nproc = Nproc
         self.raster = raster
 
-        self.Rrs = raster.Rrs.sel(wl=wl_range)
+        self.negative_handling = negative_handling
+        self.negative_tolerance = negative_tolerance
+        self.Rrs = handle_negative_rrs(raster.Rrs.sel(wl=wl_range), negative_handling, negative_tolerance)
         self.Nwl = self.Rrs.sizes['wl']
         self.height = self.Rrs.sizes['y']
         self.width = self.Rrs.sizes['x']

@@ -415,7 +415,7 @@ same ``flag_names`` and ``flag_descriptions`` attributes and the same decoding:
      - 2
      - ``swir_module_low``
      - SWIR module of the L2A reflectance,
-       :math:`\sqrt{\Rrs(1610)^2 + \Rrs(2200)^2}` (nearest bands), above 0.002 sr\ :sup:`-1`
+       :math:`\sqrt{\Rrs(1610)^2 + \Rrs(2200)^2}` (nearest bands), above 0.0005 sr\ :sup:`-1`
    * - 2
      - 4
      - ``swir_module_medium``
@@ -424,6 +424,25 @@ same ``flag_names`` and ``flag_descriptions`` attributes and the same decoding:
      - 8
      - ``swir_module_high``
      - SWIR module above 0.01 sr\ :sup:`-1`
+   * - 4
+     - 16
+     - ``neg_rrs_low``
+     - level of negativity :math:`-\min(\Rrs)` over the bands of the OWT classification
+       (350-800 nm) above 1·10\ :sup:`-4` sr\ :sup:`-1` (noise of clear waters)
+   * - 5
+     - 32
+     - ``neg_rrs_medium``
+     - level of negativity above 5·10\ :sup:`-4` sr\ :sup:`-1` (tolerance of the GRS ``neg_rrs``)
+   * - 6
+     - 64
+     - ``neg_rrs_high``
+     - level of negativity above 2·10\ :sup:`-3` sr\ :sup:`-1`
+   * - 7
+     - 128
+     - ``neg_rrs_swir``
+     - ``neg_rrs_medium`` and SWIR module above the low threshold: over-correction where the
+       SWIR is not black (mixed land/water, adjacency, floating or emerged vegetation); the
+       OWT class of these pixels (computed after a flat offset, ``-min(Rrs)``) is not reliable
    * - 12
      - 4096
      - ``zsd_a_below_aw``

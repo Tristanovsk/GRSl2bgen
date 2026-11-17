@@ -714,3 +714,58 @@ class TestOwtProcess:
 
         # Cordeiro must also use Euclidean distance.
         assert calls[3]["spectral_distance"] == "euclidean"
+
+
+# ============================================================
+# Negative reflectance
+# ============================================================
+
+def _rrs_with_negatives():
+    # pixel (0, 0): small negative; (0, 1): large negative; row 1: positive
+    data = np.array([
+        [[0.010, 0.010], [0.010, 0.010]],
+        [[0.008, -0.002], [0.008, 0.008]],
+        [[-0.0001, 0.004], [0.004, 0.004]],
+    ])
+    return xr.DataArray(data, dims=('wl', 'y', 'x'), coords={'wl': [400, 500, 600], 'y': [0, 1], 'x': [0, 1]})
+
+
+class TestNegativeRrs:
+
+    def test_offset(self):
+        from GRSl2bgen.owt import handle_negative_rrs
+        rrs = _rrs_with_negatives()
+        out = handle_negative_rrs(rrs, 'offset')
+        assert np.allclose(out.min('wl').sel(y=0), 0.)                         # minimum brought to 0
+        assert np.allclose(out.sel(y=0, x=1), rrs.sel(y=0, x=1) + 0.002)      # flat offset
+        assert np.allclose(out.sel(y=1), rrs.sel(y=1))                         # positive pixels unchanged
+        assert np.isfinite(out).all()
+
+    def test_clip(self):
+        from GRSl2bgen.owt import handle_negative_rrs
+        out = handle_negative_rrs(_rrs_with_negatives(), 'clip')
+        assert out.sel(wl=500, y=0, x=1) == 0. and out.sel(wl=600, y=0, x=0) == 0.
+
+    def test_mask(self):
+        from GRSl2bgen.owt import handle_negative_rrs
+        out = handle_negative_rrs(_rrs_with_negatives(), 'mask', 5e-4)
+        assert out.sel(y=0, x=1).isnull().all()
+        assert out.sel(wl=600, y=0, x=0) == 0.
+
+    def test_none_and_unknown(self):
+        from GRSl2bgen.owt import handle_negative_rrs
+        rrs = _rrs_with_negatives()
+        xr.testing.assert_identical(handle_negative_rrs(rrs, None), rrs)
+        with pytest.raises(ValueError):
+            handle_negative_rrs(rrs, 'foo')
+
+    def test_owt_default_offset_classifies_all(self, xowt):
+        raster = xr.Dataset({'Rrs': _rrs_with_negatives()})
+        res = OWT(raster, xowt=xowt, owt_database_name='test').multi_process()
+        assert np.isfinite(res['owt_index_test']).all()
+
+    def test_owt_mask(self, xowt):
+        raster = xr.Dataset({'Rrs': _rrs_with_negatives()})
+        res = OWT(raster, xowt=xowt, owt_database_name='test', negative_handling='mask').multi_process()
+        assert np.isnan(res['owt_index_test'].sel(y=0, x=1))
+        assert np.isfinite(res['owt_index_test'].sel(y=1)).all()

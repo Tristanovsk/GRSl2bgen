@@ -10,9 +10,16 @@ a separate ``uint32`` bit field, ``flags_l2b``: bit ``i`` is set when the condit
 bit    name                    meaning
 =====  ======================  ==============================================================
 1      ``swir_module_low``     SWIR module of the L2A ``Rrs`` above the low threshold
-                               (`QC_L2A`, default 0.002 sr-1)
+                               (`QC_L2A`, default 0.0005 sr-1)
 2      ``swir_module_medium``  SWIR module above the medium threshold (default 0.005 sr-1)
 3      ``swir_module_high``    SWIR module above the high threshold (default 0.01 sr-1)
+4      ``neg_rrs_low``         minimum of the L2A ``Rrs`` over the bands of the OWT
+                               classification (350-800 nm) below -1e-4 sr-1 (`QC_L2A`)
+5      ``neg_rrs_medium``      minimum below -5e-4 sr-1 (tolerance of the GRS ``neg_rrs``)
+6      ``neg_rrs_high``        minimum below -2e-3 sr-1
+7      ``neg_rrs_swir``        ``neg_rrs_medium`` and SWIR module above the low threshold:
+                               over-correction where the SWIR is not black (mixed
+                               land/water, adjacency, floating or emerged vegetation)
 12     ``zsd_a_below_aw``      ``Zsd_Lee15``: QAA total absorption below the pure water
                                absorption at the transparent band, set to ``aw``
                                (`GRSl2bgen.transparency.Transparency`)
@@ -41,6 +48,10 @@ L2B_FLAGS = {
     'swir_module_low': (1, 'SWIR module of the L2A Rrs above the low threshold'),
     'swir_module_medium': (2, 'SWIR module of the L2A Rrs above the medium threshold'),
     'swir_module_high': (3, 'SWIR module of the L2A Rrs above the high threshold'),
+    'neg_rrs_low': (4, 'minimum of the L2A Rrs over the OWT bands below the low threshold'),
+    'neg_rrs_medium': (5, 'minimum of the L2A Rrs over the OWT bands below the medium threshold'),
+    'neg_rrs_high': (6, 'minimum of the L2A Rrs over the OWT bands below the high threshold'),
+    'neg_rrs_swir': (7, 'neg_rrs_medium and SWIR module above the low threshold'),
     'zsd_a_below_aw': (12, 'Zsd_Lee15: QAA v6 total absorption below the pure water absorption '
                            'at the transparent band, set to aw'),
 }
@@ -97,16 +108,32 @@ class QC_L2A:
     ``swir_module_medium`` < ``swir_module_high``, so a pixel above the
     highest threshold has the three bits set).
 
+    Negative reflectance: the level of negativity is the opposite of the
+    minimum of ``Rrs`` over the bands of ``negative_wl_range`` (those of the
+    OWT classification); ``neg_rrs_low``, ``neg_rrs_medium`` and
+    ``neg_rrs_high`` are set where it exceeds each of the three thresholds
+    (cumulative, as the SWIR flags). The GRS flag ``neg_rrs`` only tests 490
+    and 565 nm. Small negative values are noise of clear waters in the red
+    and near infrared; large ones (mostly at 443 nm) are an over-correction
+    that goes with a non-black SWIR, flagged by ``neg_rrs_swir``
+    (``neg_rrs_medium`` and SWIR module above the low threshold).
+
     Parameters
     ----------
     raster : xarray.Dataset
         L2A dataset with ``Rrs`` (sr-1) and a ``wl`` dimension.
     swir_module_thresholds : tuple of float, optional
         Three increasing thresholds (sr-1) of the SWIR module (default
-        ``(0.002, 0.005, 0.01)``).
+        ``(0.0005, 0.005, 0.01)``).
     swir_bands : tuple of float, optional
         The two SWIR wavelengths (nm), nearest available band used (default
         ``(1610, 2200)``).
+    negative_thresholds : tuple of float or None, optional
+        Three increasing thresholds (sr-1) of the level of negativity
+        (default ``(1e-4, 5e-4, 2e-3)``); ``None``: flags not computed.
+    negative_wl_range : tuple of float, optional
+        Wavelength range (nm) tested (default ``(350, 800)``, the
+        ``wl_range`` of the OWT classification).
 
     Attributes
     ----------
@@ -120,10 +147,14 @@ class QC_L2A:
 
     swir_flag_names = ('swir_module_low', 'swir_module_medium', 'swir_module_high')
 
-    def __init__(self, raster, swir_module_thresholds=(0.0005, 0.005, 0.01), swir_bands=(1610, 2200)):
+    def __init__(self, raster, swir_module_thresholds=(0.0005, 0.005, 0.01), swir_bands=(1610, 2200),
+                 negative_thresholds=(1e-4, 5e-4, 2e-3), negative_wl_range=(350, 800)):
         self.raster = raster
         self.swir_module_thresholds = swir_module_thresholds
         self.swir_bands = swir_bands
+        self.negative_thresholds = negative_thresholds
+        self.negativity = None
+        self.negative_wl_range = negative_wl_range
         self.swir_module = None
         self.flags = {}
         self.flag_descriptions = {}
@@ -142,6 +173,24 @@ class QC_L2A:
             self.flags[name] = self.swir_module > threshold
             self.flag_descriptions[name] = (f'SWIR module sqrt(Rrs1**2 + Rrs2**2) of the L2A Rrs, bands '
                                             f'{bands} nm, above {threshold} sr-1')
+
+        vis = Rrs.sel(wl=slice(*self.negative_wl_range))
+        if self.negative_thresholds is not None and vis.sizes['wl'] > 0:
+            neg = (-vis.min('wl')).clip(min=0)
+            self.negativity = neg.drop_vars([c for c in neg.coords if c == 'wl' or 'wl' in neg[c].dims],
+                                            errors='ignore')
+            self.negativity.name = 'Rrs_negativity'
+            wls = ', '.join(f'{float(w):.0f}' for w in vis.wl.values)
+            for level, threshold in zip(('low', 'medium', 'high'), self.negative_thresholds):
+                self.flags[f'neg_rrs_{level}'] = self.negativity > threshold
+                self.flag_descriptions[f'neg_rrs_{level}'] = (
+                    f'minimum of the L2A Rrs over the bands of the OWT classification ({wls} nm) '
+                    f'below -{threshold} sr-1')
+            self.flags['neg_rrs_swir'] = self.flags['neg_rrs_medium'] & self.flags['swir_module_low']
+            self.flag_descriptions['neg_rrs_swir'] = (
+                f'minimum of the L2A Rrs below -{self.negative_thresholds[1]} sr-1 and SWIR module above '
+                f'{self.swir_module_thresholds[0]} sr-1: over-correction where the SWIR is not black '
+                f'(mixed land/water, adjacency, floating or emerged vegetation)')
 
 
 class Settings:

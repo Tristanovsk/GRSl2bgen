@@ -776,3 +776,32 @@ class TestCreateMask:
         assert result.attrs["description"] == (
             "good pixels for mask == 0, bad pixels when mask == 1"
         )
+
+
+def test_qc_l2a_negative_rrs():
+    from GRSl2bgen.mask import QC_L2A, L2B_FLAGS, l2b_flags
+    wl = [443, 490, 560, 1610, 2200]
+    rrs = np.zeros((len(wl), 1, 5)) + 0.005
+    rrs[3:, 0, :] = 0.                 # black SWIR
+    rrs[2, 0, 1] = -0.0002             # low
+    rrs[0, 0, 2] = -0.001              # low + medium, black SWIR
+    rrs[0, 0, 3] = -0.003              # low + medium + high, non-black SWIR -> neg_rrs_swir
+    rrs[3, 0, 3] = 0.004
+    rrs[3, 0, 4] = -0.01               # negative in the SWIR only: outside the tested range
+    raster = xr.Dataset({'Rrs': (('wl', 'y', 'x'), rrs)}, coords={'wl': wl, 'y': [0], 'x': list(range(5))})
+    qc = QC_L2A(raster)
+    qc.process()
+    assert qc.flags['neg_rrs_low'].values.tolist() == [[False, True, True, True, False]]
+    assert qc.flags['neg_rrs_medium'].values.tolist() == [[False, False, True, True, False]]
+    assert qc.flags['neg_rrs_high'].values.tolist() == [[False, False, False, True, False]]
+    assert qc.flags['neg_rrs_swir'].values.tolist() == [[False, False, False, True, False]]
+    assert np.allclose(qc.negativity.values, [[0, 0.0002, 0.001, 0.003, 0]])
+    assert '443' in qc.flag_descriptions['neg_rrs_low']
+    flags = l2b_flags(raster.Rrs.isel(wl=0, drop=True), qc.flags, qc.flag_descriptions)
+    for name in ('neg_rrs_low', 'neg_rrs_medium', 'neg_rrs_high', 'neg_rrs_swir'):
+        assert flags.attrs['flag_names'][L2B_FLAGS[name][0]] == name
+    assert ((flags.values >> L2B_FLAGS['neg_rrs_swir'][0]) & 1).tolist() == [[0, 0, 0, 1, 0]]
+
+    qc = QC_L2A(raster, negative_thresholds=None)
+    qc.process()
+    assert not any(k.startswith('neg_rrs') for k in qc.flags)

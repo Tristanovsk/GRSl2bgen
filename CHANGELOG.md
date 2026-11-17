@@ -5,6 +5,34 @@ All notable changes to GRSl2bgen are listed here, the most recent first. The for
 [Semantic Versioning](https://semver.org/). Dates are those of the version change in the
 repository.
 
+## [Unreleased]
+
+### Fixed
+
+- OWT classification with negative L2A reflectance: the spectral angle and the Euclidean
+  distance used the negative values as they were. The spectrum of a pixel with a negative
+  band in the classification range (350-800 nm) is now raised by a spectrally flat offset,
+  `-min(Rrs)`, so that its minimum is 0; every pixel stays classified
+  (`GRSl2bgen.owt.handle_negative_rrs`, option `negative_handling` of `OWT`: `'offset'` by
+  default, `'clip'`, `'mask'` with `negative_tolerance`, or `None` for the previous
+  behaviour).
+- Documentation of the low threshold of the SWIR module (`swir_module_low`, `QC_L2A`):
+  0.0005 sr-1, the value used by the code (0.002 sr-1 was written in the docs).
+
+### Added
+
+- Flags of the level of negativity of the L2A reflectance, `-min(Rrs)` over the bands of
+  the OWT classification, in `flags_l2b` (`QC_L2A`, options `negative_thresholds` and
+  `negative_wl_range`): `neg_rrs_low`, `neg_rrs_medium`, `neg_rrs_high` (bits 4-6,
+  above 1e-4, 5e-4 and 2e-3 sr-1, cumulative), and `neg_rrs_swir` (bit 7):
+  `neg_rrs_medium` and SWIR module above the low threshold. The GRS flag `neg_rrs` only
+  tests 490 and 565 nm. On three 30TWT images, small negative values (red and near
+  infrared) are noise of clear waters, whereas the large ones (mostly at 443 nm) go with a
+  non-black SWIR (median SWIR module 10-50 times that of the water): over-correction of
+  mixed land/water, adjacency, floating or emerged vegetation. `neg_rrs_swir` flags
+  0.7-1.9 % of the water pixels but 41-65 % of the pixels classified as a Ta2025 bloom
+  type (mostly cyanobacteria and 5b). Tests.
+
 ## [1.2.0] - 2026-11-17
 
 ### Added
