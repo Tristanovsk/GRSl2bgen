@@ -316,9 +316,9 @@ class Masking(Settings):
             mask = (((flags & flag_value_tomask) != 0) | ((flags & flag_value_tokeep) == 0)).astype(_type)
         elif (len(tokeep) > 0) | (len(tomask) > 0):
             if len(tokeep) > 0:
-                mask = ((flags & flag_value_tokeep) == 0)
+                mask = ((flags & flag_value_tokeep) == 0).astype(_type)
             else:
-                mask = ((flags & flag_value_tomask) != 0)
+                mask = ((flags & flag_value_tomask) != 0).astype(_type)
         mask.attrs["long_name"] = "binary mask from flags"
         mask.attrs["description"] = "good pixels for mask == 0, bad pixels when mask == 1"
         mask.name = mask_name

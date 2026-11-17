@@ -1,0 +1,716 @@
+import numpy as np
+import pandas as pd
+import pytest
+import xarray as xr
+
+from unittest.mock import MagicMock
+
+from GRSl2bgen.owt import OWT, OWT_process
+
+
+# ============================================================
+# Fixtures
+# ============================================================
+
+@pytest.fixture
+def raster():
+    """Small synthetic reflectance raster."""
+
+    return xr.Dataset(
+        data_vars={
+            "Rrs": (
+                ("wl", "y", "x"),
+                np.array([
+                    [
+                        [1.0, 2.0],
+                        [3.0, 4.0],
+                    ],
+                    [
+                        [1.0, 2.0],
+                        [3.0, 4.0],
+                    ],
+                    [
+                        [1.0, 2.0],
+                        [3.0, 4.0],
+                    ],
+                ]),
+            )
+        },
+        coords={
+            "wl": [400, 500, 600],
+            "y": [0, 1],
+            "x": [0, 1],
+        },
+    )
+
+
+@pytest.fixture
+def xowt():
+    """Synthetic OWT database with three classes."""
+
+    return xr.DataArray(
+        [
+            [1.0, 1.0, 1.0],
+            [2.0, 2.0, 2.0],
+            [3.0, 3.0, 3.0],
+        ],
+        dims=("owt", "wl"),
+        coords={
+            "owt": [1, 2, 3],
+            "wl": [400, 500, 600],
+        },
+        name="m_Rrs",
+    )
+
+
+@pytest.fixture
+def owt(raster, xowt):
+    """OWT instance using externally supplied spectra."""
+
+    return OWT(
+        raster=raster,
+        xowt=xowt,
+        Nclasses_to_be_saved=2,
+    )
+
+# ============================================================
+# Tests for init
+# ============================================================
+
+class TestInitialization:
+    
+    def test_external_owt(self,raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            Nclasses_to_be_saved=2,
+        )
+
+        assert model.raster is raster
+        assert model.owt is xowt
+
+        assert model.Nwl == 3
+        assert model.height == 2
+        assert model.width == 2
+
+        assert model.Nowt == 3
+        assert model.Nclasses_to_be_saved == 2
+
+        assert model.owt_index_name == "owt_index"
+        assert model.owt_dist_name == "owt_dist"
+
+        assert model.dist_units == "radians"
+
+        assert model.Rrs_owt.shape == (3, 3)
+        assert model.Rrs_owt.dims == ("owt", "wl")
+
+        np.testing.assert_array_equal(
+            model.Rrs_owt.values,
+            xowt.values,
+        )
+
+
+    def test_custom_database_name(self,raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            owt_database_name="test",
+        )
+
+        assert model.owt_index_name == "owt_index_test"
+        assert model.owt_dist_name == "owt_dist_test"
+
+
+    def test_spectral_distance_euclidean(self,raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            spectral_distance="euclidean",
+        )
+
+        assert model.dist_units == "sr-1"
+
+
+    def test_invalid_spectral_distance(self,raster, xowt):
+
+        with pytest.raises(ValueError, match="unknown sepctral distance"):
+            OWT(
+                raster=raster,
+                xowt=xowt,
+                spectral_distance="invalid",
+            )
+
+
+    def test_invalid_database(self,raster):
+
+        with pytest.raises(ValueError, match="unknown OWT database"):
+            OWT(
+                raster=raster,
+                owt_database="invalid",
+            )
+
+
+    def test_wavelength_range(self,raster, xowt):
+        owt = OWT(
+            raster,
+            xowt=xowt,
+            wl_range=slice(450, 600),
+        )
+
+        assert owt.Nwl == 2
+        np.testing.assert_array_equal(
+            owt.Rrs.wl.values,
+            [500, 600],
+        )
+        assert owt.Rrs_owt.dims == ("owt", "wl")
+        assert owt.Rrs_owt.shape == (3, 2)
+
+
+
+    def test_custom_number_of_classes(self,raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            Nclasses_to_be_saved=3,
+        )
+
+        assert model.Nclasses_to_be_saved == 3
+
+
+# ============================================================
+# Tests for xSAM
+# ============================================================
+
+class TestXSAM:
+    
+    def test_nominal(self):
+
+        R1 = xr.DataArray(
+            [1.0, 0.0, 0.0],
+            dims="wl",
+            coords={"wl": [400, 500, 600]},
+        )
+
+        R2 = xr.DataArray(
+            [0.0, 1.0, 0.0],
+            dims="wl",
+            coords={"wl": [400, 500, 600]},
+        )
+
+        result = OWT.xSAM(R1, R2)
+
+        np.testing.assert_allclose(result, np.pi / 2)
+
+
+    def test_identical_spectra(self):
+
+        R1 = xr.DataArray(
+            [1.0, 2.0, 3.0],
+            dims="wl",
+        )
+
+        result = OWT.xSAM(R1, R1)
+
+        np.testing.assert_allclose(result, 0.0, atol=1e-7)
+
+
+    def test_opposite_spectra(self):
+
+        R1 = xr.DataArray(
+            [1.0, 2.0, 3.0],
+            dims="wl",
+        )
+
+        R2 = xr.DataArray(
+            [-1.0, -2.0, -3.0],
+            dims="wl",
+        )
+
+        result = OWT.xSAM(R1, R2)
+
+        np.testing.assert_allclose(result, np.pi)
+
+
+# ============================================================
+# Tests for SCS
+# ============================================================
+
+class TestSCS:
+    
+    def test_identical_spectra(self):
+
+        R1 = xr.DataArray(
+            [1.0, 2.0, 3.0, 4.0],
+            dims="wl",
+        )
+
+        result = OWT.SCS(R1, R1)
+
+        np.testing.assert_allclose(result, 1.0)
+
+
+    def test_opposite_spectra(self):
+
+        R1 = xr.DataArray(
+            [1.0, 2.0, 3.0, 4.0],
+            dims="wl",
+        )
+
+        R2 = xr.DataArray(
+            [-1.0, -2.0, -3.0, -4.0],
+            dims="wl",
+        )
+
+        result = OWT.SCS(R1, R2)
+
+        np.testing.assert_allclose(result, -1.0)
+
+
+    def test_uncorrelated_spectra(self):
+
+        R1 = xr.DataArray(
+            [1.0, 2.0, 3.0, 4.0],
+            dims="wl",
+        )
+
+        R2 = xr.DataArray(
+            [1.0, -1.0, -1.0, 1.0],
+            dims="wl",
+        )
+
+        result = OWT.SCS(R1, R2)
+
+        np.testing.assert_allclose(result, 0.0, atol=1e-7)
+
+
+# ============================================================
+# Tests for SAM
+# ============================================================
+
+def test_SAM():
+
+    Rrs = np.array([
+        [
+            [1.0, 1.0],
+        ],
+        [
+            [1.0, 2.0],
+        ],
+    ])
+
+    Rrs_owt = np.array([
+        [1.0, 1.0],
+        [1.0, 2.0],
+    ])
+
+    dist, index = OWT.SAM(
+        Rrs=Rrs,
+        Rrs_owt=Rrs_owt,
+        Nclasses_to_be_saved=1,
+    )
+
+    assert dist.shape == (1, 1, 2)
+    assert index.shape == (1, 1, 2)
+
+    np.testing.assert_allclose(dist, 0.0, atol=1e-7)
+    np.testing.assert_array_equal(index, [[[1.0, 2.0]]])
+
+
+
+
+# ============================================================
+# Tests for multi_process
+# ============================================================
+
+class TestMultiProcess:
+    
+    @pytest.mark.parametrize(
+        "spectral_distance, expected_units",
+        [
+            ("sam", "radians"),
+            ("euclidean", "sr-1"),
+        ],
+    )
+    def test_nominal(self,spectral_distance, expected_units, raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            spectral_distance=spectral_distance,
+            Nclasses_to_be_saved=2,
+        )
+
+        result = model.multi_process()
+
+        assert isinstance(result, xr.Dataset)
+
+        assert "owt_dist" in result
+        assert "owt_index" in result
+
+        assert result.owt_dist.dims == ("Nclasses", "y", "x")
+        assert result.owt_index.dims == ("Nclasses", "y", "x")
+
+        assert result.owt_dist.shape == (2, 2, 2)
+        assert result.owt_index.shape == (2, 2, 2)
+
+        assert result.owt_dist.dtype == np.float32
+        assert result.owt_index.dtype == np.float32
+
+        assert result.owt_dist.attrs["units"] == expected_units
+
+        assert "definition" in result.owt_index.attrs
+
+        assert result.Nclasses.values.tolist() == [0, 1]
+
+
+    def test_one_class(self,raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            Nclasses_to_be_saved=1,
+        )
+
+        result = model.multi_process()
+
+        assert result.owt_dist.dims == ("y", "x")
+        assert result.owt_index.dims == ("y", "x")
+
+        assert result.owt_dist.shape == (2, 2)
+        assert result.owt_index.shape == (2, 2)
+
+
+    def test_custom_names(self,raster, xowt):
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            owt_database_name="test",
+            Nclasses_to_be_saved=2,
+        )
+
+        result = model.multi_process()
+
+        assert "owt_dist_test" in result
+        assert "owt_index_test" in result
+
+
+    def test_classification(self,raster):
+
+        # Each pixel has a spectrum matching one OWT class.
+        xowt = xr.DataArray(
+            [
+                [1.0, 1.0, 1.0],
+                [2.0, 2.0, 2.0],
+                [3.0, 3.0, 3.0],
+                [4.0, 4.0, 4.0],
+            ],
+            dims=("owt", "wl"),
+            coords={
+                "owt": [1, 2, 3, 4],
+                "wl": [400, 500, 600],
+            },
+        )
+
+        model = OWT(
+            raster=raster,
+            xowt=xowt,
+            spectral_distance="euclidean",
+            Nclasses_to_be_saved=1,
+        )
+
+        result = model.multi_process()
+
+        expected_index = np.array([
+            [1, 2],
+            [3, 4],
+        ])
+
+        np.testing.assert_array_equal(
+            result.owt_index.values,
+            expected_index,
+        )
+
+        np.testing.assert_allclose(
+            result.owt_dist.values,
+            0.0,
+            atol=1e-7,
+        )
+
+
+# ============================================================
+# Tests for set_range
+# ============================================================
+
+def test_set_range():
+    values = xr.DataArray(
+        [0, 1, 5, 10, 20, 30],
+        dims="x",
+    )
+
+    owt = OWT.__new__(OWT)
+
+    result = owt.set_range(
+        values,
+        minval=1,
+        maxval=20,
+    )
+
+    expected = xr.DataArray(
+        [np.nan, np.nan, 5, 10, np.nan, np.nan],
+        dims="x",
+    )
+
+    xr.testing.assert_equal(result, expected)
+
+
+
+def test_set_range_custom_thresholds():
+    values = xr.DataArray([1, 5, 10, 15, 20], dims="x")
+
+    owt = OWT.__new__(OWT)
+
+    result = owt.set_range(values, minval=5, maxval=15)
+
+    expected = xr.DataArray(
+        [np.nan, np.nan, 10, np.nan, np.nan],
+        dims="x",
+    )
+
+    xr.testing.assert_equal(result, expected)
+
+
+
+# ============================================================
+# Tests for plot
+# ============================================================
+
+def test_plot_external_owt(raster, xowt):
+
+    model = OWT(
+        raster=raster,
+        xowt=xowt,
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="plot needs owt_info",
+    ):
+        model.plot()
+
+
+# ============================================================
+# Tests for OWT_process
+# ============================================================
+
+class TestOwtProcess:
+    
+    def test_init(self,raster):
+
+        process = OWT_process(raster)
+
+        assert process.raster is raster
+        assert process.spectral_distance == "sam"
+        assert process.chunk == 1024
+        assert process.Nproc == 8
+
+        assert process.cmaps == {}
+
+
+    def test_custom_parameters(self,raster):
+
+        process = OWT_process(
+            raster,
+            spectral_distance="euclidean",
+            chunk=256,
+            Nproc=4,
+        )
+
+        assert process.spectral_distance == "euclidean"
+        assert process.chunk == 256
+        assert process.Nproc == 4
+
+
+    def test_execute(self,monkeypatch, raster):
+
+        """Test orchestration without loading the real OWT databases."""
+
+        calls = []
+
+        class FakeOWT:
+
+            def __init__(
+                self,
+                raster,
+                owt_database,
+                owt_database_name,
+                param="m_nRrs",
+                spectral_distance="sam",
+                chunk=1024,
+                Nproc=8,
+                Nclasses_to_be_saved=1,
+            ):
+
+                calls.append({
+                    "database": owt_database,
+                    "database_name": owt_database_name,
+                    "param": param,
+                    "spectral_distance": spectral_distance,
+                    "chunk": chunk,
+                    "Nproc": Nproc,
+                    "Nsaved": Nclasses_to_be_saved,
+                })
+
+                self.cmap_owt = MagicMock()
+
+                self.owt_database_name = owt_database_name
+
+            def multi_process(self):
+
+                name = self.owt_database_name
+
+                return xr.Dataset({
+                    f"owt_dist_{name}": (
+                        ("y", "x"),
+                        np.zeros((2, 2)),
+                    ),
+                    f"owt_index_{name}": (
+                        ("y", "x"),
+                        np.ones((2, 2)),
+                    ),
+                })
+
+        # Replace OWT with our fake implementation.
+        monkeypatch.setattr(
+            "GRSl2bgen.owt.OWT",
+            FakeOWT,
+        )
+
+        process = OWT_process(
+            raster,
+            spectral_distance="sam",
+            chunk=512,
+            Nproc=4,
+        )
+
+        process.execute()
+
+        # Four databases must be processed.
+        assert len(calls) == 4
+
+        expected_databases = [
+            "Spyrakos2018",
+            "Bi2024",
+            "Tarasenko2025",
+            "Cordeiro2022SPM",
+        ]
+
+        assert [c["database"] for c in calls] == expected_databases
+
+        # Spyrakos2018 uses the requested spectral distance.
+        assert calls[0]["spectral_distance"] == "sam"
+
+        # Bi2024 uses the default SAM distance.
+        assert calls[1]["spectral_distance"] == "sam"
+
+        # Tarasenko2025 uses the default SAM distance.
+        assert calls[2]["spectral_distance"] == "sam"
+
+        # Cordeiro2022SPM always uses Euclidean distance.
+        assert calls[3]["spectral_distance"] == "euclidean"
+
+        # Check the number of saved classes.
+        assert calls[0]["Nsaved"] == 3
+        assert calls[3]["Nsaved"] == 2
+
+        # Check common parameters.
+        for call in calls:
+            assert call["chunk"] == 512
+            assert call["Nproc"] == 4
+
+        # Check that all four colormaps are stored.
+        assert len(process.cmaps) == 4
+
+        assert all(
+            name in process.cmaps
+            for name in expected_databases
+        )
+
+        # Check that the individual results exist.
+        assert hasattr(process, "xowt_spyrakos2018")
+        assert hasattr(process, "xowt_bi2024")
+        assert hasattr(process, "xowt_Ta2025")
+        assert hasattr(process, "xowt_Cordeiro2022SPM")
+
+        # Check the merged output.
+        assert isinstance(process.output, xr.Dataset)
+
+        expected_variables = [
+            "owt_dist_Spyrakos2018",
+            "owt_index_Spyrakos2018",
+            "owt_dist_Bi2024",
+            "owt_index_Bi2024",
+            "owt_dist_Ta2025",
+            "owt_index_Ta2025",
+            "owt_dist_Cordeiro2022SPM",
+            "owt_index_Cordeiro2022SPM",
+        ]
+
+        for variable in expected_variables:
+            assert variable in process.output
+
+
+    def test_execute_euclidean(self,monkeypatch, raster):
+
+        """Check that the requested distance is passed to Spyrakos."""
+
+        calls = []
+
+        class FakeOWT:
+
+            def __init__(self, raster, owt_database, **kwargs):
+
+                calls.append({
+                    "database": owt_database,
+                    **kwargs,
+                })
+
+                self.cmap_owt = None
+
+                self.database_name = kwargs["owt_database_name"]
+
+            def multi_process(self):
+
+                name = self.database_name
+
+                return xr.Dataset({
+                    f"owt_dist_{name}": (
+                        ("y", "x"),
+                        np.zeros((2, 2)),
+                    ),
+                    f"owt_index_{name}": (
+                        ("y", "x"),
+                        np.ones((2, 2)),
+                    ),
+                })
+
+        monkeypatch.setattr(
+            "GRSl2bgen.owt.OWT",
+            FakeOWT,
+        )
+
+        process = OWT_process(
+            raster,
+            spectral_distance="euclidean",
+        )
+
+        process.execute()
+
+        assert calls[0]["spectral_distance"] == "euclidean"
+
+        # Cordeiro must also use Euclidean distance.
+        assert calls[3]["spectral_distance"] == "euclidean"

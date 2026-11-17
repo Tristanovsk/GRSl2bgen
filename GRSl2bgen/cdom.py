@@ -204,7 +204,12 @@ class Cdom():
         # Step 6 (modified): decompose using 443 / 490 instead of 412 / 443
         Aphi, Ephi = aphi_bricaud1998(wl[:2])
         chl = xr.DataArray(chl) if np.isscalar(chl) else chl
-        zeta = Aphi.values[0] / Aphi.values[1] * chl.where(chl > 0) ** (Ephi.values[0] - Ephi.values[1])
+        Fchl = chl.where(chl > 0)
+        zeta = (
+            Aphi.values[0] / Aphi.values[1]
+            * Fchl ** (Ephi.values[0] - Ephi.values[1])
+        ).where(Fchl.notnull())
+
         S = 0.015 + 0.002 / (0.6 + rrs443 / rrs560)
         xi = np.exp(S * (wl[1] - wl[0]))
         denom = 1 - zeta / xi
@@ -213,7 +218,7 @@ class Cdom():
         aph443 = (a443 - aw443) - adg443
 
         # Step 7: QC
-        valid = (adg443 > 0) & (aph443 >= 0)
+        valid = (chl > 0) & (adg443 > 0) & (aph443 >= 0)
         return xr.Dataset({'adg443': adg443.where(valid),
                            'aph443': aph443.where(valid),
                            'bbp': bbp.transpose('wl', ...)})
