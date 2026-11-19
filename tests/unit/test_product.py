@@ -1,3 +1,4 @@
+import logging
 import os
 
 import numpy as np
@@ -193,6 +194,7 @@ def test_init_from_directory(tmp_path, raster):
 # ============================================================
 
 def test_unrecognized_input(tmp_path, caplog):
+    caplog.set_level(logging.INFO, logger="GRSl2bgen.product")
     unknown_path = tmp_path / "unknown.xyz"
 
     result = Product(str(unknown_path))
