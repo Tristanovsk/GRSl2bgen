@@ -13,6 +13,7 @@ from importlib_resources import files
 from . import __package__
 from .sam import sam as _sam, sam_dataarray
 from .euclidean import euclidean as _euclidean, euclidean_dataarray
+from .config import TA2025_EXCLUDE_CLASSES
 
 # records of the package logger (GRSl2bgen.<module>), configured by the application
 logger = logging.getLogger(__name__)
@@ -110,6 +111,15 @@ class OWT():
             should be read with the ``neg_rrs_*`` flags of ``flags_l2b``.
         negative_tolerance : float, optional
             Tolerance (sr-1) of ``negative_handling='mask'`` (default 5e-4).
+        exclude_classes : sequence of str or int, optional
+            Classes left out of the classification (default None: all the
+            classes of the database). A string is matched against the ``owt``
+            coordinate of the database (e.g. ``['5a']`` for the eutrophic type
+            5a of Bi et al. 2024 in ``Tarasenko2025``), an integer is a 1-based
+            class position. The other classes keep their position, so that
+            ``owt_index_<name>`` has the same numbering as with all the
+            classes; the excluded classes are listed in its attribute
+            ``excluded_classes``.
         Nproc : int, optional
             Deprecated and unused (kept for backward compatibility): parallelism
             now comes from dask and numba.
@@ -134,6 +144,7 @@ class OWT():
                  chunk=1024,
                  negative_handling='offset',
                  negative_tolerance=5e-4,
+                 exclude_classes=None,
                  Nproc=8):
 
         self.param = param
@@ -259,11 +270,37 @@ class OWT():
 
         self.Nowt = len(self.owt.owt)
         # class spectra interpolated on the image wavelengths, shape (owt, wl)
-        self.Rrs_owt = (self.owt.interp(wl=self.Rrs.wl)
-                        .astype(np.float32)
-                        .squeeze()
-                        .transpose('owt', 'wl'))
+        self.Rrs_owt_all = (self.owt.interp(wl=self.Rrs.wl)
+                            .astype(np.float32)
+                            .squeeze()
+                            .transpose('owt', 'wl'))
+        # classes kept (0-based positions in the database) and spectra used by the classification
+        self.excluded_positions = self._excluded_positions(exclude_classes)
+        self.kept_positions = np.array([i for i in range(self.Nowt) if i not in self.excluded_positions])
+        if not len(self.kept_positions):
+            raise ValueError('exclude_classes leaves no class to classify')
+        self.excluded_classes = [str(self.owt.owt.values[i]) for i in self.excluded_positions]
+        self.Rrs_owt = self.Rrs_owt_all.isel(owt=self.kept_positions)
         self.output = None
+
+    def _excluded_positions(self, exclude_classes):
+        """0-based positions of `exclude_classes` (labels of the ``owt`` coordinate or 1-based positions)."""
+        if exclude_classes is None:
+            return []
+        if isinstance(exclude_classes, (str, int, np.integer)):
+            exclude_classes = [exclude_classes]
+        labels = [str(v) for v in self.owt.owt.values]
+        out = []
+        for c in exclude_classes:
+            if isinstance(c, (int, np.integer)) and not isinstance(c, bool):
+                if not 1 <= c <= self.Nowt:
+                    raise ValueError(f'class position {c} out of 1-{self.Nowt}')
+                out.append(int(c) - 1)
+            elif str(c) in labels:
+                out.append(labels.index(str(c)))
+            else:
+                raise ValueError(f'unknown class {c!r}; classes of the database: {labels}')
+        return sorted(set(out))
 
     @staticmethod
     def xSAM(R1, R2):
@@ -328,6 +365,15 @@ class OWT():
                                              wl_dim='wl',
                                              name_dim=self.Nclasses_dim)
 
+        if len(self.excluded_positions):
+            # positions among the kept classes (1-based) -> positions in the database (1-based)
+            lut = np.r_[np.nan, self.kept_positions + 1].astype(np.float32)
+
+            def _remap(a):
+                return lut[np.where(np.isfinite(a), a, 0).astype(np.int64)]
+
+            index = xr.apply_ufunc(_remap, index, dask='parallelized', output_dtypes=[np.float32])
+
         logger.info('construct xarray owt product')
         self.xowt = xr.Dataset({self.owt_dist_name: dist.rename(self.owt_dist_name),
                                 self.owt_index_name: index.rename(self.owt_index_name)})
@@ -338,6 +384,8 @@ class OWT():
 
         self.xowt[self.owt_dist_name].attrs['units'] = self.dist_units
         self.xowt[self.owt_index_name].attrs['definition'] = self.attrs_owt
+        if len(self.excluded_positions):
+            self.xowt[self.owt_index_name].attrs['excluded_classes'] = ', '.join(self.excluded_classes)
 
         return self.xowt
 
@@ -390,6 +438,10 @@ class OWT_process():
                 - 'euclidean' for Euclidean Distance
     chunk : int, optional
         Spatial chunk size for dask-backed input (default 1024).
+    ta2025_exclude : sequence of str or int, optional
+        Classes left out of the Tarasenko et al. (2025) classification (see
+        `OWT`, option ``exclude_classes``), e.g. ``['5a']`` (default
+        `GRSl2bgen.config.TA2025_EXCLUDE_CLASSES`).
     Nproc : int, optional
         Deprecated and unused.
 
@@ -408,10 +460,12 @@ class OWT_process():
                  raster,
                  spectral_distance='sam',
                  chunk=1024,
+                 ta2025_exclude=None,
                  Nproc=8):
         self.raster = raster
         self.spectral_distance = spectral_distance
         self.chunk = chunk
+        self.ta2025_exclude = TA2025_EXCLUDE_CLASSES if ta2025_exclude is None else ta2025_exclude
         self.Nproc = Nproc
         self.cmaps = {}
 
@@ -447,6 +501,7 @@ class OWT_process():
                          owt_database_name='Ta2025',
                          param='m_nRrs',
                          chunk=self.chunk,
+                         exclude_classes=self.ta2025_exclude or None,
                          Nproc=self.Nproc
                          )
         self.cmaps['Tarasenko2025'] = OWT_kernel.cmap_owt

@@ -553,9 +553,11 @@ class TestOwtProcess:
                 chunk=1024,
                 Nproc=8,
                 Nclasses_to_be_saved=1,
+                exclude_classes=None,
             ):
 
                 calls.append({
+                    "exclude": exclude_classes,
                     "database": owt_database,
                     "database_name": owt_database_name,
                     "param": param,
@@ -784,3 +786,79 @@ def test_invrrs_water_types_database():
     assert res['owt_dist_invRrsWT'].attrs['units'] == 'radians'
     assert res.sizes['Nclasses'] == 2
     assert np.isfinite(res['owt_index_invRrsWT']).all()
+
+
+# ============================================================
+# Tests for exclude_classes
+# ============================================================
+
+class TestExcludeClasses:
+
+    @pytest.fixture
+    def xowt4(self):
+        return xr.DataArray(
+            [[1.0, 1.0, 1.0], [1.0, 2.0, 3.0], [3.0, 2.0, 1.0], [1.0, 3.0, 1.0]],
+            dims=("owt", "wl"), coords={"owt": ["a", "b", "c", "d"], "wl": [400, 500, 600]}, name="m_Rrs")
+
+    @pytest.fixture
+    def raster4(self):
+        # pixels equal to the classes a, b, c and d
+        sp = np.array([[1.0, 1.0, 1.0], [1.0, 2.0, 3.0], [3.0, 2.0, 1.0], [1.0, 3.0, 1.0]]).T.reshape(3, 2, 2)
+        return xr.Dataset({"Rrs": (("wl", "y", "x"), sp)}, coords={"wl": [400, 500, 600], "y": [0, 1], "x": [0, 1]})
+
+    def test_none(self, raster4, xowt4):
+        r = OWT(raster4, xowt=xowt4).multi_process()
+        np.testing.assert_array_equal(r.owt_index.values, [[1, 2], [3, 4]])
+        assert "excluded_classes" not in r.owt_index.attrs
+
+    @pytest.mark.parametrize("exclude", [["b"], [2], "b"])
+    def test_numbering_kept(self, raster4, xowt4, exclude):
+        r = OWT(raster4, xowt=xowt4, exclude_classes=exclude, Nclasses_to_be_saved=2).multi_process()
+        idx = r.owt_index.values
+        # class b never assigned; the other pixels keep their class and number
+        assert not np.any(idx == 2)
+        np.testing.assert_array_equal(idx[0, :, :].ravel()[[0, 2, 3]], [1, 3, 4])
+        assert r.owt_index.attrs["excluded_classes"] == "b"
+        # the pixel equal to b goes to its closest kept class, at a positive angle
+        assert idx[0, 0, 1] in (1, 3, 4) and r.owt_dist.values[0, 0, 1] > 0
+
+    def test_dask(self, raster4, xowt4):
+        lazy = OWT(raster4.chunk({"y": 1}), xowt=xowt4, exclude_classes=["b"], chunk=None).multi_process()
+        eager = OWT(raster4, xowt=xowt4, exclude_classes=["b"]).multi_process()
+        np.testing.assert_array_equal(lazy.owt_index.values, eager.owt_index.values)
+
+    def test_euclidean(self, raster4, xowt4):
+        r = OWT(raster4, xowt=xowt4, exclude_classes=["d"], spectral_distance="euclidean").multi_process()
+        assert not np.any(r.owt_index.values == 4)
+
+    def test_errors(self, raster4, xowt4):
+        with pytest.raises(ValueError):
+            OWT(raster4, xowt=xowt4, exclude_classes=["z"])
+        with pytest.raises(ValueError):
+            OWT(raster4, xowt=xowt4, exclude_classes=[5])
+        with pytest.raises(ValueError):
+            OWT(raster4, xowt=xowt4, exclude_classes=["a", "b", "c", "d"])
+
+    def test_tarasenko2025_without_5a(self, raster4):
+        k = OWT(raster4, owt_database="Tarasenko2025", owt_database_name="Ta2025", exclude_classes=["5a"])
+        assert k.excluded_classes == ["5a"] and len(k.kept_positions) == 15 and 6 not in k.kept_positions
+
+    def test_owt_process_passes_ta2025_exclude(self, monkeypatch, raster):
+        seen = {}
+
+        class FakeOWT:
+            def __init__(self, raster, owt_database, owt_database_name, exclude_classes=None, **kw):
+                seen[owt_database] = exclude_classes
+                self.cmap_owt = MagicMock()
+                self.owt_database_name = owt_database_name
+
+            def multi_process(self):
+                n = self.owt_database_name
+                return xr.Dataset({f"owt_index_{n}": (("y", "x"), np.ones((2, 2)))})
+
+        monkeypatch.setattr("GRSl2bgen.owt.OWT", FakeOWT)
+        OWT_process(raster, ta2025_exclude=["5a"]).execute()
+        assert seen["Tarasenko2025"] == ["5a"]
+        assert seen["Spyrakos2018"] is None and seen["Bi2024"] is None
+        OWT_process(raster).execute()
+        assert seen["Tarasenko2025"] is None

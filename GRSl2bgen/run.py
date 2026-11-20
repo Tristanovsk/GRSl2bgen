@@ -2,7 +2,7 @@
 
 Usage:
   GRSl2bgen <input_file> [-o <ofile>] [--odir <odir>] [--pyramid] [--level <level>] [--no_clobber]
-            [--product_dir] [--stac]
+            [--product_dir] [--stac] [--ta2025_exclude <classes>]
   GRSl2bgen -h | --help
   GRSl2bgen -v | --version
 
@@ -30,6 +30,10 @@ Options:
   --stac           Write the STAC Item of the product, <name>.json, next to it, once
                    the product and its log are complete, with its quick look
                    <name>_ql_l2b.png (Chl-a, SPM and Kd(PAR)) as thumbnail.
+  --ta2025_exclude classes  Comma-separated classes left out of the Tarasenko et al. (2025)
+                   OWT classification (labels of the database, e.g. 5a, or 1-based
+                   positions); the other classes keep their number in owt_index_Ta2025.
+                   Default: GRSl2bgen.config.TA2025_EXCLUDE_CLASSES (all the classes).
 
   The log of the run is written next to the output, named after it with the .log
   extension (e.g. <name>.log for <name>.nc).
@@ -76,6 +80,9 @@ def main():
     noclobber = args['--no_clobber']
     product_dir = args['--product_dir']
     stac = args['--stac']
+    ta2025_exclude = args['--ta2025_exclude']
+    if ta2025_exclude:
+        ta2025_exclude = [int(c) if c.strip().isdigit() else c.strip() for c in ta2025_exclude.split(',') if c.strip()]
 
     ##################################
     # File naming convention
@@ -113,7 +120,7 @@ def main():
         logger.info(f'{__package__} {__version__}')
         logger.info('call GRSl2bgen for the following paramater. File:' +
                      file + ', output file:' + outfile)
-        process_ = Process(file, outfile, pyramid=pyramid, level=level)
+        process_ = Process(file, outfile, pyramid=pyramid, level=level, ta2025_exclude=ta2025_exclude)
         process_.run()
 
     # after the log is closed, so that its checksum in the Item is final

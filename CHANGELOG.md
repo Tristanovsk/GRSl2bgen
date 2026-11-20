@@ -7,6 +7,21 @@ repository.
 
 ## [Unreleased]
 
+### Added
+
+- **Classes left out of an OWT classification**: option `exclude_classes` of `OWT` (labels of
+  the `owt` coordinate of the database, e.g. `['5a']`, or 1-based positions). The excluded
+  classes are removed before the spectral distance and the other classes keep their number,
+  so that `owt_index_<name>` has the same numbering as with all the classes; the excluded
+  classes are listed in the attribute `excluded_classes` of `owt_index_<name>`. For the
+  Tarasenko et al. (2025) classification of the L2B chain: option `ta2025_exclude` of
+  `OWT_process` and `Process`, command-line option `--ta2025_exclude` (comma-separated),
+  default `GRSl2bgen.config.TA2025_EXCLUDE_CLASSES` (empty: the 16 classes, products
+  unchanged). Without the eutrophic type 5a of Bi et al. (2024), the closest water type to
+  the bloom types, the diluted edges of the *L. chlorophorum* blooms are classified as a
+  bloom type instead of 5a (30TWT, 2017-2022: bloom extent of the time series +34 %, same
+  REPHY matchups); identical to a classification with the 5a spectrum made unreachable.
+
 ### Changed
 
 - **OWT of the SPM blending: the Cordeiro (2022) classes are replaced by 14 water types

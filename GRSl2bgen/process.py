@@ -114,6 +114,11 @@ class Process():
         with 3 % of water pixels, 10 to 15 % less with 34 %. The ``mask``
         is read by `execute` to build the grid. False: the whole image is
         computed.
+    ta2025_exclude : sequence of str or int, optional
+        Classes left out of the Tarasenko et al. (2025) OWT classification,
+        e.g. ``['5a']`` (see `OWT_process`); the other classes keep their
+        number in ``owt_index_Ta2025``. Default None:
+        `GRSl2bgen.config.TA2025_EXCLUDE_CLASSES` (all the classes).
 
 
     Attributes
@@ -145,7 +150,8 @@ class Process():
                  persist_input=False,
                  pyramid=False,
                  level=0,
-                 compact=True
+                 compact=True,
+                 ta2025_exclude=None
                  ):
         self.l2a_obj = l2a_obj
         self.l2b_path = l2b_path
@@ -158,6 +164,7 @@ class Process():
         self.pyramid = pyramid
         self.level = level
         self.compact = compact
+        self.ta2025_exclude = ta2025_exclude
         self.l2b = None
         self.l2a = None
         self.successful = False
@@ -222,7 +229,7 @@ class Process():
         # ----------------------
         logger.info('get OWT classification')
         # no rechunking to square blocks on the compact grid (one row of pixels)
-        owt_process = OWT_process(raster, chunk=None if self.compact else 1024)
+        owt_process = OWT_process(raster, chunk=None if self.compact else 1024, ta2025_exclude=self.ta2025_exclude)
         owt_process.execute()
 
         # ----------------------
