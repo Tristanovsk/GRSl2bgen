@@ -17,7 +17,8 @@ repository.
   Tarasenko et al. (2025) classification of the L2B chain: option `ta2025_exclude` of
   `OWT_process` and `Process`, command-line option `--ta2025_exclude` (comma-separated),
   default `GRSl2bgen.config.TA2025_EXCLUDE_CLASSES` (empty: the 16 classes, products
-  unchanged). Without the eutrophic type 5a of Bi et al. (2024), the closest water type to
+  unchanged), which can be set with the environment variable `GRSL2BGEN_TA2025_EXCLUDE`
+  (e.g. `5a`, also read by the child processes of a batch). Without the eutrophic type 5a of Bi et al. (2024), the closest water type to
   the bloom types, the diluted edges of the *L. chlorophorum* blooms are classified as a
   bloom type instead of 5a (30TWT, 2017-2022: bloom extent of the time series +34 %, same
   REPHY matchups); identical to a classification with the 5a spectrum made unreachable.

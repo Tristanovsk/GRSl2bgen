@@ -862,3 +862,12 @@ class TestExcludeClasses:
         assert seen["Spyrakos2018"] is None and seen["Bi2024"] is None
         OWT_process(raster).execute()
         assert seen["Tarasenko2025"] is None
+
+
+def test_ta2025_exclude_environment(monkeypatch):
+    import importlib
+    import GRSl2bgen.config as config
+    monkeypatch.setenv("GRSL2BGEN_TA2025_EXCLUDE", "5a, 5b")
+    assert importlib.reload(config).TA2025_EXCLUDE_CLASSES == ("5a", "5b")
+    monkeypatch.delenv("GRSL2BGEN_TA2025_EXCLUDE")
+    assert importlib.reload(config).TA2025_EXCLUDE_CLASSES == ()
